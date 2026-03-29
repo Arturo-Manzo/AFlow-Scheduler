@@ -1,0 +1,118 @@
+@if (auth.currentUser()) {
+  <aside class="sidebar" role="navigation" aria-label="Main navigation">
+    <div class="sidebar-brand">
+      <span class="brand-icon">⏰</span>
+      <span class="brand-name">AScheduler</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a routerLink="/dashboard" routerLinkActive="active" [routerLinkActiveOptions]="{exact: false}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </a>
+      <a routerLink="/tasks" routerLinkActive="active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Tasks
+      </a>
+      <a routerLink="/logs" routerLinkActive="active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Logs
+      </a>
+      @if (auth.isAdmin) {
+        <a routerLink="/users" routerLinkActive="active">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Users
+        </a>
+      } @else {
+        <a routerLink="/users" routerLinkActive="active">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Account
+        </a>
+      }
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="user-avatar">{{ auth.currentUser()!.username[0].toUpperCase() }}</div>
+        <div class="user-meta">
+          <span class="user-name">{{ auth.currentUser()!.username }}</span>
+          <span class="user-role">{{ auth.currentUser()!.roleName }}</span>
+        </div>
+      </div>
+      <div class="user-menu-shell">
+        <button class="logout-btn" (click)="toggleUserMenu()" title="Account menu">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+        </button>
+
+        @if (menuOpen()) {
+          <div class="user-menu-panel">
+            <button type="button" (click)="openChangePassword()">Change Password</button>
+            <button type="button" (click)="logout()">Logout</button>
+          </div>
+        }
+      </div>
+    </div>
+  </aside>
+
+  <main class="main-content" role="main">
+    <router-outlet />
+  </main>
+
+  @if (showChangePassword()) {
+    <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="Change password dialog">
+      <div class="modal" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Change Password</h3>
+          <button type="button" class="modal-close" (click)="closeChangePassword()" aria-label="Close">x</button>
+        </div>
+        <form [formGroup]="passwordForm" (ngSubmit)="submitPasswordChange()" novalidate>
+          <div class="modal-body">
+            <div class="field">
+              <label for="app-pwd-current">Current Password</label>
+              <input id="app-pwd-current" type="password" formControlName="currentPassword" autocomplete="current-password" [class.is-invalid]="passwordFieldInvalid('currentPassword')" />
+              @if (passwordFieldInvalid('currentPassword')) {
+                <span class="field-hint">Current password is required.</span>
+              }
+            </div>
+
+            <div class="field">
+              <label for="app-pwd-new">New Password</label>
+              <input id="app-pwd-new" type="password" formControlName="newPassword" autocomplete="new-password" [class.is-invalid]="passwordFieldInvalid('newPassword')" />
+              @if (passwordFieldInvalid('newPassword')) {
+                @if (passwordForm.get('newPassword')!.hasError('required')) {
+                  <span class="field-hint">New password is required.</span>
+                } @else if (passwordForm.get('newPassword')!.hasError('minlength')) {
+                  <span class="field-hint">New password must be at least 8 characters.</span>
+                } @else {
+                  <span class="field-hint">New password must include at least one letter and one number.</span>
+                }
+              }
+            </div>
+
+            <div class="field">
+              <label for="app-pwd-confirm">Confirm New Password</label>
+              <input id="app-pwd-confirm" type="password" formControlName="confirmPassword" autocomplete="new-password" [class.is-invalid]="confirmPasswordInvalid()" />
+              @if (confirmPasswordInvalid()) {
+                <span class="field-hint">Passwords do not match.</span>
+              }
+            </div>
+
+            @if (passwordError()) {
+              <div class="alert alert-danger">{{ passwordError() }}</div>
+            }
+            @if (passwordSuccess()) {
+              <div class="alert alert-success">{{ passwordSuccess() }}</div>
+            }
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn" (click)="closeChangePassword()">Cancel</button>
+            <button type="submit" class="btn btn-primary" [disabled]="passwordSaving()">{{ passwordSaving() ? 'Saving...' : 'Change Password' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+} @else {
+  <router-outlet />
+}
