@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-AScheduler-8bca35de-15b8-466a-8f05-69c2ecba958c</UserSecretsId>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Exclude nested test project from the main project's compile glob -->
+    <Compile Remove="AScheduler.Tests/**" />
+    <Content Remove="AScheduler.Tests/**" />
+    <EmbeddedResource Remove="AScheduler.Tests/**" />
+    <None Remove="AScheduler.Tests/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Cronos" Version="0.11.1" />
+    <PackageReference Include="Dapper" Version="2.1.72" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+    <PackageReference Include="SqlClient" Version="6.0.1" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.2" />
+  </ItemGroup>
+</Project>
