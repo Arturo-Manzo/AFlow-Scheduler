@@ -2,8 +2,9 @@
 -- and add CHECK constraint enforcing the BoxRunId / TriggerSource invariant.
 --
 -- Rules enforced by the CHECK constraint:
---   * BoxRun-triggered executions (Scheduled / Manual / Waiting) must have a BoxRunId.
+--   * BoxRun-triggered executions (Scheduler / Manual / Retry) must have a BoxRunId.
 --   * ForceStart executions must NOT have a BoxRunId.
+--   * Legacy 'Scheduled' values remain valid for backward compatibility.
 --
 -- Safe to re-run: each ALTER is guarded by a column-existence check.
 
@@ -43,7 +44,7 @@ GO
 
 ALTER TABLE dbo.TaskExecutions
     ADD CONSTRAINT CK_TaskExecutions_BoxRunId_TriggerSource CHECK (
-        (BoxRunId IS NOT NULL AND TriggerSource IN ('Scheduled', 'Manual', 'Waiting'))
+        (BoxRunId IS NOT NULL AND TriggerSource IN ('Scheduler', 'Manual', 'Retry', 'Scheduled'))
         OR
         (BoxRunId IS NULL AND TriggerSource = 'ForceStart')
     );

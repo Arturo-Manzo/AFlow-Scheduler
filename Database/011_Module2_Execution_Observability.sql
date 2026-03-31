@@ -32,7 +32,7 @@ ALTER TABLE dbo.TaskExecutions
     ADD CONSTRAINT CK_TaskExecutions_StatusLifecycle CHECK (
         (Status = 'Running' AND StartedAt IS NOT NULL AND EndedAt IS NULL)
         OR
-        (Status IN ('Success', 'Failed') AND StartedAt IS NOT NULL AND EndedAt IS NOT NULL)
+        (Status IN ('Success', 'Failed', 'NotExecuted') AND StartedAt IS NOT NULL AND EndedAt IS NOT NULL)
     );
 GO
 

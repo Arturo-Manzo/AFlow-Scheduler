@@ -146,6 +146,7 @@ builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+builder.Services.AddSingleton<IExecutionLogger, ExecutionLogger>();
 
 // ============================================
 // Data Access
@@ -153,6 +154,13 @@ builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddSingleton<IBoxRepository, BoxRepository>();
 builder.Services.AddSingleton<ITaskRepository, TaskRepository>();
 builder.Services.AddSingleton<IExecutionRepository, ExecutionRepository>();
+
+// ============================================
+// Task Execution Service (SINGLE ENTRY POINT)
+// All task executions must go through this service.
+// ============================================
+builder.Services.AddSingleton<IBoxRunMetricsService, BoxRunMetricsService>();
+builder.Services.AddSingleton<ITaskExecutionService, TaskExecutionService>();
 
 // ============================================
 // Background Services

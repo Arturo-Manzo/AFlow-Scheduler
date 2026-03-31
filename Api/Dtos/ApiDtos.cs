@@ -271,7 +271,7 @@ public class ExecutionDto
     public string StdOut { get; set; } = "";
     public string StdErr { get; set; } = "";
     public int? DurationSeconds { get; set; }
-    public string TriggerSource { get; set; } = "Scheduled";
+    public string TriggerSource { get; set; } = AScheduler.Domain.TriggerSources.Scheduler;
     public string? Reason { get; set; }
     public int? RequestedByUserId { get; set; }
     public string? RequestedByUsername { get; set; }
@@ -281,6 +281,68 @@ public class ExecutionDto
 
 public class RunningExecutionDto : ExecutionDto
 {
+}
+
+public class BoxRunDto
+{
+    public int Id { get; set; }
+    public int BoxId { get; set; }
+    public string BoxName { get; set; } = "";
+    public string Status { get; set; } = "Pending";
+    public bool IsCancellationRequested { get; set; }
+    public DateTime? StartTime { get; set; }
+    public DateTime? EndTime { get; set; }
+    public DateTime? ScheduledForUtc { get; set; }
+    public string TriggerSource { get; set; } = AScheduler.Domain.TriggerSources.Scheduler;
+    public int? DurationSeconds { get; set; }
+}
+
+public class BoxRunMetricsDto
+{
+    public int BoxRunId { get; set; }
+    public int TotalTasks { get; set; }
+    public int SuccessCount { get; set; }
+    public int FailedCount { get; set; }
+    public int PendingCount { get; set; }
+    public TimeSpan? TotalDuration { get; set; }
+    public int? TotalDurationSeconds { get; set; }
+    public double SuccessRate { get; set; }
+    public List<TaskMetricDto> Tasks { get; set; } = new();
+}
+
+public class TaskMetricDto
+{
+    public int TaskId { get; set; }
+    public string Name { get; set; } = "";
+    public string Status { get; set; } = "Pending";
+    public TimeSpan? Duration { get; set; }
+    public int? DurationSeconds { get; set; }
+}
+
+public class BoxRunTaskExecutionDto
+{
+    public int? ExecutionId { get; set; }
+    public int TaskId { get; set; }
+    public string Name { get; set; } = "";
+    public string Status { get; set; } = "Pending";
+    public DateTime? StartTime { get; set; }
+    public DateTime? EndTime { get; set; }
+    public int? DurationSeconds { get; set; }
+    public string? Error { get; set; }
+    public string? StackTrace { get; set; }
+    public List<int> DependsOn { get; set; } = new();
+}
+
+public class TaskExecutionLogDto
+{
+    public Guid Id { get; set; }
+    public int? BoxRunId { get; set; }
+    public int TaskId { get; set; }
+    public int TaskExecutionId { get; set; }
+    public DateTime Timestamp { get; set; }
+    public string Level { get; set; } = "Info";
+    public string Message { get; set; } = "";
+    public string? Details { get; set; }
 }
 // API Response DTOs
 // ============================================

@@ -157,3 +157,64 @@ export interface ExecutionDto {
 }
 
 export interface RunningExecutionDto extends ExecutionDto {}
+
+export type BoxRunStatus = 'Pending' | 'Running' | 'Stopping' | 'Completed' | 'Partial' | 'Failed' | 'Cancelled';
+
+export type TaskExecutionStatus = 'Pending' | 'Running' | 'Success' | 'Failed' | 'Skipped';
+
+export interface BoxRun {
+  id: number;
+  boxId: number;
+  boxName: string;
+  status: BoxRunStatus;
+  isCancellationRequested?: boolean;
+  startTime: string;
+  endTime?: string;
+  scheduledForUtc?: string;
+  triggerSource: string;
+  durationSeconds?: number;
+}
+
+export interface TaskMetricDto {
+  taskId: number;
+  name: string;
+  status: string;
+  duration?: string;
+  durationSeconds?: number;
+}
+
+export interface BoxRunMetricsDto {
+  boxRunId: number;
+  totalTasks: number;
+  successCount: number;
+  failedCount: number;
+  pendingCount: number;
+  totalDuration?: string;
+  totalDurationSeconds?: number;
+  successRate: number;
+  tasks: TaskMetricDto[];
+}
+
+export interface TaskExecution {
+  executionId?: number;
+  taskId: number;
+  name: string;
+  status: TaskExecutionStatus;
+  startTime?: string;
+  endTime?: string;
+  durationSeconds?: number;
+  error?: string;
+  stackTrace?: string;
+  dependsOn: number[];
+}
+
+export interface TaskExecutionLogEntry {
+  id: string;
+  boxRunId?: number;
+  taskId: number;
+  taskExecutionId: number;
+  timestamp: string;
+  level: 'Info' | 'Warning' | 'Error' | string;
+  message: string;
+  details?: string;
+}

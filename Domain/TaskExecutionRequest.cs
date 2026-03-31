@@ -21,7 +21,14 @@ namespace AScheduler.Domain
         /// </summary>
         public bool ForceIgnoreSchedule { get; set; }
         public int? RequestedByUserId { get; set; }
-        public string TriggerSource { get; set; } = "Scheduled";
+        public string TriggerSource { get; set; } = TriggerSources.Scheduler;
         public DateTime? ScheduledForUtc { get; set; }
+
+        /// <summary>
+        /// When true, the worker will load existing task execution state from the database
+        /// and skip already-succeeded tasks instead of executing the full DAG from scratch.
+        /// Used for resuming interrupted or failed BoxRuns.
+        /// </summary>
+        public bool IsResume { get; set; }
     }
 }

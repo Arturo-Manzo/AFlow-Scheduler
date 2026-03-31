@@ -136,7 +136,7 @@ public class ExecutionObservabilityFixture : IAsyncLifetime
                 CONSTRAINT CK_TaskExecutions_StatusLifecycle CHECK (
                     (Status = 'Running' AND StartedAt IS NOT NULL AND EndedAt IS NULL)
                     OR
-                    (Status IN ('Success', 'Failed', 'Aborted') AND StartedAt IS NOT NULL AND EndedAt IS NOT NULL)
+                    (Status IN ('Success', 'Failed', 'Aborted', 'NotExecuted') AND StartedAt IS NOT NULL AND EndedAt IS NOT NULL)
                 )
             );
 

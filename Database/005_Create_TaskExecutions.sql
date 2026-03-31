@@ -18,21 +18,21 @@ CREATE TABLE TaskExecutions (
     ExitCode        INT NULL,
     StdOut          NVARCHAR(MAX) NULL,
     StdErr          NVARCHAR(MAX) NULL,
-    TriggerSource   NVARCHAR(20) NOT NULL DEFAULT 'Scheduled',
+    TriggerSource   NVARCHAR(20) NOT NULL DEFAULT 'Scheduler',
     ScheduledForUtc DATETIME2 NULL,
     RequestedByUserId INT NULL,
     Reason         NVARCHAR(500) NULL,
     CONSTRAINT FK_TaskExecutions_Tasks   FOREIGN KEY (TaskId)   REFERENCES Tasks(TaskId),
     CONSTRAINT FK_TaskExecutions_BoxRuns FOREIGN KEY (BoxRunId) REFERENCES BoxRuns(BoxRunId) ON DELETE CASCADE,
     CONSTRAINT CK_TaskExecutions_BoxRunId_TriggerSource CHECK (
-        (BoxRunId IS NOT NULL AND TriggerSource IN ('Scheduled', 'Manual'))
+        (BoxRunId IS NOT NULL AND TriggerSource IN ('Scheduler', 'Manual', 'Retry', 'Scheduled'))
         OR
         (BoxRunId IS NULL AND TriggerSource = 'ForceStart')
     ),
     CONSTRAINT CK_TaskExecutions_StatusLifecycle CHECK (
         (Status = 'Running' AND StartedAt IS NOT NULL AND EndedAt IS NULL)
         OR
-        (Status IN ('Success', 'Failed', 'Aborted') AND StartedAt IS NOT NULL AND EndedAt IS NOT NULL)
+        (Status IN ('Success', 'Failed', 'Aborted', 'NotExecuted') AND StartedAt IS NOT NULL AND EndedAt IS NOT NULL)
     )
 );
 CREATE INDEX IX_TaskExecutions_TaskId_Started ON TaskExecutions(TaskId, StartedAt DESC);

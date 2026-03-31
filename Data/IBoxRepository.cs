@@ -12,7 +12,12 @@ namespace AScheduler.Data
         Task UpdateLastRunAsync(int boxId, DateTime lastRunUtc);
 
         // BoxRun operations
+        Task<BoxRun?> GetBoxRunAsync(int boxRunId);
+        Task<BoxRunSummary?> GetBoxRunSummaryAsync(int boxRunId);
+        Task<List<BoxRunSummary>> GetRecentBoxRunsAsync(int limit = 100);
+        Task<List<BoxRun>> GetRunningBoxRunsAsync();
         Task<int> CreateBoxRunAsync(int boxId, DateTime? scheduledForUtc, string triggerSource, int? requestedByUserId);
+        Task UpdateBoxRunCancellationAsync(int boxRunId, bool isCancelled);
         Task UpdateBoxRunStatusAsync(int boxRunId, string status, DateTime? startedAtUtc = null, DateTime? endedAtUtc = null);
         Task<bool> HasBoxRunForScheduledTimeAsync(int boxId, DateTime scheduledForUtc);
 

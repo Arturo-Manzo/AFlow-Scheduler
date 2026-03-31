@@ -1,3 +1,5 @@
+using AScheduler.Domain;
+
 namespace AScheduler.Data
 {
     public interface IExecutionRepository
@@ -13,5 +15,14 @@ namespace AScheduler.Data
         Task<int> AbortRunningExecutionsAsync(DateTime endedAtUtc, string reason);
         Task<ExecutionRepository.ExecutionRecord?> GetLastExecutionForTaskInBoxRunAsync(int taskId, int boxRunId);
         Task<List<ExecutionRepository.ExecutionRecord>> GetLatestExecutionsAsync(int limit = 20);
+        /// <summary>
+        /// Returns the latest execution status for each task in the given BoxRun.
+        /// Used to seed in-memory state when resuming an interrupted BoxRun.
+        /// </summary>
+        Task<Dictionary<int, string>> GetTaskStatusMapForBoxRunAsync(int boxRunId);
+        Task<int> FailRunningExecutionsForBoxRunAsync(int boxRunId, DateTime endedAtUtc, string reason);
+        Task AddLogAsync(TaskExecutionLog log);
+        Task<List<TaskExecutionLog>> GetLogsByTaskExecutionIdAsync(int taskExecutionId);
+        Task<List<TaskExecutionLog>> GetLogsByBoxRunIdAsync(int boxRunId);
     }
 }

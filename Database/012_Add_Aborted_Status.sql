@@ -17,9 +17,9 @@ ALTER TABLE dbo.TaskExecutions
     ADD CONSTRAINT CK_TaskExecutions_StatusLifecycle CHECK (
         (Status = 'Running' AND StartedAt IS NOT NULL AND EndedAt IS NULL)
         OR
-        (Status IN ('Success', 'Failed', 'Aborted') AND StartedAt IS NOT NULL AND EndedAt IS NOT NULL)
+        (Status IN ('Success', 'Failed', 'Aborted', 'NotExecuted') AND StartedAt IS NOT NULL AND EndedAt IS NOT NULL)
     );
 GO
 
-PRINT 'Migration 012: CK_TaskExecutions_StatusLifecycle updated to allow Aborted status.';
+PRINT 'Migration 012: CK_TaskExecutions_StatusLifecycle updated to allow Aborted and NotExecuted statuses.';
 GO

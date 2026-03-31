@@ -80,15 +80,99 @@ namespace AScheduler.Data
 
         // --- BoxRun ---
 
+        public async Task<BoxRun?> GetBoxRunAsync(int boxRunId)
+        {
+            using var connection = CreateConnection();
+            const string sql = @"
+              SELECT BoxRunId, BoxId, ScheduledForUtc, StartedAtUtc, EndedAtUtc, Status,
+                  IsCancelled,
+                       TriggerSource, RequestedByUserId, CreatedAtUtc
+                FROM BoxRuns WHERE BoxRunId = @BoxRunId";
+            var run = await connection.QueryFirstOrDefaultAsync<BoxRun>(sql, new { BoxRunId = boxRunId });
+            if (run != null)
+            {
+                run.ScheduledForUtc = UtcDateTimeMapper.EnsureUtc(run.ScheduledForUtc);
+                run.StartedAtUtc = UtcDateTimeMapper.EnsureUtc(run.StartedAtUtc);
+                run.EndedAtUtc = UtcDateTimeMapper.EnsureUtc(run.EndedAtUtc);
+                run.CreatedAtUtc = UtcDateTimeMapper.EnsureUtc(run.CreatedAtUtc);
+                run.TriggerSource = TriggerSources.Normalize(run.TriggerSource);
+            }
+            return run;
+        }
+
+        public async Task<BoxRunSummary?> GetBoxRunSummaryAsync(int boxRunId)
+        {
+            using var connection = CreateConnection();
+            const string sql = @"
+                SELECT br.BoxRunId, br.BoxId, b.Name AS BoxName, br.Status, br.IsCancelled,
+                       br.ScheduledForUtc, br.StartedAtUtc, br.EndedAtUtc,
+                       br.TriggerSource, br.RequestedByUserId, br.CreatedAtUtc
+                FROM BoxRuns br
+                INNER JOIN Boxes b ON b.BoxId = br.BoxId
+                WHERE br.BoxRunId = @BoxRunId";
+            var run = await connection.QueryFirstOrDefaultAsync<BoxRunSummary>(sql, new { BoxRunId = boxRunId });
+            return run == null ? null : NormalizeBoxRunSummary(run);
+        }
+
+        public async Task<List<BoxRunSummary>> GetRecentBoxRunsAsync(int limit = 100)
+        {
+            if (limit <= 0) limit = 100;
+
+            using var connection = CreateConnection();
+            const string sql = @"
+                SELECT TOP (@Limit)
+                      br.BoxRunId, br.BoxId, b.Name AS BoxName, br.Status, br.IsCancelled,
+                       br.ScheduledForUtc, br.StartedAtUtc, br.EndedAtUtc,
+                       br.TriggerSource, br.RequestedByUserId, br.CreatedAtUtc
+                FROM BoxRuns br
+                INNER JOIN Boxes b ON b.BoxId = br.BoxId
+                ORDER BY br.CreatedAtUtc DESC";
+
+            var result = await connection.QueryAsync<BoxRunSummary>(sql, new { Limit = limit });
+            return result.Select(NormalizeBoxRunSummary).ToList();
+        }
+
+        public async Task<List<BoxRun>> GetRunningBoxRunsAsync()
+        {
+            using var connection = CreateConnection();
+            const string sql = @"
+              SELECT BoxRunId, BoxId, ScheduledForUtc, StartedAtUtc, EndedAtUtc, Status,
+                  IsCancelled,
+                       TriggerSource, RequestedByUserId, CreatedAtUtc
+                FROM BoxRuns WHERE Status = 'Running'
+                ORDER BY StartedAtUtc ASC";
+            var result = await connection.QueryAsync<BoxRun>(sql);
+            return result.Select(run =>
+            {
+                run.ScheduledForUtc = UtcDateTimeMapper.EnsureUtc(run.ScheduledForUtc);
+                run.StartedAtUtc = UtcDateTimeMapper.EnsureUtc(run.StartedAtUtc);
+                run.EndedAtUtc = UtcDateTimeMapper.EnsureUtc(run.EndedAtUtc);
+                run.CreatedAtUtc = UtcDateTimeMapper.EnsureUtc(run.CreatedAtUtc);
+                run.TriggerSource = TriggerSources.Normalize(run.TriggerSource);
+                return run;
+            }).ToList();
+        }
+
         public async Task<int> CreateBoxRunAsync(int boxId, DateTime? scheduledForUtc, string triggerSource, int? requestedByUserId)
         {
             using var connection = CreateConnection();
+            var normalizedTriggerSource = TriggerSources.Normalize(triggerSource);
             const string sql = @"
                 INSERT INTO BoxRuns (BoxId, ScheduledForUtc, Status, TriggerSource, RequestedByUserId, CreatedAtUtc)
                 VALUES (@BoxId, @ScheduledForUtc, 'Pending', @TriggerSource, @RequestedByUserId, SYSUTCDATETIME());
                 SELECT CAST(SCOPE_IDENTITY() AS INT);";
             return await connection.ExecuteScalarAsync<int>(sql,
-                new { BoxId = boxId, ScheduledForUtc = scheduledForUtc, TriggerSource = triggerSource, RequestedByUserId = requestedByUserId });
+                new { BoxId = boxId, ScheduledForUtc = scheduledForUtc, TriggerSource = normalizedTriggerSource, RequestedByUserId = requestedByUserId });
+        }
+
+        public async Task UpdateBoxRunCancellationAsync(int boxRunId, bool isCancelled)
+        {
+            using var connection = CreateConnection();
+            const string sql = @"
+                UPDATE BoxRuns
+                SET IsCancelled = @IsCancelled
+                WHERE BoxRunId = @BoxRunId";
+            await connection.ExecuteAsync(sql, new { BoxRunId = boxRunId, IsCancelled = isCancelled });
         }
 
         public async Task UpdateBoxRunStatusAsync(int boxRunId, string status, DateTime? startedAtUtc = null, DateTime? endedAtUtc = null)
@@ -157,6 +241,16 @@ namespace AScheduler.Data
             box.CreatedAtUtc = UtcDateTimeMapper.EnsureUtc(box.CreatedAtUtc);
             box.LastRunUtc = UtcDateTimeMapper.EnsureUtc(box.LastRunUtc);
             return box;
+        }
+
+        private static BoxRunSummary NormalizeBoxRunSummary(BoxRunSummary run)
+        {
+            run.CreatedAtUtc = UtcDateTimeMapper.EnsureUtc(run.CreatedAtUtc);
+            run.ScheduledForUtc = UtcDateTimeMapper.EnsureUtc(run.ScheduledForUtc);
+            run.StartedAtUtc = UtcDateTimeMapper.EnsureUtc(run.StartedAtUtc);
+            run.EndedAtUtc = UtcDateTimeMapper.EnsureUtc(run.EndedAtUtc);
+            run.TriggerSource = TriggerSources.Normalize(run.TriggerSource);
+            return run;
         }
     }
 }

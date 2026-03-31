@@ -54,14 +54,14 @@ namespace AScheduler.Services
                 if (alreadyExists)
                     continue;
 
-                var boxRunId = await _boxRepository.CreateBoxRunAsync(box.Id, scheduledOccurrence.Value, "Scheduled", null);
+                var boxRunId = await _boxRepository.CreateBoxRunAsync(box.Id, scheduledOccurrence.Value, TriggerSources.Scheduler, null);
 
                 var enqueued = await _queue.EnqueueAsync(new BoxRunRequest
                 {
                     BoxRunId = boxRunId,
                     BoxId = box.Id,
                     RequestedAt = now,
-                    TriggerSource = "Scheduled",
+                    TriggerSource = TriggerSources.Scheduler,
                     ScheduledForUtc = scheduledOccurrence.Value
                 });
 
@@ -92,7 +92,7 @@ namespace AScheduler.Services
                 await _boxRepository.MarkQueueItemAsync(item.QueueId, "Processing");
 
                 var boxRunId = await _boxRepository.CreateBoxRunAsync(
-                    item.BoxId, null, "Manual", item.RequestedByUserId);
+                    item.BoxId, null, TriggerSources.Manual, item.RequestedByUserId);
 
                 var enqueued = await _queue.EnqueueAsync(new BoxRunRequest
                 {
@@ -102,7 +102,7 @@ namespace AScheduler.Services
                     ForceIgnoreDependencies = item.IgnoreDependencies,
                     ForceIgnoreSchedule = item.IgnoreSchedule,
                     RequestedByUserId = item.RequestedByUserId,
-                    TriggerSource = "Manual"
+                    TriggerSource = TriggerSources.Manual
                 });
 
                 if (!enqueued)

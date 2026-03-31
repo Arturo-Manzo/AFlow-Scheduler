@@ -1,9 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using AScheduler.Data;
 using AScheduler.Domain;
-using AScheduler.Execution;
 using AScheduler.Queue;
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -16,7 +14,7 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
     private readonly ITaskRepository _taskRepository;
     private readonly IExecutionRepository _executionRepository;
     private readonly ITaskQueue _taskQueue;
-    private readonly ExecutorFactory _executorFactory;
+    private readonly ITaskExecutionService _taskExecutionService;
     private readonly IConfiguration _configuration;
     private readonly ILogger<ConfigurableWorkerPool> _logger;
 
@@ -29,11 +27,7 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
     // Distributed locking (e.g. DB-level status check or Redis) is required for that scenario.
     private readonly ConcurrentDictionary<int, byte> _runningBoxIds = new();
 
-    // Guards against concurrent force-start execution of the same Task (single-process only).
-    private readonly ConcurrentDictionary<int, byte> _runningTaskIds = new();
-
     private int _workerCount;
-    private int _taskTimeoutSeconds;
     private List<Task> _workerTasks = new();
     private CancellationTokenSource? _stoppingCts;
 
@@ -42,7 +36,7 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
         ITaskRepository taskRepository,
         IExecutionRepository executionRepository,
         ITaskQueue taskQueue,
-        ExecutorFactory executorFactory,
+        ITaskExecutionService taskExecutionService,
         IConfiguration configuration,
         ILogger<ConfigurableWorkerPool> logger)
     {
@@ -50,7 +44,7 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
         ArgumentNullException.ThrowIfNull(taskRepository);
         ArgumentNullException.ThrowIfNull(executionRepository);
         ArgumentNullException.ThrowIfNull(taskQueue);
-        ArgumentNullException.ThrowIfNull(executorFactory);
+        ArgumentNullException.ThrowIfNull(taskExecutionService);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(logger);
 
@@ -58,12 +52,11 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
         _taskRepository = taskRepository;
         _executionRepository = executionRepository;
         _taskQueue = taskQueue;
-        _executorFactory = executorFactory;
+        _taskExecutionService = taskExecutionService;
         _configuration = configuration;
         _logger = logger;
 
         _workerCount = Math.Max(1, Math.Min(_configuration.GetValue<int>("WorkerPool:WorkerCount", 4), 20));
-        _taskTimeoutSeconds = Math.Max(10, _configuration.GetValue<int>("WorkerPool:TaskTimeoutSeconds", 300));
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -147,50 +140,136 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
 
         try
         {
-            await _boxRepository.UpdateBoxRunStatusAsync(boxRunId, "Running", DateTime.UtcNow, null);
-            _logger.LogInformation("Worker {WorkerId} executing BoxRun {BoxRunId} for Box {BoxId}.", workerId, boxRunId, boxId);
+            // On resume, the BoxRun is already Running — skip re-setting status.
+            if (!request.IsResume)
+            {
+                await _boxRepository.UpdateBoxRunStatusAsync(boxRunId, "Running", DateTime.UtcNow, null);
+            }
+            else
+            {
+                await _boxRepository.UpdateBoxRunCancellationAsync(boxRunId, false);
+            }
+            _logger.LogInformation("Worker {WorkerId} {Action} BoxRun {BoxRunId} for Box {BoxId}.",
+                workerId, request.IsResume ? "resuming" : "executing", boxRunId, boxId);
 
             var tasks = await _taskRepository.GetTasksForBoxAsync(boxId);
             if (tasks.Count == 0)
             {
                 _logger.LogWarning("BoxRun {BoxRunId}: no tasks found for Box {BoxId}.", boxRunId, boxId);
-                await FinalizeBoxRun(boxRunId, boxId, "Success");
+                await FinalizeBoxRun(boxRunId, boxId, "Completed");
                 return;
             }
 
-            var anyFailed = false;
+            var anyTerminalNonSuccess = false;
+            var anySuccess = false;
             var taskById = tasks.ToDictionary(t => t.Id);
             var pendingTaskIds = taskById.Keys.ToHashSet();
             var completedSuccess = new HashSet<int>();
+            var completedNonSuccess = new HashSet<int>();
 
-            var dependenciesByTaskId = new Dictionary<int, List<int>>();
+            var dependenciesByTaskId = new Dictionary<int, List<TaskDependency>>();
             foreach (var taskId in taskById.Keys)
-                dependenciesByTaskId[taskId] = await _taskRepository.GetTaskDependenciesAsync(taskId);
+            {
+                var dependencyTaskIds = await _taskRepository.GetTaskDependenciesAsync(taskId);
+                dependenciesByTaskId[taskId] = dependencyTaskIds
+                    .Select(depId => new TaskDependency { TaskId = taskId, DependsOnTaskId = depId })
+                    .ToList();
+            }
 
+            if (TryDetectDependencyCycle(dependenciesByTaskId, out var cyclePath))
+            {
+                var cycleError = $"Circular dependency detected: {cyclePath}";
+                _logger.LogError("BoxRun {BoxRunId}: {CycleError}", boxRunId, cycleError);
+                await MarkBlockedTasksAsNotExecutedAsync(tasks, request, cycleError);
+                await FinalizeBoxRun(boxRunId, boxId, "Failed");
+                return;
+            }
+
+            // --- Resume support: seed in-memory state from database ---
+            if (request.IsResume)
+            {
+                var taskStatusMap = await _executionRepository.GetTaskStatusMapForBoxRunAsync(boxRunId);
+                foreach (var (taskId, status) in taskStatusMap)
+                {
+                    if (!pendingTaskIds.Contains(taskId)) continue;
+
+                    if (status == "Success")
+                    {
+                        completedSuccess.Add(taskId);
+                        pendingTaskIds.Remove(taskId);
+                        anySuccess = true;
+                    }
+                    // Failed/NotExecuted/Aborted stay in pending → will be retried by the DAG loop.
+                }
+
+                _logger.LogInformation(
+                    "BoxRun {BoxRunId} resumed: {SuccessCount} succeeded (skipped), {PendingCount} pending for execution.",
+                    boxRunId, completedSuccess.Count, pendingTaskIds.Count);
+
+                if (pendingTaskIds.Count == 0)
+                {
+                    _logger.LogInformation("BoxRun {BoxRunId}: all tasks already succeeded, nothing to resume.", boxRunId);
+                    await FinalizeBoxRun(boxRunId, boxId, "Completed");
+                    return;
+                }
+            }
+
+            var batchNumber = 1;
+            var cancellationTookEffect = false;
             while (pendingTaskIds.Count > 0)
             {
+                if (await ShouldStopForCancellationAsync(boxRunId, pendingTaskIds))
+                {
+                    cancellationTookEffect = true;
+                    break;
+                }
+
                 List<int> readyTaskIds;
                 if (request.ForceIgnoreDependencies)
                 {
-                    readyTaskIds = pendingTaskIds.ToList();
+                    readyTaskIds = pendingTaskIds
+                        .OrderBy(id => id)
+                        .ToList();
                 }
                 else
                 {
                     readyTaskIds = pendingTaskIds
-                        .Where(taskId => dependenciesByTaskId[taskId].All(depId => completedSuccess.Contains(depId)))
+                        .Where(taskId => dependenciesByTaskId[taskId].All(dep => completedSuccess.Contains(dep.DependsOnTaskId)))
+                        .OrderBy(id => id)
                         .ToList();
+                }
+
+                if (await ShouldStopForCancellationAsync(boxRunId, pendingTaskIds))
+                {
+                    readyTaskIds.Clear();
                 }
 
                 if (readyTaskIds.Count == 0)
                 {
+                    if (await ShouldStopForCancellationAsync(boxRunId, pendingTaskIds))
+                    {
+                        cancellationTookEffect = true;
+                        break;
+                    }
+
+                    // No task can move forward: this indicates a cycle or invalid dependency references.
                     _logger.LogWarning("BoxRun {BoxRunId}: unresolved dependency graph. Remaining tasks: {RemainingTaskIds}", boxRunId, string.Join(',', pendingTaskIds));
-                    await MarkBlockedTasksAsFailedAsync(pendingTaskIds.Select(id => taskById[id]).ToList(), request);
-                    anyFailed = true;
+                    await MarkBlockedTasksAsNotExecutedAsync(
+                        pendingTaskIds.Select(id => taskById[id]).ToList(),
+                        request,
+                        "Task was not executed because one or more dependencies were unresolved.");
+                    anyTerminalNonSuccess = true;
                     break;
                 }
 
-                var executionTasks = readyTaskIds.Select(taskId => ExecuteTaskAsync(taskById[taskId], boxRunId, request, ct)).ToList();
-                var results = await Task.WhenAll(executionTasks);
+                var results = await ExecuteReadyTaskBatchAsync(
+                    readyTaskIds,
+                    taskById,
+                    boxRunId,
+                    request,
+                    batchNumber,
+                    ct);
+                batchNumber++;
 
                 foreach (var result in results)
                 {
@@ -199,15 +278,60 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
                     if (result.Success)
                     {
                         completedSuccess.Add(result.TaskId);
+                        anySuccess = true;
                     }
                     else
                     {
-                        anyFailed = true;
+                        completedNonSuccess.Add(result.TaskId);
+                        anyTerminalNonSuccess = true;
+                    }
+                }
+
+                if (!request.ForceIgnoreDependencies)
+                {
+                    var blockedTaskIds = pendingTaskIds
+                        .Where(taskId => dependenciesByTaskId[taskId].Any(dep => completedNonSuccess.Contains(dep.DependsOnTaskId)))
+                        .OrderBy(id => id)
+                        .ToList();
+
+                    if (blockedTaskIds.Count > 0)
+                    {
+                        await MarkBlockedTasksAsNotExecutedAsync(
+                            blockedTaskIds.Select(id => taskById[id]).ToList(),
+                            request,
+                            "Task was not executed because one or more dependencies failed or were not executed.");
+
+                        foreach (var blockedTaskId in blockedTaskIds)
+                        {
+                            pendingTaskIds.Remove(blockedTaskId);
+                            completedNonSuccess.Add(blockedTaskId);
+                            anyTerminalNonSuccess = true;
+                        }
                     }
                 }
             }
 
-            var finalStatus = anyFailed ? "Failed" : "Success";
+            var recoveredRunningExecutions = await _executionRepository.FailRunningExecutionsForBoxRunAsync(
+                boxRunId,
+                DateTime.UtcNow,
+                "Task remained in Running state at BoxRun finalization and was force-failed for consistency.");
+            if (recoveredRunningExecutions > 0)
+            {
+                anyTerminalNonSuccess = true;
+                _logger.LogWarning(
+                    "BoxRun {BoxRunId}: force-failed {Count} task execution(s) still marked Running during final consistency check.",
+                    boxRunId,
+                    recoveredRunningExecutions);
+            }
+
+            // Determine final status based on execution outcome:
+            // - "Completed": all tasks succeeded
+            // - "Partial": mixed success and non-success (Failed/NotExecuted)
+            // - "Failed": no task succeeded
+            var hasPendingTasks = HasPendingTasks(pendingTaskIds);
+            var finalStatus = cancellationTookEffect && hasPendingTasks
+                ? "Cancelled"
+                : (!anyTerminalNonSuccess ? "Completed" : (anySuccess ? "Partial" : "Failed"));
 
             await FinalizeBoxRun(boxRunId, boxId, finalStatus);
         }
@@ -226,9 +350,29 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
     private async Task FinalizeBoxRun(int boxRunId, int boxId, string status)
     {
         var endTime = DateTime.UtcNow;
+        if (!string.Equals(status, "Cancelled", StringComparison.OrdinalIgnoreCase))
+        {
+            await _boxRepository.UpdateBoxRunCancellationAsync(boxRunId, false);
+        }
         await _boxRepository.UpdateBoxRunStatusAsync(boxRunId, status, null, endTime);
         await _boxRepository.UpdateLastRunAsync(boxId, endTime);
         _logger.LogInformation("BoxRun {BoxRunId} finalized with status {Status}.", boxRunId, status);
+    }
+
+    private bool HasPendingTasks(IReadOnlyCollection<int> pendingTaskIds)
+    {
+        return pendingTaskIds.Count > 0;
+    }
+
+    private async Task<bool> ShouldStopForCancellationAsync(int boxRunId, IReadOnlyCollection<int> pendingTaskIds)
+    {
+        if (!HasPendingTasks(pendingTaskIds))
+        {
+            return false;
+        }
+
+        var boxRun = await _boxRepository.GetBoxRunAsync(boxRunId);
+        return boxRun?.IsCancelled == true;
     }
 
     // -------------------------------------------------------------------------
@@ -248,110 +392,51 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
         _logger.LogInformation("Worker {WorkerId} executing force-start for Task {TaskId} ({TaskName}).",
             workerId, request.TaskId, task.Name);
 
-        await ExecuteSingleTaskCoreAsync(task, null, "ForceStart", null, request.RequestedByUserId, request.Reason, ct);
+        // Delegate to centralized execution service (ONLY entry point)
+        await _taskExecutionService.ExecuteTaskAsync(
+            task, null, TriggerSources.ForceStart, null, request.RequestedByUserId, request.Reason, ct);
     }
 
     private async Task<(int TaskId, bool Success)> ExecuteTaskAsync(TaskDefinition task, int boxRunId, BoxRunRequest request, CancellationToken ct)
     {
-        var success = await ExecuteSingleTaskCoreAsync(
+        // Delegate to centralized execution service (ONLY entry point)
+        var success = await _taskExecutionService.ExecuteTaskAsync(
             task, boxRunId, request.TriggerSource, request.ScheduledForUtc, request.RequestedByUserId, null, ct);
         return (task.Id, success);
     }
 
-    // -------------------------------------------------------------------------
-    // SINGLE EXECUTION ENTRY POINT
-    // All task execution paths (BoxRun and ForceStart) funnel through here.
-    // Enforces concurrency guard at both in-process level (_runningTaskIds) and
-    // database level (unique constraint), so no path can bypass the check.
-    // -------------------------------------------------------------------------
-
-    private async Task<bool> ExecuteSingleTaskCoreAsync(
-        TaskDefinition task,
-        int? boxRunId,
-        string triggerSource,
-        DateTime? scheduledForUtc,
-        int? requestedByUserId,
-        string? reason,
+    private async Task<List<(int TaskId, bool Success)>> ExecuteReadyTaskBatchAsync(
+        List<int> readyTaskIds,
+        IReadOnlyDictionary<int, TaskDefinition> taskById,
+        int boxRunId,
+        BoxRunRequest request,
+        int batchNumber,
         CancellationToken ct)
     {
-        // In-process guard: rejects if this task is already executing on any worker in this instance.
-        if (!_runningTaskIds.TryAdd(task.Id, 0))
-        {
-            _logger.LogWarning(
-                "Task {TaskId} ({TaskName}) is already running; skipping to avoid duplicate execution.",
-                task.Id, task.Name);
-            return false;
-        }
+        _logger.LogInformation(
+            "BoxRun {BoxRunId}: starting batch {BatchNumber} with {TaskCount} parallel task(s): {TaskIds}",
+            boxRunId,
+            batchNumber,
+            readyTaskIds.Count,
+            string.Join(',', readyTaskIds));
 
-        try
-        {
-            var startTime = DateTime.UtcNow;
-            int executionId;
-            try
-            {
-                executionId = await _executionRepository.CreateExecutionAsync(
-                    task.Id, boxRunId, startTime, triggerSource, scheduledForUtc, requestedByUserId, reason);
-            }
-            catch (SqlException ex) when (ex.Number == 2601 || ex.Number == 2627)
-            {
-                // DB-level unique constraint violation — concurrent execution started across instances.
-                _logger.LogWarning(
-                    "Task {TaskId} ({TaskName}): DB constraint blocked a duplicate execution (cross-instance race).",
-                    task.Id, task.Name);
-                return false;
-            }
+        var executionTasks = readyTaskIds
+            .Select(taskId => ExecuteTaskAsync(taskById[taskId], boxRunId, request, ct))
+            .ToList();
 
-            var executor = _executorFactory.GetExecutor(task.TaskType);
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            cts.CancelAfter(TimeSpan.FromSeconds(_taskTimeoutSeconds));
+        var results = await Task.WhenAll(executionTasks);
 
-            try
-            {
-                var result = await executor.ExecuteAsync(task);
-                var endTime = DateTime.UtcNow;
-                var status = result.ExitCode == 0 ? "Success" : "Failed";
+        _logger.LogInformation(
+            "BoxRun {BoxRunId}: completed batch {BatchNumber}.",
+            boxRunId,
+            batchNumber);
 
-                await _executionRepository.CompleteExecutionAsync(
-                    executionId, endTime, status,
-                    result.Output, result.Error, result.ExitCode,
-                    result.Output, result.Error);
-
-                _logger.LogInformation(
-                    "Task {TaskId} ({TaskName}) finished with status {Status} (exit code {ExitCode}).",
-                    task.Id, task.Name, status, result.ExitCode);
-                return result.ExitCode == 0;
-            }
-            catch (OperationCanceledException)
-            {
-                await _executionRepository.CompleteExecutionAsync(
-                    executionId, DateTime.UtcNow, "Failed",
-                    "", $"Timeout after {_taskTimeoutSeconds}s", -1,
-                    "", $"Timeout after {_taskTimeoutSeconds}s");
-
-                _logger.LogWarning(
-                    "Task {TaskId} ({TaskName}) timed out after {Seconds}s.",
-                    task.Id, task.Name, _taskTimeoutSeconds);
-                return false;
-            }
-            catch (Exception ex)
-            {
-                await _executionRepository.CompleteExecutionAsync(
-                    executionId, DateTime.UtcNow, "Failed",
-                    "", ex.Message, -1,
-                    "", ex.ToString());
-
-                _logger.LogError(ex, "Task {TaskId} ({TaskName}) failed with exception.", task.Id, task.Name);
-                return false;
-            }
-        }
-        finally
-        {
-            _runningTaskIds.TryRemove(task.Id, out _);
-        }
+        return results.ToList();
     }
 
     private async Task RecoverStaleExecutionsAsync()
     {
+        // 1. Abort interrupted task executions (they were killed mid-flight and cannot continue).
         const string reason = "Execution interrupted due to server restart.";
         var aborted = await _executionRepository.AbortRunningExecutionsAsync(DateTime.UtcNow, reason);
         if (aborted > 0)
@@ -360,32 +445,109 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
                 "Startup recovery: marked {Count} interrupted execution(s) as Aborted. Reason: {Reason}",
                 aborted, reason);
         }
+
+        // 2. Find BoxRuns that were interrupted (status = "Running") and enqueue them for resume.
+        //    Their individual task executions were aborted above, so the DAG loop will retry them.
+        var runningBoxRuns = await _boxRepository.GetRunningBoxRunsAsync();
+        foreach (var boxRun in runningBoxRuns)
+        {
+            var enqueued = await _taskQueue.EnqueueAsync(new BoxRunRequest
+            {
+                BoxRunId = boxRun.BoxRunId,
+                BoxId = boxRun.BoxId,
+                RequestedAt = DateTime.UtcNow,
+                TriggerSource = boxRun.TriggerSource,
+                ScheduledForUtc = boxRun.ScheduledForUtc,
+                RequestedByUserId = boxRun.RequestedByUserId,
+                IsResume = true
+            });
+
+            if (enqueued)
+            {
+                _logger.LogInformation(
+                    "Startup recovery: enqueued interrupted BoxRun {BoxRunId} (Box {BoxId}) for resume.",
+                    boxRun.BoxRunId, boxRun.BoxId);
+            }
+        }
     }
 
-    private async Task MarkBlockedTasksAsFailedAsync(List<TaskDefinition> blockedTasks, BoxRunRequest request)
+    private async Task MarkBlockedTasksAsNotExecutedAsync(List<TaskDefinition> blockedTasks, BoxRunRequest request, string failureReason)
     {
         var now = DateTime.UtcNow;
         foreach (var task in blockedTasks)
         {
-            var executionId = await _executionRepository.CreateExecutionAsync(
+            // Create a NotExecuted execution record directly (not going through ExecuteTaskAsync since there's no actual execution).
+            // This is the ONLY exception where we call the repository directly.
+            await ((TaskExecutionService)_taskExecutionService).CreateNotExecutedExecutionAsync(
                 task.Id,
                 request.BoxRunId,
                 now,
                 request.TriggerSource,
                 request.ScheduledForUtc,
                 request.RequestedByUserId,
-                null);
-
-            await _executionRepository.CompleteExecutionAsync(
-                executionId,
-                now,
-                "Failed",
-                "",
-                "Task could not execute because its dependencies were not satisfied.",
-                -2,
-                "",
-                "Task could not execute because its dependencies were not satisfied.");
+                failureReason);
         }
+    }
+
+    private static bool TryDetectDependencyCycle(
+        IReadOnlyDictionary<int, List<TaskDependency>> dependenciesByTaskId,
+        out string cyclePath)
+    {
+        var detectedCyclePath = string.Empty;
+        var visitState = new Dictionary<int, int>(); // 0=unvisited, 1=visiting, 2=visited
+        var recursionPath = new List<int>();
+        var pathIndexByTaskId = new Dictionary<int, int>();
+
+        bool Dfs(int taskId)
+        {
+            if (visitState.TryGetValue(taskId, out var state))
+            {
+                if (state == 1)
+                {
+                    var startIndex = pathIndexByTaskId[taskId];
+                    var cycleNodes = recursionPath.Skip(startIndex).Concat(new[] { taskId });
+                    detectedCyclePath = string.Join(" -> ", cycleNodes);
+                    return true;
+                }
+
+                if (state == 2)
+                    return false;
+            }
+
+            visitState[taskId] = 1;
+            pathIndexByTaskId[taskId] = recursionPath.Count;
+            recursionPath.Add(taskId);
+
+            foreach (var dep in dependenciesByTaskId[taskId].OrderBy(d => d.DependsOnTaskId))
+            {
+                // Skip dangling references here; unresolved dependencies are handled by no-progress logic.
+                if (!dependenciesByTaskId.ContainsKey(dep.DependsOnTaskId))
+                    continue;
+
+                if (Dfs(dep.DependsOnTaskId))
+                    return true;
+            }
+
+            recursionPath.RemoveAt(recursionPath.Count - 1);
+            pathIndexByTaskId.Remove(taskId);
+            visitState[taskId] = 2;
+            return false;
+        }
+
+        foreach (var taskId in dependenciesByTaskId.Keys.OrderBy(id => id))
+        {
+            if (visitState.TryGetValue(taskId, out var state) && state == 2)
+                continue;
+
+            if (Dfs(taskId))
+            {
+                cyclePath = detectedCyclePath;
+                return true;
+            }
+        }
+
+        cyclePath = string.Empty;
+        return false;
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)
@@ -397,5 +559,5 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
     }
 
     // IWorkerStateService implementation
-    public bool IsTaskRunning(int taskId) => _runningTaskIds.ContainsKey(taskId);
+    public bool IsTaskRunning(int taskId) => ((TaskExecutionService)_taskExecutionService).IsTaskRunning(taskId);
 }

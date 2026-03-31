@@ -2,6 +2,7 @@
 using Microsoft.Data.SqlClient;
 using Dapper;
 using Microsoft.Extensions.Configuration;
+using AScheduler.Domain;
 
 namespace AScheduler.Data
 {
@@ -125,6 +126,7 @@ namespace AScheduler.Data
             string triggerSource, DateTime? scheduledForUtc, int? requestedByUserId, string? reason)
         {
             using var connection = CreateConnection();
+            var normalizedTriggerSource = TriggerSources.Normalize(triggerSource);
             const string sql = @"
                 INSERT INTO TaskExecutions
                     (TaskId, BoxRunId, StartedAt, EndedAt, Status, Output, Error, ExitCode,
@@ -138,7 +140,7 @@ namespace AScheduler.Data
                 TaskId = taskId,
                 BoxRunId = boxRunId,
                 StartedAtUtc = startedAtUtc,
-                TriggerSource = triggerSource,
+                TriggerSource = normalizedTriggerSource,
                 ScheduledForUtc = scheduledForUtc,
                 RequestedByUserId = requestedByUserId,
                 Reason = reason
@@ -148,6 +150,7 @@ namespace AScheduler.Data
         public async Task CompleteExecutionAsync(int executionId, DateTime endedAtUtc, string status,
             string output, string error, int? exitCode, string stdOut, string stdErr)
         {
+            ValidateTerminalStatus(status);
             using var connection = CreateConnection();
             const string sql = @"
                 UPDATE TaskExecutions
@@ -158,8 +161,10 @@ namespace AScheduler.Data
                     ExitCode = @ExitCode,
                     StdOut = @StdOut,
                     StdErr = @StdErr
-                WHERE ExecutionId = @ExecutionId";
-            await connection.ExecuteAsync(sql, new
+                WHERE ExecutionId = @ExecutionId
+                  AND Status = 'Running'
+                  AND EndedAt IS NULL";
+            var rows = await connection.ExecuteAsync(sql, new
             {
                 ExecutionId = executionId,
                 EndedAtUtc = endedAtUtc,
@@ -170,6 +175,12 @@ namespace AScheduler.Data
                 StdOut = stdOut,
                 StdErr = stdErr
             });
+
+            if (rows != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Invalid execution state transition for ExecutionId {executionId}. Only Running executions can transition to terminal states.");
+            }
         }
 
         public async Task<int> AbortRunningExecutionsAsync(DateTime endedAtUtc, string reason)
@@ -238,6 +249,86 @@ namespace AScheduler.Data
             return result.Select(NormalizeRecord).ToList();
         }
 
+        public async Task<Dictionary<int, string>> GetTaskStatusMapForBoxRunAsync(int boxRunId)
+        {
+            using var connection = CreateConnection();
+            const string sql = @"
+                WITH LatestExecution AS (
+                    SELECT TaskId, Status,
+                           ROW_NUMBER() OVER (PARTITION BY TaskId ORDER BY ExecutionId DESC) AS rn
+                    FROM TaskExecutions
+                    WHERE BoxRunId = @BoxRunId
+                )
+                SELECT TaskId, Status FROM LatestExecution WHERE rn = 1";
+            var rows = await connection.QueryAsync<(int TaskId, string Status)>(sql, new { BoxRunId = boxRunId });
+            return rows.ToDictionary(r => r.TaskId, r => r.Status);
+        }
+
+        public async Task<int> FailRunningExecutionsForBoxRunAsync(int boxRunId, DateTime endedAtUtc, string reason)
+        {
+            using var connection = CreateConnection();
+            const string sql = @"
+                UPDATE TaskExecutions
+                SET Status = 'Failed',
+                    EndedAt = @EndedAtUtc,
+                    Error = @Reason,
+                    StdErr = @Reason
+                WHERE BoxRunId = @BoxRunId
+                  AND Status = 'Running'
+                  AND EndedAt IS NULL;
+                SELECT @@ROWCOUNT;";
+            return await connection.ExecuteScalarAsync<int>(sql, new { BoxRunId = boxRunId, EndedAtUtc = endedAtUtc, Reason = reason });
+        }
+
+        public async Task AddLogAsync(TaskExecutionLog log)
+        {
+            using var connection = CreateConnection();
+            const string sql = @"
+                INSERT INTO TaskExecutionLogs
+                    (Id, BoxRunId, TaskId, TaskExecutionId, TimestampUtc, Level, Message, Details)
+                VALUES
+                    (@Id, @BoxRunId, @TaskId, @TaskExecutionId, @Timestamp, @Level, @Message, @Details);";
+            await connection.ExecuteAsync(sql, new
+            {
+                log.Id,
+                log.BoxRunId,
+                log.TaskId,
+                log.TaskExecutionId,
+                log.Timestamp,
+                log.Level,
+                log.Message,
+                log.Details
+            });
+        }
+
+        public async Task<List<TaskExecutionLog>> GetLogsByTaskExecutionIdAsync(int taskExecutionId)
+        {
+            using var connection = CreateConnection();
+            const string sql = @"
+                SELECT Id, BoxRunId, TaskId, TaskExecutionId,
+                       TimestampUtc AS Timestamp,
+                       Level, Message, Details
+                FROM TaskExecutionLogs
+                WHERE TaskExecutionId = @TaskExecutionId
+                ORDER BY TimestampUtc ASC, Id ASC";
+            var rows = await connection.QueryAsync<TaskExecutionLog>(sql, new { TaskExecutionId = taskExecutionId });
+            return rows.Select(NormalizeLog).ToList();
+        }
+
+        public async Task<List<TaskExecutionLog>> GetLogsByBoxRunIdAsync(int boxRunId)
+        {
+            using var connection = CreateConnection();
+            const string sql = @"
+                SELECT Id, BoxRunId, TaskId, TaskExecutionId,
+                       TimestampUtc AS Timestamp,
+                       Level, Message, Details
+                FROM TaskExecutionLogs
+                WHERE BoxRunId = @BoxRunId
+                ORDER BY TimestampUtc ASC, Id ASC";
+            var rows = await connection.QueryAsync<TaskExecutionLog>(sql, new { BoxRunId = boxRunId });
+            return rows.Select(NormalizeLog).ToList();
+        }
+
         public class ExecutionRecord
         {
             public int ExecutionId { get; set; }
@@ -255,12 +346,17 @@ namespace AScheduler.Data
             public int ExitCode { get; set; }
             public string StdOut { get; set; } = "";
             public string StdErr { get; set; } = "";
-            public string TriggerSource { get; set; } = "Scheduled";
+            public string TriggerSource { get; set; } = TriggerSources.Scheduler;
             public DateTime? ScheduledForUtc { get; set; }
             public string? Reason { get; set; }
             public int? RequestedByUserId { get; set; }
             public string? RequestedByUsername { get; set; }
             public bool IsStale { get; set; }
+
+            public TimeSpan? Duration =>
+                EndedAt.HasValue
+                    ? EndedAt.Value - StartedAt
+                    : null;
         }
 
         private static ExecutionRecord NormalizeRecord(ExecutionRecord record)
@@ -268,7 +364,22 @@ namespace AScheduler.Data
             record.StartedAt = UtcDateTimeMapper.EnsureUtc(record.StartedAt);
             record.EndedAt = UtcDateTimeMapper.EnsureUtc(record.EndedAt);
             record.ScheduledForUtc = UtcDateTimeMapper.EnsureUtc(record.ScheduledForUtc);
+            record.TriggerSource = TriggerSources.Normalize(record.TriggerSource);
             return record;
+        }
+
+        private static TaskExecutionLog NormalizeLog(TaskExecutionLog log)
+        {
+            log.Timestamp = UtcDateTimeMapper.EnsureUtc(log.Timestamp);
+            return log;
+        }
+
+        private static void ValidateTerminalStatus(string status)
+        {
+            if (status is not ("Success" or "Failed" or "NotExecuted" or "Aborted"))
+            {
+                throw new InvalidOperationException($"Invalid terminal execution status '{status}'.");
+            }
         }
     }
 }

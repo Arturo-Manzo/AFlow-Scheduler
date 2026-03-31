@@ -22,6 +22,7 @@ public class BoxesController : ControllerBase
 
     private readonly IBoxRepository _boxRepository;
     private readonly ITaskRepository _taskRepository;
+    private readonly ITaskQueue _taskQueue;
     private readonly IAuditLogService _auditLog;
     private readonly IWorkerStateService _workerState;
     private readonly ILogger<BoxesController> _logger;
@@ -29,17 +30,20 @@ public class BoxesController : ControllerBase
     public BoxesController(
         IBoxRepository boxRepository,
         ITaskRepository taskRepository,
+        ITaskQueue taskQueue,
         IAuditLogService auditLog,
         IWorkerStateService workerState,
         ILogger<BoxesController> logger)
     {
         ArgumentNullException.ThrowIfNull(boxRepository);
         ArgumentNullException.ThrowIfNull(taskRepository);
+        ArgumentNullException.ThrowIfNull(taskQueue);
         ArgumentNullException.ThrowIfNull(auditLog);
         ArgumentNullException.ThrowIfNull(workerState);
         ArgumentNullException.ThrowIfNull(logger);
         _boxRepository = boxRepository;
         _taskRepository = taskRepository;
+        _taskQueue = taskQueue;
         _auditLog = auditLog;
         _workerState = workerState;
         _logger = logger;
@@ -163,6 +167,7 @@ public class BoxesController : ControllerBase
     }
 
     [HttpPost("{boxId}/run")]
+    [HttpPost("/api/box/{boxId}/run")]
     [Authorize(Roles = "Admin,Operator")]
     public async Task<IActionResult> RunNow(int boxId, [FromBody] ExecuteBoxRequest request)
     {
@@ -192,6 +197,87 @@ public class BoxesController : ControllerBase
             await _auditLog.LogAsync(userId.Value, "Boxes", boxId, "RunNow", newValues: request.Reason);
 
         return Ok(new ApiResponse<object> { Success = true, Data = new { QueueId = queueId }, Message = "Box queued for execution." });
+    }
+
+    [HttpPost("runs/{boxRunId}/resume")]
+    [HttpPost("/api/box/{boxRunId}/resume")]
+    [Authorize(Roles = "Admin,Operator")]
+    public async Task<IActionResult> Resume(int boxRunId)
+    {
+        var boxRun = await _boxRepository.GetBoxRunAsync(boxRunId);
+        if (boxRun == null)
+            return NotFound(new ApiResponse<object> { Success = false, Message = "BoxRun not found.", ErrorCode = "BOXRUN_NOT_FOUND" });
+
+        // Only Failed, Partial or Cancelled BoxRuns can be resumed manually.
+        // Running BoxRuns are auto-resumed on startup.
+        if (boxRun.Status is not ("Failed" or "Partial" or "Cancelled"))
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = $"BoxRun is in '{boxRun.Status}' state. Only Failed, Partial or Cancelled runs can be resumed.",
+                ErrorCode = "INVALID_RESUME_STATE"
+            });
+
+        await _boxRepository.UpdateBoxRunCancellationAsync(boxRunId, false);
+
+        // Set status back to Running so the worker picks it up correctly.
+        await _boxRepository.UpdateBoxRunStatusAsync(boxRunId, "Running", null, null);
+
+        var enqueued = await _taskQueue.EnqueueAsync(new BoxRunRequest
+        {
+            BoxRunId = boxRun.BoxRunId,
+            BoxId = boxRun.BoxId,
+            RequestedAt = DateTime.UtcNow,
+            TriggerSource = TriggerSources.Retry,
+            ScheduledForUtc = boxRun.ScheduledForUtc,
+            RequestedByUserId = boxRun.RequestedByUserId,
+            IsResume = true
+        });
+
+        if (!enqueued)
+            return Conflict(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "BoxRun is already pending in the queue.",
+                ErrorCode = "ALREADY_QUEUED"
+            });
+
+        var userId = GetCurrentUserId();
+        if (userId.HasValue)
+            await _auditLog.LogAsync(userId.Value, "BoxRuns", boxRunId, "Resume");
+
+        return Ok(new ApiResponse<object> { Success = true, Data = new { BoxRunId = boxRunId }, Message = "BoxRun queued for resume." });
+    }
+
+    [HttpPost("runs/{boxRunId}/cancel")]
+    [HttpPost("/api/box/{boxRunId}/cancel")]
+    [Authorize(Roles = "Admin,Operator")]
+    public async Task<IActionResult> Cancel(int boxRunId)
+    {
+        var boxRun = await _boxRepository.GetBoxRunAsync(boxRunId);
+        if (boxRun == null)
+            return NotFound(new ApiResponse<object> { Success = false, Message = "BoxRun not found.", ErrorCode = "BOXRUN_NOT_FOUND" });
+
+        if (boxRun.Status is not ("Pending" or "Running"))
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = $"BoxRun is in '{boxRun.Status}' state. Only Pending or Running runs can be cancelled.",
+                ErrorCode = "INVALID_CANCEL_STATE"
+            });
+
+        await _boxRepository.UpdateBoxRunCancellationAsync(boxRunId, true);
+
+        var userId = GetCurrentUserId();
+        if (userId.HasValue)
+            await _auditLog.LogAsync(userId.Value, "BoxRuns", boxRunId, "Cancel");
+
+        return Ok(new ApiResponse<object>
+        {
+            Success = true,
+            Data = new { BoxRunId = boxRunId },
+            Message = "Cancellation requested. Running tasks will finish; no new pending tasks will be scheduled."
+        });
     }
 
     private async Task<BoxDto> MapToBoxDtoAsync(BoxDefinition box, bool includeTasks)
