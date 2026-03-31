@@ -275,6 +275,12 @@ public class ExecutionDto
     public string? Reason { get; set; }
     public int? RequestedByUserId { get; set; }
     public string? RequestedByUsername { get; set; }
+    public string? ErrorMessage { get; set; }
+    public bool IsStale { get; set; }
+}
+
+public class RunningExecutionDto : ExecutionDto
+{
 }
 // API Response DTOs
 // ============================================

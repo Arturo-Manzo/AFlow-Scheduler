@@ -26,6 +26,7 @@ namespace AScheduler.Data
                        t.Name AS TaskName, te.StartedAt, te.EndedAt, te.Status,
                        te.Output, te.Error, te.ExitCode, te.StdOut, te.StdErr,
                        te.TriggerSource, te.ScheduledForUtc, te.Reason,
+                       CAST(CASE WHEN te.Status = 'Running' AND te.StartedAt < @StaleBeforeUtc THEN 1 ELSE 0 END AS bit) AS IsStale,
                        COALESCE(te.RequestedByUserId, br.RequestedByUserId) AS RequestedByUserId,
                        u.Username AS RequestedByUsername
                 FROM TaskExecutions te
@@ -35,11 +36,15 @@ namespace AScheduler.Data
                 LEFT JOIN Users u ON COALESCE(te.RequestedByUserId, br.RequestedByUserId) = u.UserId
                 WHERE te.BoxRunId = @BoxRunId
                 ORDER BY te.StartedAt ASC";
-            var result = await connection.QueryAsync<ExecutionRecord>(sql, new { BoxRunId = boxRunId });
+            var result = await connection.QueryAsync<ExecutionRecord>(sql, new
+            {
+                BoxRunId = boxRunId,
+                StaleBeforeUtc = DateTime.UtcNow.AddYears(-10)
+            });
             return result.Select(NormalizeRecord).ToList();
         }
 
-        public async Task<List<ExecutionRecord>> GetExecutionsForTaskAsync(int taskId)
+        public async Task<List<ExecutionRecord>> GetExecutionsForTaskAsync(int taskId, DateTime? fromUtc = null, DateTime? toUtc = null)
         {
             using var connection = CreateConnection();
             const string sql = @"
@@ -48,6 +53,7 @@ namespace AScheduler.Data
                        t.Name AS TaskName, te.StartedAt, te.EndedAt, te.Status,
                        te.Output, te.Error, te.ExitCode, te.StdOut, te.StdErr,
                        te.TriggerSource, te.ScheduledForUtc, te.Reason,
+                       CAST(CASE WHEN te.Status = 'Running' AND te.StartedAt < @StaleBeforeUtc THEN 1 ELSE 0 END AS bit) AS IsStale,
                        COALESCE(te.RequestedByUserId, br.RequestedByUserId) AS RequestedByUserId,
                        u.Username AS RequestedByUsername
                 FROM TaskExecutions te
@@ -56,29 +62,129 @@ namespace AScheduler.Data
                 LEFT JOIN BoxRuns br ON te.BoxRunId = br.BoxRunId
                 LEFT JOIN Users u ON COALESCE(te.RequestedByUserId, br.RequestedByUserId) = u.UserId
                 WHERE te.TaskId = @TaskId
+                  AND (@FromUtc IS NULL OR te.StartedAt >= @FromUtc)
+                  AND (@ToUtc IS NULL OR te.StartedAt <= @ToUtc)
                 ORDER BY te.StartedAt DESC";
-            var result = await connection.QueryAsync<ExecutionRecord>(sql, new { TaskId = taskId });
+            var result = await connection.QueryAsync<ExecutionRecord>(sql, new
+            {
+                TaskId = taskId,
+                FromUtc = fromUtc,
+                ToUtc = toUtc,
+                StaleBeforeUtc = DateTime.UtcNow.AddYears(-10)
+            });
             return result.Select(NormalizeRecord).ToList();
         }
 
-        public async Task SaveExecutionAsync(int taskId, int boxRunId, DateTime startedAt, DateTime endedAt,
-            string status, string output, string error, int exitCode,
-            string stdOut, string stdErr, string triggerSource, DateTime? scheduledForUtc)
+        public async Task<ExecutionRecord?> GetLastExecutionForTaskAsync(int taskId)
+        {
+            using var connection = CreateConnection();
+            const string sql = @"
+                SELECT TOP 1 te.ExecutionId, te.TaskId, te.BoxRunId, t.BoxId, b.Name AS BoxName,
+                       b.TimeZoneId AS BoxTimeZoneId,
+                       t.Name AS TaskName, te.StartedAt, te.EndedAt, te.Status,
+                       te.Output, te.Error, te.ExitCode, te.StdOut, te.StdErr,
+                       te.TriggerSource, te.ScheduledForUtc, te.Reason,
+                       CAST(0 AS bit) AS IsStale,
+                       COALESCE(te.RequestedByUserId, br.RequestedByUserId) AS RequestedByUserId,
+                       u.Username AS RequestedByUsername
+                FROM TaskExecutions te
+                INNER JOIN Tasks t ON te.TaskId = t.TaskId
+                INNER JOIN Boxes b ON t.BoxId = b.BoxId
+                LEFT JOIN BoxRuns br ON te.BoxRunId = br.BoxRunId
+                LEFT JOIN Users u ON COALESCE(te.RequestedByUserId, br.RequestedByUserId) = u.UserId
+                WHERE te.TaskId = @TaskId
+                ORDER BY te.StartedAt DESC, te.ExecutionId DESC";
+            var record = await connection.QueryFirstOrDefaultAsync<ExecutionRecord>(sql, new { TaskId = taskId });
+            return record == null ? null : NormalizeRecord(record);
+        }
+
+        public async Task<List<ExecutionRecord>> GetRunningExecutionsAsync(DateTime staleBeforeUtc)
+        {
+            using var connection = CreateConnection();
+            const string sql = @"
+                SELECT te.ExecutionId, te.TaskId, te.BoxRunId, t.BoxId, b.Name AS BoxName,
+                       b.TimeZoneId AS BoxTimeZoneId,
+                       t.Name AS TaskName, te.StartedAt, te.EndedAt, te.Status,
+                       te.Output, te.Error, te.ExitCode, te.StdOut, te.StdErr,
+                       te.TriggerSource, te.ScheduledForUtc, te.Reason,
+                       CAST(CASE WHEN te.StartedAt < @StaleBeforeUtc THEN 1 ELSE 0 END AS bit) AS IsStale,
+                       COALESCE(te.RequestedByUserId, br.RequestedByUserId) AS RequestedByUserId,
+                       u.Username AS RequestedByUsername
+                FROM TaskExecutions te
+                INNER JOIN Tasks t ON te.TaskId = t.TaskId
+                INNER JOIN Boxes b ON t.BoxId = b.BoxId
+                LEFT JOIN BoxRuns br ON te.BoxRunId = br.BoxRunId
+                LEFT JOIN Users u ON COALESCE(te.RequestedByUserId, br.RequestedByUserId) = u.UserId
+                WHERE te.Status = 'Running'
+                ORDER BY te.StartedAt ASC";
+            var result = await connection.QueryAsync<ExecutionRecord>(sql, new { StaleBeforeUtc = staleBeforeUtc });
+            return result.Select(NormalizeRecord).ToList();
+        }
+
+        public async Task<int> CreateExecutionAsync(int taskId, int? boxRunId, DateTime startedAtUtc,
+            string triggerSource, DateTime? scheduledForUtc, int? requestedByUserId, string? reason)
         {
             using var connection = CreateConnection();
             const string sql = @"
                 INSERT INTO TaskExecutions
                     (TaskId, BoxRunId, StartedAt, EndedAt, Status, Output, Error, ExitCode,
-                     StdOut, StdErr, TriggerSource, ScheduledForUtc)
+                     StdOut, StdErr, TriggerSource, ScheduledForUtc, RequestedByUserId, Reason)
                 VALUES
-                    (@TaskId, @BoxRunId, @StartedAt, @EndedAt, @Status, @Output, @Error,
-                     @ExitCode, @StdOut, @StdErr, @TriggerSource, @ScheduledForUtc)";
+                    (@TaskId, @BoxRunId, @StartedAtUtc, NULL, 'Running', '', NULL, NULL,
+                     '', '', @TriggerSource, @ScheduledForUtc, @RequestedByUserId, @Reason);
+                SELECT CAST(SCOPE_IDENTITY() AS INT);";
+            return await connection.ExecuteScalarAsync<int>(sql, new
+            {
+                TaskId = taskId,
+                BoxRunId = boxRunId,
+                StartedAtUtc = startedAtUtc,
+                TriggerSource = triggerSource,
+                ScheduledForUtc = scheduledForUtc,
+                RequestedByUserId = requestedByUserId,
+                Reason = reason
+            });
+        }
+
+        public async Task CompleteExecutionAsync(int executionId, DateTime endedAtUtc, string status,
+            string output, string error, int? exitCode, string stdOut, string stdErr)
+        {
+            using var connection = CreateConnection();
+            const string sql = @"
+                UPDATE TaskExecutions
+                SET EndedAt = @EndedAtUtc,
+                    Status = @Status,
+                    Output = @Output,
+                    Error = @Error,
+                    ExitCode = @ExitCode,
+                    StdOut = @StdOut,
+                    StdErr = @StdErr
+                WHERE ExecutionId = @ExecutionId";
             await connection.ExecuteAsync(sql, new
             {
-                TaskId = taskId, BoxRunId = boxRunId, StartedAt = startedAt, EndedAt = endedAt,
-                Status = status, Output = output, Error = error, ExitCode = exitCode,
-                StdOut = stdOut, StdErr = stdErr, TriggerSource = triggerSource, ScheduledForUtc = scheduledForUtc
+                ExecutionId = executionId,
+                EndedAtUtc = endedAtUtc,
+                Status = status,
+                Output = output,
+                Error = error,
+                ExitCode = exitCode,
+                StdOut = stdOut,
+                StdErr = stdErr
             });
+        }
+
+        public async Task<int> AbortRunningExecutionsAsync(DateTime endedAtUtc, string reason)
+        {
+            using var connection = CreateConnection();
+            const string sql = @"
+                UPDATE TaskExecutions
+                SET Status  = 'Aborted',
+                    EndedAt = @EndedAtUtc,
+                    Error   = @Reason,
+                    StdErr  = @Reason
+                WHERE Status = 'Running'
+                  AND EndedAt IS NULL;
+                SELECT @@ROWCOUNT;";
+            return await connection.ExecuteScalarAsync<int>(sql, new { EndedAtUtc = endedAtUtc, Reason = reason });
         }
 
         public async Task<ExecutionRecord?> GetLastExecutionForTaskInBoxRunAsync(int taskId, int boxRunId)
@@ -90,6 +196,7 @@ namespace AScheduler.Data
                        t.Name AS TaskName, te.StartedAt, te.EndedAt, te.Status,
                        te.Output, te.Error, te.ExitCode, te.StdOut, te.StdErr,
                        te.TriggerSource, te.ScheduledForUtc, te.Reason,
+                       CAST(0 AS bit) AS IsStale,
                        COALESCE(te.RequestedByUserId, br.RequestedByUserId) AS RequestedByUserId,
                        u.Username AS RequestedByUsername
                 FROM TaskExecutions te
@@ -114,6 +221,7 @@ namespace AScheduler.Data
                        t.Name AS TaskName, te.StartedAt, te.EndedAt, te.Status,
                        te.Output, te.Error, te.ExitCode, te.StdOut, te.StdErr,
                        te.TriggerSource, te.ScheduledForUtc, te.Reason,
+                       CAST(CASE WHEN te.Status = 'Running' AND te.StartedAt < @StaleBeforeUtc THEN 1 ELSE 0 END AS bit) AS IsStale,
                        COALESCE(te.RequestedByUserId, br.RequestedByUserId) AS RequestedByUserId,
                        u.Username AS RequestedByUsername
                 FROM TaskExecutions te
@@ -122,30 +230,12 @@ namespace AScheduler.Data
                 LEFT JOIN BoxRuns br ON te.BoxRunId = br.BoxRunId
                 LEFT JOIN Users u ON COALESCE(te.RequestedByUserId, br.RequestedByUserId) = u.UserId
                 ORDER BY te.StartedAt DESC";
-            var result = await connection.QueryAsync<ExecutionRecord>(sql, new { Limit = limit });
-            return result.Select(NormalizeRecord).ToList();
-        }
-
-        public async Task SaveDirectExecutionAsync(int taskId, DateTime startedAt, DateTime endedAt,
-            string status, string output, string error, int exitCode, string stdOut, string stdErr,
-            int? requestedByUserId, string reason)
-        {
-            using var connection = CreateConnection();
-            // BoxRunId is stored as NULL — this record belongs to an isolated TaskForceStart,
-            // not to any BoxRun. INNER JOIN-based history queries intentionally exclude these.
-            const string sql = @"
-                INSERT INTO TaskExecutions
-                    (TaskId, BoxRunId, StartedAt, EndedAt, Status, Output, Error, ExitCode,
-                     StdOut, StdErr, TriggerSource, ScheduledForUtc, RequestedByUserId, Reason)
-                VALUES
-                    (@TaskId, NULL, @StartedAt, @EndedAt, @Status, @Output, @Error,
-                     @ExitCode, @StdOut, @StdErr, 'ForceStart', NULL, @RequestedByUserId, @Reason)";
-            await connection.ExecuteAsync(sql, new
+            var result = await connection.QueryAsync<ExecutionRecord>(sql, new
             {
-                TaskId = taskId, StartedAt = startedAt, EndedAt = endedAt,
-                Status = status, Output = output, Error = error, ExitCode = exitCode,
-                StdOut = stdOut, StdErr = stdErr, RequestedByUserId = requestedByUserId, Reason = reason
+                Limit = limit,
+                StaleBeforeUtc = DateTime.UtcNow.AddYears(-10)
             });
+            return result.Select(NormalizeRecord).ToList();
         }
 
         public class ExecutionRecord
@@ -170,6 +260,7 @@ namespace AScheduler.Data
             public string? Reason { get; set; }
             public int? RequestedByUserId { get; set; }
             public string? RequestedByUsername { get; set; }
+            public bool IsStale { get; set; }
         }
 
         private static ExecutionRecord NormalizeRecord(ExecutionRecord record)

@@ -152,4 +152,8 @@ export interface ExecutionDto {
   reason?: string;
   requestedByUserId?: number;
   requestedByUsername?: string;
+  errorMessage?: string;
+  isStale: boolean;
 }
+
+export interface RunningExecutionDto extends ExecutionDto {}

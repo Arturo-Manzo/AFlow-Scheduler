@@ -8,6 +8,7 @@ using AScheduler.Api.Services;
 using AScheduler.Data;
 using AScheduler.Domain;
 using AScheduler.Queue;
+using AScheduler.Services;
 using TimeZoneConverter;
 
 namespace AScheduler.Api.Controllers;
@@ -22,21 +23,25 @@ public class BoxesController : ControllerBase
     private readonly IBoxRepository _boxRepository;
     private readonly ITaskRepository _taskRepository;
     private readonly IAuditLogService _auditLog;
+    private readonly IWorkerStateService _workerState;
     private readonly ILogger<BoxesController> _logger;
 
     public BoxesController(
         IBoxRepository boxRepository,
         ITaskRepository taskRepository,
         IAuditLogService auditLog,
+        IWorkerStateService workerState,
         ILogger<BoxesController> logger)
     {
         ArgumentNullException.ThrowIfNull(boxRepository);
         ArgumentNullException.ThrowIfNull(taskRepository);
         ArgumentNullException.ThrowIfNull(auditLog);
+        ArgumentNullException.ThrowIfNull(workerState);
         ArgumentNullException.ThrowIfNull(logger);
         _boxRepository = boxRepository;
         _taskRepository = taskRepository;
         _auditLog = auditLog;
+        _workerState = workerState;
         _logger = logger;
     }
 
@@ -167,6 +172,17 @@ public class BoxesController : ControllerBase
 
         if (string.IsNullOrWhiteSpace(request.Reason))
             return BadRequest(new ApiResponse<object> { Success = false, Message = "Reason is required.", ErrorCode = "REASON_REQUIRED" });
+
+        // Reject if any task in this box is already running.
+        var tasks = await _taskRepository.GetTasksForBoxAsync(boxId);
+        var runningTask = tasks.FirstOrDefault(t => _workerState.IsTaskRunning(t.Id));
+        if (runningTask != null)
+            return Conflict(new ApiResponse<object>
+            {
+                Success = false,
+                Message = $"Box cannot be started because task '{runningTask.Name}' (ID {runningTask.Id}) is already running.",
+                ErrorCode = "TASK_ALREADY_RUNNING"
+            });
 
         var userId = GetCurrentUserId();
         var queueId = await _boxRepository.InsertQueueItemAsync(

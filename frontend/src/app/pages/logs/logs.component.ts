@@ -91,11 +91,17 @@ import { detectUserTimeZone, formatUtcWithZoneContext } from '../../shared/timez
           <div class="detail-kv"><span class="detail-key">Ended</span><span>{{ selected()!.endedAt ? formatExecutionTime(selected()!.endedAt, selected()!.boxTimeZoneId, 'medium') : '--' }}</span></div>
           <div class="detail-kv"><span class="detail-key">Duration</span><span>{{ selected()!.durationSeconds != null ? selected()!.durationSeconds + 's' : '--' }}</span></div>
           <div class="detail-kv"><span class="detail-key">Exit Code</span><span>{{ selected()!.exitCode ?? '--' }}</span></div>
+          @if (selected()!.isStale) {
+            <div class="detail-kv"><span class="detail-key">Stale</span><span>Yes</span></div>
+          }
           @if (displayRequestedBy(selected()!)) {
             <div class="detail-kv"><span class="detail-key">Requested By</span><span>{{ displayRequestedBy(selected()!) }}</span></div>
           }
           @if (selected()!.reason) {
             <div class="detail-kv detail-kv-full"><span class="detail-key">Reason</span><span>{{ selected()!.reason }}</span></div>
+          }
+          @if (selected()!.errorMessage) {
+            <div class="detail-kv detail-kv-full"><span class="detail-key">Error</span><span>{{ selected()!.errorMessage }}</span></div>
           }
         </div>
         <div class="detail-section">

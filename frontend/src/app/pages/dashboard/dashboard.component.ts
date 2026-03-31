@@ -1,8 +1,9 @@
 ﻿import { Component, HostListener, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { forkJoin } from 'rxjs';
 import { LogsService } from '../../services/logs.service';
 import { BoxesService } from '../../services/boxes.service';
-import { ExecutionDto, BoxDto } from '../../models/models';
+import { ExecutionDto, BoxDto, RunningExecutionDto } from '../../models/models';
 import { detectUserTimeZone, formatUtcWithZoneContext, getDateKeyInTimeZone } from '../../shared/timezone-utils';
 
 @Component({
@@ -146,6 +147,7 @@ export class DashboardComponent implements OnInit {
 
   boxes = signal<BoxDto[]>([]);
   logs = signal<ExecutionDto[]>([]);
+  running = signal<RunningExecutionDto[]>([]);
   selected = signal<ExecutionDto | null>(null);
   loadingBoxes = signal(true);
   loadingLogs = signal(true);
@@ -169,14 +171,18 @@ export class DashboardComponent implements OnInit {
       error: () => this.loadingBoxes.set(false)
     });
 
-    this.logsService.getLatest(50).subscribe({
-      next: data => {
-        this.logs.set(data.slice(0, 10));
+    forkJoin({
+      latest: this.logsService.getLatest(50),
+      running: this.logsService.getRunning()
+    }).subscribe({
+      next: ({ latest, running }) => {
+        this.logs.set(latest.slice(0, 10));
+        this.running.set(running);
         const today = getDateKeyInTimeZone(new Date(), this.userTimeZone);
-        const todayLogs = data.filter(log => getDateKeyInTimeZone(log.startedAt, this.userTimeZone) === today);
-        this.runningCount.set(data.filter(log => log.status === 'Running').length);
+        const todayLogs = latest.filter(log => getDateKeyInTimeZone(log.startedAt, this.userTimeZone) === today);
+        this.runningCount.set(running.length);
         this.successToday.set(todayLogs.filter(log => log.status === 'Success').length);
-        this.failedToday.set(todayLogs.filter(log => log.status === 'Failed' || log.status === 'Timeout').length);
+        this.failedToday.set(todayLogs.filter(log => log.status === 'Failed').length);
         this.loadingLogs.set(false);
       },
       error: () => {
