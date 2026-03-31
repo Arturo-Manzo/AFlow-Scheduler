@@ -154,6 +154,7 @@ public class BoxDto
     public string Name { get; set; } = "";
     public string Description { get; set; } = "";
     public string CronExpression { get; set; } = "";
+    public string TimeZoneId { get; set; } = "Etc/UTC";
     public bool Enabled { get; set; }
     public DateTime? LastRunUtc { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -173,6 +174,7 @@ public class CreateBoxRequest
     public string Name { get; set; } = "";
     public string Description { get; set; } = "";
     public string CronExpression { get; set; } = "";
+    public string TimeZoneId { get; set; } = "";
     public InitialTaskRequest InitialTask { get; set; } = new();
 }
 
@@ -181,6 +183,7 @@ public class UpdateBoxRequest
     public string Name { get; set; } = "";
     public string Description { get; set; } = "";
     public string CronExpression { get; set; } = "";
+    public string TimeZoneId { get; set; } = "";
     public bool Enabled { get; set; }
 }
 
@@ -243,6 +246,15 @@ public class ExecuteTaskRequest
     public string Reason { get; set; } = "";
 }
 
+/// <summary>
+/// Request body for POST /api/tasks/{taskId}/force-start.
+/// Dependencies are always ignored for force-start — no flag needed.
+/// </summary>
+public class ForceStartTaskRequest
+{
+    public string Reason { get; set; } = "";
+}
+
 public class ExecutionDto
 {
     public int ExecutionId { get; set; }
@@ -250,7 +262,8 @@ public class ExecutionDto
     public string TaskName { get; set; } = "";
     public int BoxId { get; set; }
     public string BoxName { get; set; } = "";
-    public int BoxRunId { get; set; }
+    public string BoxTimeZoneId { get; set; } = "Etc/UTC";
+    public int? BoxRunId { get; set; }   // NULL for ForceStart executions
     public DateTime StartedAt { get; set; }
     public DateTime? EndedAt { get; set; }
     public string Status { get; set; } = "";
@@ -259,6 +272,9 @@ public class ExecutionDto
     public string StdErr { get; set; } = "";
     public int? DurationSeconds { get; set; }
     public string TriggerSource { get; set; } = "Scheduled";
+    public string? Reason { get; set; }
+    public int? RequestedByUserId { get; set; }
+    public string? RequestedByUsername { get; set; }
 }
 // API Response DTOs
 // ============================================

@@ -5,28 +5,32 @@ using Microsoft.Extensions.Logging;
 namespace AScheduler.Queue;
 
 /// <summary>
-/// Manages a queue of task execution requests with duplicate prevention.
+/// Unified in-memory queue for both BoxRun requests and TaskForceStart requests.
+/// Provides duplicate prevention independently for each type.
+///
+/// CONCURRENCY NOTE: This queue is in-memory and single-process only.
+/// Running multiple application instances will result in separate queues with no coordination.
 /// </summary>
 public class TaskQueue : ITaskQueue
 {
-    private readonly Channel<BoxRunRequest> _queue;
-    private readonly HashSet<int> _enqueuedBoxRunIds;
-    private readonly object _lockObject = new();
+    private readonly Channel<WorkerItem> _channel;
+    private readonly HashSet<int> _enqueuedBoxRunIds = new();
+    private readonly HashSet<int> _enqueuedForceStartTaskIds = new();
+    private readonly object _lock = new();
     private readonly ILogger<TaskQueue> _logger;
 
     public TaskQueue(ILogger<TaskQueue> logger)
     {
         ArgumentNullException.ThrowIfNull(logger);
         _logger = logger;
-        _queue = Channel.CreateUnbounded<BoxRunRequest>();
-        _enqueuedBoxRunIds = new HashSet<int>();
+        _channel = Channel.CreateUnbounded<WorkerItem>();
     }
 
     public async Task<bool> EnqueueAsync(BoxRunRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        lock (_lockObject)
+        lock (_lock)
         {
             if (_enqueuedBoxRunIds.Contains(request.BoxRunId))
             {
@@ -38,37 +42,58 @@ public class TaskQueue : ITaskQueue
 
         try
         {
-            await _queue.Writer.WriteAsync(request);
+            await _channel.Writer.WriteAsync(new BoxRunItem(request));
             _logger.LogInformation("BoxRun {BoxRunId} enqueued.", request.BoxRunId);
             return true;
         }
         catch (ChannelClosedException ex)
         {
-            lock (_lockObject)
-            {
-                _enqueuedBoxRunIds.Remove(request.BoxRunId);
-            }
-            _logger.LogError(ex, "Failed to enqueue BoxRun {BoxRunId}: queue closed.", request.BoxRunId);
+            lock (_lock) { _enqueuedBoxRunIds.Remove(request.BoxRunId); }
+            _logger.LogError(ex, "Failed to enqueue BoxRun {BoxRunId}: channel closed.", request.BoxRunId);
             throw;
         }
     }
 
-    /// <summary>
-    /// Dequeues the next task execution request from the queue.
-    /// </summary>
-    /// <param name="ct">Cancellation token to cancel the dequeue operation.</param>
-    /// <returns>The next task execution request from the queue.</returns>
-    /// <exception cref="OperationCanceledException">Thrown when the cancellation token is triggered.</exception>
-    public async Task<BoxRunRequest> DequeueAsync(CancellationToken ct)
+    public async Task<bool> EnqueueForceStartAsync(TaskForceStartRequest request)
     {
-        var request = await _queue.Reader.ReadAsync(ct);
+        ArgumentNullException.ThrowIfNull(request);
 
-        lock (_lockObject)
+        lock (_lock)
         {
-            _enqueuedBoxRunIds.Remove(request.BoxRunId);
+            if (_enqueuedForceStartTaskIds.Contains(request.TaskId))
+            {
+                _logger.LogWarning("Task {TaskId} already pending for force-start.", request.TaskId);
+                return false;
+            }
+            _enqueuedForceStartTaskIds.Add(request.TaskId);
         }
 
-        _logger.LogInformation("BoxRun {BoxRunId} dequeued.", request.BoxRunId);
-        return request;
+        try
+        {
+            await _channel.Writer.WriteAsync(new TaskForceStartItem(request));
+            _logger.LogInformation("Task {TaskId} enqueued for force-start.", request.TaskId);
+            return true;
+        }
+        catch (ChannelClosedException ex)
+        {
+            lock (_lock) { _enqueuedForceStartTaskIds.Remove(request.TaskId); }
+            _logger.LogError(ex, "Failed to enqueue force-start for Task {TaskId}: channel closed.", request.TaskId);
+            throw;
+        }
+    }
+
+    public async Task<WorkerItem> DequeueAsync(CancellationToken ct)
+    {
+        var item = await _channel.Reader.ReadAsync(ct);
+
+        lock (_lock)
+        {
+            if (item is BoxRunItem boxRunItem)
+                _enqueuedBoxRunIds.Remove(boxRunItem.Request.BoxRunId);
+            else if (item is TaskForceStartItem forceStartItem)
+                _enqueuedForceStartTaskIds.Remove(forceStartItem.Request.TaskId);
+        }
+
+        return item;
     }
 }

@@ -54,6 +54,7 @@ public class ExecutionHistoryController : ControllerBase
         TaskName = r.TaskName,
         BoxId = r.BoxId,
         BoxName = r.BoxName,
+        BoxTimeZoneId = r.BoxTimeZoneId,
         BoxRunId = r.BoxRunId,
         StartedAt = r.StartedAt,
         EndedAt = r.EndedAt,
@@ -62,6 +63,9 @@ public class ExecutionHistoryController : ControllerBase
         StdOut = r.StdOut,
         StdErr = r.StdErr,
         DurationSeconds = r.EndedAt.HasValue ? (int?)(r.EndedAt.Value - r.StartedAt).TotalSeconds : null,
-        TriggerSource = r.TriggerSource
+        TriggerSource = r.TriggerSource,
+        Reason = r.Reason,
+        RequestedByUserId = r.RequestedByUserId,
+        RequestedByUsername = r.RequestedByUsername
     };
 }

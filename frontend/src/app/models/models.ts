@@ -61,6 +61,7 @@ export interface BoxDto {
   name: string;
   description: string;
   cronExpression: string;
+  timeZoneId: string;
   enabled: boolean;
   lastRunUtc?: string;
   createdAt: string;
@@ -78,6 +79,7 @@ export interface CreateBoxRequest {
   name: string;
   description: string;
   cronExpression: string;
+  timeZoneId: string;
   initialTask: InitialTaskRequest;
 }
 
@@ -85,6 +87,7 @@ export interface UpdateBoxRequest {
   name: string;
   description: string;
   cronExpression: string;
+  timeZoneId: string;
   enabled: boolean;
 }
 
@@ -125,6 +128,10 @@ export interface UpdateTaskRequest {
   dependencyTaskIds: number[];
 }
 
+export interface ForceStartTaskRequest {
+  reason: string;
+}
+
 // --- Executions ---
 export interface ExecutionDto {
   executionId: number;
@@ -132,13 +139,17 @@ export interface ExecutionDto {
   taskName: string;
   boxId: number;
   boxName: string;
-  boxRunId: number;
+  boxTimeZoneId: string;
+  boxRunId?: number;   // null for ForceStart executions
   startedAt: string;
   endedAt?: string;
   status: string;
-  exitCode: number;
+  exitCode?: number;
   stdOut: string;
   stdErr: string;
   durationSeconds?: number;
   triggerSource: string;
+  reason?: string;
+  requestedByUserId?: number;
+  requestedByUsername?: string;
 }

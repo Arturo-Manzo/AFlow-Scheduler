@@ -19,6 +19,7 @@ CREATE TABLE Boxes (
     Name            NVARCHAR(100) NOT NULL,
     Description     NVARCHAR(500) NULL,
     CronExpression  NVARCHAR(100) NOT NULL,
+    TimeZoneId      NVARCHAR(100) NOT NULL,
     AllowParallel   BIT NOT NULL DEFAULT 0,
     Enabled         BIT NOT NULL DEFAULT 1,
     CreatedAtUtc    DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),

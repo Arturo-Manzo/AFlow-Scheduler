@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AScheduler.Services;
 
-public class ConfigurableWorkerPool : BackgroundService
+public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
 {
     private readonly IBoxRepository _boxRepository;
     private readonly ITaskRepository _taskRepository;
@@ -19,7 +19,17 @@ public class ConfigurableWorkerPool : BackgroundService
     private readonly IConfiguration _configuration;
     private readonly ILogger<ConfigurableWorkerPool> _logger;
 
+    // Guards against the same BoxRun being picked up by two workers simultaneously (single-process safety only).
     private readonly ConcurrentDictionary<int, byte> _runningBoxRunIds = new();
+
+    // Guards against concurrent execution of two different BoxRuns for the same Box.
+    // LIMITATION: This is in-memory only. If the application runs as multiple instances
+    // (horizontal scaling), the same BoxId can execute concurrently across instances.
+    // Distributed locking (e.g. DB-level status check or Redis) is required for that scenario.
+    private readonly ConcurrentDictionary<int, byte> _runningBoxIds = new();
+
+    // Guards against concurrent force-start execution of the same Task (single-process only).
+    private readonly ConcurrentDictionary<int, byte> _runningTaskIds = new();
 
     private int _workerCount;
     private int _taskTimeoutSeconds;
@@ -84,8 +94,19 @@ public class ConfigurableWorkerPool : BackgroundService
             {
                 try
                 {
-                    var request = await _taskQueue.DequeueAsync(ct);
-                    await ExecuteBoxRunAsync(workerId, request, ct);
+                    var item = await _taskQueue.DequeueAsync(ct);
+                    switch (item)
+                    {
+                        case BoxRunItem boxRunItem:
+                            await ExecuteBoxRunAsync(workerId, boxRunItem.Request, ct);
+                            break;
+                        case TaskForceStartItem forceStartItem:
+                            await ExecuteTaskForceStartAsync(workerId, forceStartItem.Request, ct);
+                            break;
+                        default:
+                            _logger.LogError("Worker {WorkerId}: unknown WorkerItem type {Type}.", workerId, item.GetType().Name);
+                            break;
+                    }
                 }
                 catch (OperationCanceledException) { break; }
                 catch (Exception ex)
@@ -106,6 +127,19 @@ public class ConfigurableWorkerPool : BackgroundService
         if (!_runningBoxRunIds.TryAdd(boxRunId, 0))
         {
             _logger.LogWarning("BoxRun {BoxRunId} already executing, skipping.", boxRunId);
+            return;
+        }
+
+        // Prevent concurrent execution of two BoxRuns belonging to the same Box.
+        // If another BoxRun for the same BoxId is already running, requeue this request and bail.
+        // The queued item will be retried once the worker picks it up again.
+        if (!_runningBoxIds.TryAdd(boxId, 0))
+        {
+            _logger.LogWarning(
+                "BoxId {BoxId} is already executing. BoxRun {BoxRunId} will be requeued and retried.",
+                boxId, boxRunId);
+            _runningBoxRunIds.TryRemove(boxRunId, out _);
+            await _taskQueue.EnqueueAsync(request);
             return;
         }
 
@@ -194,6 +228,7 @@ public class ConfigurableWorkerPool : BackgroundService
         }
         finally
         {
+            _runningBoxIds.TryRemove(boxId, out _);
             _runningBoxRunIds.TryRemove(boxRunId, out _);
         }
     }
@@ -204,6 +239,77 @@ public class ConfigurableWorkerPool : BackgroundService
         await _boxRepository.UpdateBoxRunStatusAsync(boxRunId, status, null, endTime);
         await _boxRepository.UpdateLastRunAsync(boxId, endTime);
         _logger.LogInformation("BoxRun {BoxRunId} finalized with status {Status}.", boxRunId, status);
+    }
+
+    // -------------------------------------------------------------------------
+    // ISOLATED TASK FORCE-START PATH
+    // Completely separate from BoxRun execution. No BoxRun is created or updated.
+    // -------------------------------------------------------------------------
+
+    private async Task ExecuteTaskForceStartAsync(int workerId, TaskForceStartRequest request, CancellationToken ct)
+    {
+        var taskId = request.TaskId;
+
+        // Reject if the same task is already running — no requeue, caller gets a 409 at enqueue time
+        // for in-queue duplicates; this guard catches the case where execution is already in progress.
+        if (!_runningTaskIds.TryAdd(taskId, 0))
+        {
+            _logger.LogWarning("Task {TaskId} is already executing. Force-start rejected.", taskId);
+            return;
+        }
+
+        try
+        {
+            var task = await _taskRepository.GetByIdAsync(taskId);
+            if (task == null)
+            {
+                _logger.LogError("ForceStart: Task {TaskId} not found at execution time.", taskId);
+                return;
+            }
+
+            _logger.LogInformation("Worker {WorkerId} executing force-start for Task {TaskId} ({TaskName}).",
+                workerId, taskId, task.Name);
+
+            var startTime = DateTime.UtcNow;
+            var executor = _executorFactory.GetExecutor(task.TaskType);
+
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(_taskTimeoutSeconds));
+
+            try
+            {
+                var result = await executor.ExecuteAsync(task);
+                var endTime = DateTime.UtcNow;
+                var status = result.ExitCode == 0 ? "Success" : "Failed";
+
+                await _executionRepository.SaveDirectExecutionAsync(
+                    task.Id, startTime, endTime, status,
+                    result.Output, result.Error, result.ExitCode,
+                    result.Output, result.Error,
+                    request.RequestedByUserId, request.Reason);
+
+                _logger.LogInformation("ForceStart Task {TaskId} finished with status {Status} (exit code {ExitCode}).",
+                    taskId, status, result.ExitCode);
+            }
+            catch (OperationCanceledException)
+            {
+                await _executionRepository.SaveDirectExecutionAsync(
+                    task.Id, startTime, DateTime.UtcNow, "Timeout",
+                    "", $"Timeout after {_taskTimeoutSeconds}s", -1,
+                    "", $"Timeout after {_taskTimeoutSeconds}s",
+                    request.RequestedByUserId, request.Reason);
+
+                _logger.LogWarning("ForceStart Task {TaskId} timed out after {Seconds}s.", taskId, _taskTimeoutSeconds);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ForceStart Task {TaskId} fatal error.", taskId);
+        }
+        finally
+        {
+            _runningTaskIds.TryRemove(taskId, out _);
+        }
     }
 
     private async Task SaveWaitingStatusAsync(TaskDefinition task, int boxRunId, BoxRunRequest request)
@@ -261,4 +367,7 @@ public class ConfigurableWorkerPool : BackgroundService
         catch (OperationCanceledException) { }
         await base.StopAsync(cancellationToken);
     }
+
+    // IWorkerStateService implementation
+    public bool IsTaskRunning(int taskId) => _runningTaskIds.ContainsKey(taskId);
 }

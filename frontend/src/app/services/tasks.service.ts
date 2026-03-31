@@ -2,7 +2,7 @@
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { ApiService } from './api.service';
-import { ApiResponse, TaskDto, CreateTaskRequest, UpdateTaskRequest } from '../models/models';
+import { ApiResponse, TaskDto, CreateTaskRequest, UpdateTaskRequest, ForceStartTaskRequest } from '../models/models';
 
 @Injectable({ providedIn: 'root' })
 export class TasksService {
@@ -26,5 +26,9 @@ export class TasksService {
 
   delete(id: number): Observable<void> {
     return this.api.delete<ApiResponse<void>>('tasks/' + id).pipe(map(() => void 0));
+  }
+
+  forceStart(taskId: number, request: ForceStartTaskRequest): Observable<ApiResponse<object>> {
+    return this.api.post<ApiResponse<object>>(`tasks/${taskId}/force-start`, request);
   }
 }

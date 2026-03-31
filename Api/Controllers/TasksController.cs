@@ -5,6 +5,8 @@ using AScheduler.Api.Dtos;
 using AScheduler.Api.Services;
 using AScheduler.Data;
 using AScheduler.Domain;
+using AScheduler.Queue;
+using AScheduler.Services;
 
 namespace AScheduler.Api.Controllers;
 
@@ -15,15 +17,21 @@ public class TasksController : ControllerBase
 {
     private readonly ITaskRepository _taskRepository;
     private readonly IAuditLogService _auditLog;
+    private readonly ITaskQueue _queue;
+    private readonly IWorkerStateService _workerState;
     private readonly ILogger<TasksController> _logger;
 
-    public TasksController(ITaskRepository taskRepository, IAuditLogService auditLog, ILogger<TasksController> logger)
+    public TasksController(ITaskRepository taskRepository, IAuditLogService auditLog, ITaskQueue queue, IWorkerStateService workerState, ILogger<TasksController> logger)
     {
         ArgumentNullException.ThrowIfNull(taskRepository);
         ArgumentNullException.ThrowIfNull(auditLog);
+        ArgumentNullException.ThrowIfNull(queue);
+        ArgumentNullException.ThrowIfNull(workerState);
         ArgumentNullException.ThrowIfNull(logger);
         _taskRepository = taskRepository;
         _auditLog = auditLog;
+        _queue = queue;
+        _workerState = workerState;
         _logger = logger;
     }
 
@@ -131,6 +139,55 @@ public class TasksController : ControllerBase
             await _auditLog.LogAsync(userId.Value, "Tasks", taskId, "Delete");
 
         return Ok(new ApiResponse<object> { Success = true, Message = "Task deleted." });
+    }
+
+    /// <summary>
+    /// Executes a single task immediately and in isolation.
+    /// - Dependencies are always ignored.
+    /// - Does NOT create or affect any BoxRun.
+    /// - Rejects the request if the same task is already queued or running.
+    /// </summary>
+    [HttpPost("{taskId}/force-start")]
+    [Authorize(Roles = "Admin,Operator")]
+    public async Task<IActionResult> ForceStart(int taskId, [FromBody] ForceStartTaskRequest? request)
+    {
+        var task = await _taskRepository.GetByIdAsync(taskId);
+        if (task == null)
+            return NotFound(new ApiResponse<object> { Success = false, Message = "Task not found.", ErrorCode = "TASK_NOT_FOUND" });
+
+        if (string.IsNullOrWhiteSpace(request?.Reason))
+            return BadRequest(new ApiResponse<object> { Success = false, Message = "Reason is required.", ErrorCode = "REASON_REQUIRED" });
+
+        var userId = GetCurrentUserId();
+
+        if (_workerState.IsTaskRunning(taskId))
+            return Conflict(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Task is already running.",
+                ErrorCode = "TASK_ALREADY_RUNNING"
+            });
+
+        var enqueued = await _queue.EnqueueForceStartAsync(new TaskForceStartRequest
+        {
+            TaskId = taskId,
+            RequestedByUserId = userId,
+            Reason = request?.Reason ?? "",
+            RequestedAtUtc = DateTime.UtcNow
+        });
+
+        if (!enqueued)
+            return Conflict(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Task is already queued or running.",
+                ErrorCode = "TASK_ALREADY_QUEUED"
+            });
+
+        if (userId.HasValue)
+            await _auditLog.LogAsync(userId.Value, "Tasks", taskId, "ForceStart", newValues: task.Name);
+
+        return Accepted(new ApiResponse<object> { Success = true, Message = $"Task '{task.Name}' accepted for immediate execution." });
     }
 
     private static TaskDto MapToDto(TaskDefinition t, List<int> deps) => new()

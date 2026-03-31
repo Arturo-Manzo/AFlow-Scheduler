@@ -4,7 +4,8 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { BoxesService } from '../../services/boxes.service';
 import { TasksService } from '../../services/tasks.service';
 import { AuthService } from '../../services/auth.service';
-import { BoxDto, CreateBoxRequest, UpdateBoxRequest, ExecuteBoxRequest, TaskDto, CreateTaskRequest, UpdateTaskRequest } from '../../models/models';
+import { BoxDto, CreateBoxRequest, UpdateBoxRequest, ExecuteBoxRequest, TaskDto, CreateTaskRequest, UpdateTaskRequest, ForceStartTaskRequest } from '../../models/models';
+import { detectUserTimeZone, formatUtcInTimeZone, formatUtcWithZoneContext, getAvailableTimeZones } from '../../shared/timezone-utils';
 
 type FrequencyOption = 'hourly' | 'every10' | 'every15' | 'every30' | 'onceDaily';
 
@@ -45,10 +46,10 @@ type FrequencyOption = 'hourly' | 'every10' | 'every15' | 'every30' | 'onceDaily
                 <strong>{{ box.name }}</strong>
                 @if (box.description) { <div style="font-size:.78rem;color:var(--text-3);margin-top:.15rem">{{ box.description }}</div> }
               </td>
-              <td><span class="schedule-chip">{{ describeCron(box.cronExpression) }}</span></td>
+              <td><span class="schedule-chip">{{ describeCron(box.cronExpression, box.timeZoneId) }}</span></td>
               <td>{{ box.tasks.length }} step(s)</td>
               <td><span [class]="'badge ' + (box.enabled ? 'badge-success' : 'badge-danger')">{{ box.enabled ? 'Active' : 'Disabled' }}</span></td>
-              <td>{{ box.lastRunUtc ? (box.lastRunUtc | date:'short') : '-' }}</td>
+              <td>{{ box.lastRunUtc ? formatUtcWithBoxContext(box.lastRunUtc, box.timeZoneId, 'short') : '-' }}</td>
               <td class="table-actions">
                 <button class="btn btn-sm btn-view" (click)="openDetail(box)">View</button>
                 @if (auth.isOperator) {
@@ -109,7 +110,21 @@ type FrequencyOption = 'hourly' | 'every10' | 'every15' | 'every30' | 'onceDaily
                     </label>
                   </div>
                 </div>
-                <div class="summary-box"><strong>Preview:</strong><p>{{ liveScheduleSummary() }}</p></div>
+                <div class="scheduler-group">
+                  <p class="scheduler-title">Time Zone</p>
+                  <select formControlName="timeZoneId" [class.is-invalid]="bfi('timeZoneId')">
+                    @for (tz of availableTimeZones; track tz) {
+                      <option [value]="tz">{{ tz }}</option>
+                    }
+                  </select>
+                  @if (bfi('timeZoneId')) { <span class="field-hint">Time zone is required.</span> }
+                  <span class="field-hint" style="color:var(--text-3)">Detected browser time zone: {{ userTimeZone }}</span>
+                </div>
+                <div class="summary-box">
+                  <strong>Preview:</strong>
+                  <p>{{ liveScheduleSummary() }}</p>
+                  <p>This schedule will run in: <strong>{{ selectedTimeZoneId() }}</strong></p>
+                </div>
               </section>
               @if (editingBox()) {
                 <div class="field field-check"><input type="checkbox" formControlName="enabled" id="b-en" /><label for="b-en">Enabled</label></div>
@@ -188,8 +203,11 @@ type FrequencyOption = 'hourly' | 'every10' | 'every15' | 'every30' | 'onceDaily
           <form [formGroup]="runFormGroup" (ngSubmit)="confirmRun()">
             <div class="modal-body">
               <div class="field field-check"><input type="checkbox" formControlName="ignoreDependencies" id="b-idep" /><label for="b-idep">Ignore dependencies</label></div>
-              <div class="field field-check"><input type="checkbox" formControlName="ignoreSchedule" id="b-isch" /><label for="b-isch">Ignore schedule</label></div>
-              <div class="field"><label for="b-reason">Reason (optional)</label><input id="b-reason" formControlName="reason" /></div>
+              <div class="field">
+                <label for="b-reason">Reason <span style="color:var(--danger)">*</span></label>
+                <input id="b-reason" formControlName="reason" placeholder="Reason for manual execution" [class.is-invalid]="bfr('reason')" />
+                @if (bfr('reason')) { <span class="field-hint">Reason is required.</span> }
+              </div>
               @if (runMessage()) { <div class="alert alert-success">{{ runMessage() }}</div> }
               @if (runError()) { <div class="alert alert-danger">{{ runError() }}</div> }
             </div>
@@ -220,7 +238,11 @@ type FrequencyOption = 'hourly' | 'every10' | 'every15' | 'every30' | 'onceDaily
               <div class="detail-meta">
                 <div class="detail-meta-item">
                   <span class="detail-label">Schedule</span>
-                  <span class="schedule-chip">{{ describeCron(viewingBox()!.cronExpression) }}</span>
+                  <span class="schedule-chip">{{ describeCron(viewingBox()!.cronExpression, viewingBox()!.timeZoneId) }}</span>
+                </div>
+                <div class="detail-meta-item">
+                  <span class="detail-label">Time Zone</span>
+                  <span>{{ viewingBox()!.timeZoneId }}</span>
                 </div>
                 <div class="detail-meta-item">
                   <span class="detail-label">Status</span>
@@ -228,11 +250,11 @@ type FrequencyOption = 'hourly' | 'every10' | 'every15' | 'every30' | 'onceDaily
                 </div>
                 <div class="detail-meta-item">
                   <span class="detail-label">Last Run</span>
-                  <span>{{ viewingBox()!.lastRunUtc ? (viewingBox()!.lastRunUtc | date:'short') : 'Never' }}</span>
+                  <span>{{ viewingBox()!.lastRunUtc ? formatUtcWithBoxContext(viewingBox()!.lastRunUtc, viewingBox()!.timeZoneId, 'short') : 'Never' }}</span>
                 </div>
                 <div class="detail-meta-item">
                   <span class="detail-label">Created</span>
-                  <span>{{ viewingBox()!.createdAt | date:'short' }}</span>
+                  <span>{{ formatUtc(viewingBox()!.createdAt, 'short') }}</span>
                 </div>
               </div>
               <div class="tasks-header">
@@ -254,10 +276,15 @@ type FrequencyOption = 'hourly' | 'every10' | 'every15' | 'every30' | 'onceDaily
                           <span [class]="'type-badge type-' + task.taskType.toLowerCase()">{{ task.taskType }}</span>
                           <span [class]="'badge ' + (task.enabled ? 'badge-success' : 'badge-danger')" style="font-size:.72rem">{{ task.enabled ? 'Active' : 'Off' }}</span>
                         </div>
-                        @if (auth.isAdmin) {
+                        @if (auth.isAdmin || auth.isOperator) {
                           <div class="task-card-actions">
-                            <button class="btn btn-sm" (click)="openEditTask(task)">Edit</button>
-                            <button class="btn btn-sm btn-danger" (click)="requestDeleteTask(task)">Delete</button>
+                            @if (auth.isOperator) {
+                              <button class="btn btn-sm" style="background:var(--info-bg);color:var(--info);border-color:transparent" (click)="openForceStart(task)">Force Start</button>
+                            }
+                            @if (auth.isAdmin) {
+                              <button class="btn btn-sm" (click)="openEditTask(task)">Edit</button>
+                              <button class="btn btn-sm btn-danger" (click)="requestDeleteTask(task)">Delete</button>
+                            }
                           </div>
                         }
                       </div>
@@ -366,6 +393,36 @@ type FrequencyOption = 'hourly' | 'every10' | 'every15' | 'every30' | 'onceDaily
         </div>
       </div>
     }
+
+    <!-- ==================== Force Start confirmation ==================== -->
+    @if (forceStartPendingTask()) {
+      <div class="modal-overlay" style="z-index:1200" role="dialog" aria-modal="true">
+        <div class="modal" (click)="$event.stopPropagation()" style="max-width:440px;width:95vw">
+          <div class="modal-header">
+            <h3>Force Start Task</h3>
+            <button type="button" class="modal-close" (click)="closeForceStart()" aria-label="Close">x</button>
+          </div>
+          <form [formGroup]="forceStartForm" (ngSubmit)="confirmForceStart()">
+            <div class="modal-body">
+              <p>This will execute <strong>{{ forceStartPendingTask()!.name }}</strong> ignoring its dependencies. Continue?</p>
+              <div class="field" style="margin-top:.75rem">
+                <label for="fs-reason">Reason <span style="color:var(--danger)">*</span></label>
+                <input id="fs-reason" formControlName="reason" placeholder="e.g. Manual retry after outage" [class.is-invalid]="bffs()" />
+                @if (bffs()) { <span class="field-hint">Reason is required.</span> }
+              </div>
+              @if (forceStartMessage()) { <div class="alert alert-success">{{ forceStartMessage() }}</div> }
+              @if (forceStartError()) { <div class="alert alert-danger">{{ forceStartError() }}</div> }
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn" (click)="closeForceStart()">Close</button>
+              @if (!forceStartMessage()) {
+                <button type="submit" class="btn btn-primary" [disabled]="forceStartLoading()">{{ forceStartLoading() ? 'Starting...' : 'Force Start' }}</button>
+              }
+            </div>
+          </form>
+        </div>
+      </div>
+    }
   `,
   styles: [`
     .schedule-chip { display:inline-block;background:var(--bg-muted);border:1px solid var(--border);color:var(--text-2);border-radius:999px;padding:.2rem .55rem;font-size:.75rem }
@@ -421,6 +478,9 @@ export class TasksComponent implements OnInit {
   auth = inject(AuthService);
   private fb = inject(FormBuilder);
 
+  readonly userTimeZone = detectUserTimeZone();
+  readonly availableTimeZones = getAvailableTimeZones(this.userTimeZone);
+
   // --- Box list ---
   boxes = signal<BoxDto[]>([]);
   loading = signal(true);
@@ -436,6 +496,12 @@ export class TasksComponent implements OnInit {
   deleteError = signal('');
   runMessage = signal('');
   runError = signal('');
+
+  // --- Task force start ---
+  forceStartPendingTask = signal<TaskDto | null>(null);
+  forceStartLoading = signal(false);
+  forceStartMessage = signal('');
+  forceStartError = signal('');
 
   // --- Detail view ---
   viewingBox = signal<BoxDto | null>(null);
@@ -473,6 +539,7 @@ export class TasksComponent implements OnInit {
     description: [''],
     frequency: ['hourly' as FrequencyOption],
     specificTime: ['07:00'],
+    timeZoneId: [this.userTimeZone, Validators.required],
     dayMon: [true], dayTue: [true], dayWed: [true], dayThu: [true],
     dayFri: [true], daySat: [false], daySun: [false],
     enabled: [true],
@@ -494,12 +561,16 @@ export class TasksComponent implements OnInit {
 
   runFormGroup = this.fb.group({
     ignoreDependencies: [false],
-    ignoreSchedule: [false],
-    reason: ['']
+    reason: ['', Validators.required]
+  });
+
+  forceStartForm = this.fb.group({
+    reason: ['', Validators.required]
   });
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
+    if (this.forceStartPendingTask()) { this.closeForceStart(); return; }
     if (this.showTaskForm()) { this.closeTaskForm(); return; }
     if (this.taskPendingDelete()) { this.cancelDeleteTask(); return; }
     if (this.showBoxForm()) { this.closeBoxForm(); return; }
@@ -520,6 +591,16 @@ export class TasksComponent implements OnInit {
     return c.invalid && (c.dirty || c.touched);
   }
 
+  bfr(field: string): boolean {
+    const c = this.runFormGroup.get(field)!;
+    return c.invalid && (c.dirty || c.touched);
+  }
+
+  bffs(): boolean {
+    const c = this.forceStartForm.get('reason')!;
+    return c.invalid && (c.dirty || c.touched);
+  }
+
   loadBoxes(): void {
     this.loading.set(true);
     this.loadError.set('');
@@ -533,6 +614,7 @@ export class TasksComponent implements OnInit {
     this.editingBox.set(null);
     this.boxForm.reset({
       frequency: 'hourly', specificTime: '07:00',
+      timeZoneId: this.userTimeZone,
       dayMon: true, dayTue: true, dayWed: true, dayThu: true, dayFri: true, daySat: false, daySun: false,
       enabled: true,
       taskName: '', taskDescription: '', taskCommand: '', taskType: 'Exe'
@@ -556,6 +638,7 @@ export class TasksComponent implements OnInit {
       name: box.name, description: box.description,
       frequency: parsed?.frequency ?? 'hourly',
       specificTime: parsed?.specificTime ?? '07:00',
+      timeZoneId: box.timeZoneId,
       dayMon: parsed ? parsed.days.includes(1) : true,
       dayTue: parsed ? parsed.days.includes(2) : true,
       dayWed: parsed ? parsed.days.includes(3) : true,
@@ -581,14 +664,14 @@ export class TasksComponent implements OnInit {
     const v = this.boxForm.value;
     const editing = this.editingBox();
     if (editing) {
-      const req: UpdateBoxRequest = { name: v.name!, description: v.description ?? '', cronExpression, enabled: v.enabled ?? true };
+      const req: UpdateBoxRequest = { name: v.name!, description: v.description ?? '', cronExpression, timeZoneId: v.timeZoneId!, enabled: v.enabled ?? true };
       this.boxesService.update(editing.boxId, req).subscribe({
         next: () => { this.saving.set(false); this.closeBoxForm(); this.loadBoxes(); },
         error: (err) => { this.boxFormError.set(err?.error?.message || 'Failed to save.'); this.saving.set(false); }
       });
     } else {
       const req: CreateBoxRequest = {
-        name: v.name!, description: v.description ?? '', cronExpression,
+        name: v.name!, description: v.description ?? '', cronExpression, timeZoneId: v.timeZoneId!,
         initialTask: {
           name: v.taskName!,
           description: v.taskDescription ?? '',
@@ -618,7 +701,7 @@ export class TasksComponent implements OnInit {
 
   runNow(box: BoxDto): void {
     this.runningBox.set(box);
-    this.runFormGroup.reset({ ignoreDependencies: false, ignoreSchedule: false, reason: '' });
+    this.runFormGroup.reset({ ignoreDependencies: false, reason: '' });
     this.runMessage.set(''); this.runError.set('');
     this.runFormVisible.set(true);
   }
@@ -626,13 +709,15 @@ export class TasksComponent implements OnInit {
   closeRunForm(): void { this.runFormVisible.set(false); this.runMessage.set(''); this.runError.set(''); }
 
   confirmRun(): void {
+    this.runFormGroup.markAllAsTouched();
+    if (this.runFormGroup.invalid) return;
     const box = this.runningBox();
     if (!box) return;
     const v = this.runFormGroup.value;
-    const req: ExecuteBoxRequest = { ignoreDependencies: v.ignoreDependencies ?? false, ignoreSchedule: v.ignoreSchedule ?? false, reason: v.reason ?? '' };
+    const req: ExecuteBoxRequest = { ignoreDependencies: v.ignoreDependencies ?? false, ignoreSchedule: false, reason: v.reason ?? '' };
     this.boxesService.runNow(box.boxId, req).subscribe({
       next: () => this.runMessage.set('Box queued successfully!'),
-      error: () => this.runError.set('Failed to queue box.')
+      error: (err) => this.runError.set(err?.error?.message || 'Failed to queue box.')
     });
   }
 
@@ -797,6 +882,52 @@ export class TasksComponent implements OnInit {
   }
 
   // =====================================================================
+  // Task force start
+  // =====================================================================
+  openForceStart(task: TaskDto): void {
+    this.forceStartPendingTask.set(task);
+    this.forceStartForm.reset({ reason: '' });
+    this.forceStartMessage.set('');
+    this.forceStartError.set('');
+  }
+
+  closeForceStart(): void {
+    this.forceStartPendingTask.set(null);
+    this.forceStartMessage.set('');
+    this.forceStartError.set('');
+  }
+
+  confirmForceStart(): void {
+    this.forceStartForm.markAllAsTouched();
+    if (this.forceStartForm.invalid) return;
+    const task = this.forceStartPendingTask();
+    if (!task) return;
+    this.forceStartLoading.set(true);
+    this.forceStartError.set('');
+    const req: ForceStartTaskRequest = { reason: this.forceStartForm.value.reason ?? '' };
+    this.tasksService.forceStart(task.taskId, req).subscribe({
+      next: () => {
+        this.forceStartLoading.set(false);
+        this.forceStartMessage.set(`Task '${task.name}' accepted for immediate execution.`);
+      },
+      error: (err) => {
+        this.forceStartLoading.set(false);
+        const status = err?.status;
+        if (status === 409) {
+          const code = err?.error?.errorCode;
+          this.forceStartError.set(
+            code === 'TASK_ALREADY_RUNNING'
+              ? 'Task is already running.'
+              : 'Task is already queued or running.'
+          );
+        } else {
+          this.forceStartError.set(err?.error?.message || 'Failed to start task.');
+        }
+      }
+    });
+  }
+
+  // =====================================================================
   // Task delete
   // =====================================================================
   requestDeleteTask(task: TaskDto): void { this.taskDeleteError.set(''); this.taskPendingDelete.set(task); }
@@ -812,7 +943,7 @@ export class TasksComponent implements OnInit {
     });
   }
 
-  describeCron(cron: string): string {
+  describeCron(cron: string, timeZoneId = 'Etc/UTC'): string {
     const cfg = this.parseCronToSchedule(cron);
     if (!cfg) return cron || 'Manual only';
     const days = cfg.days.length === 7 ? 'Every day' : cfg.days.map(d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ');
@@ -821,11 +952,39 @@ export class TasksComponent implements OnInit {
       : cfg.frequency === 'every15' ? 'every 15 min'
       : cfg.frequency === 'every30' ? 'every 30 min'
       : 'at ' + cfg.specificTime;
-    return days + ' \u00B7 ' + freq;
+    return days + ' \u00B7 ' + freq + ' in ' + timeZoneId + ' time';
   }
 
   liveScheduleSummary(): string {
-    return this.describeCron(this.buildCronFromForm() ?? '');
+    return this.describeCron(this.buildCronFromForm() ?? '', this.selectedTimeZoneId());
+  }
+
+  selectedTimeZoneId(): string {
+    return this.boxForm.value.timeZoneId || this.userTimeZone;
+  }
+
+  formatUtc(value: string | undefined | null, variant: 'short' | 'medium' | 'date'): string {
+    return formatUtcInTimeZone(
+      value,
+      this.userTimeZone,
+      variant === 'short'
+        ? { dateStyle: 'short', timeStyle: 'short' }
+        : variant === 'medium'
+          ? { dateStyle: 'medium', timeStyle: 'short' }
+          : { dateStyle: 'medium' }
+    );
+  }
+
+  formatUtcWithBoxContext(value: string | undefined | null, boxTimeZoneId: string | undefined, variant: 'short' | 'medium'): string {
+    return formatUtcWithZoneContext(
+      value,
+      this.userTimeZone,
+      boxTimeZoneId,
+      variant === 'short'
+        ? { dateStyle: 'short', timeStyle: 'short' }
+        : { dateStyle: 'medium', timeStyle: 'short' },
+      { timeStyle: 'short' }
+    );
   }
 
   private selectedDays(): number[] {

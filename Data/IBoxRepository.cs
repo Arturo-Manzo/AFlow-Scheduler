@@ -6,8 +6,8 @@ namespace AScheduler.Data
     {
         Task<List<BoxDefinition>> GetActiveBoxesAsync();
         Task<BoxDefinition?> GetByIdAsync(int boxId);
-        Task<int> CreateAsync(string name, string description, string cronExpression, bool allowParallel);
-        Task<bool> UpdateAsync(int boxId, string name, string description, string cronExpression, bool allowParallel, bool enabled);
+        Task<int> CreateAsync(string name, string description, string cronExpression, string timeZoneId, bool allowParallel);
+        Task<bool> UpdateAsync(int boxId, string name, string description, string cronExpression, string timeZoneId, bool allowParallel, bool enabled);
         Task<bool> DeleteAsync(int boxId);
         Task UpdateLastRunAsync(int boxId, DateTime lastRunUtc);
 

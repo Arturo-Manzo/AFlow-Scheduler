@@ -158,7 +158,9 @@ builder.Services.AddSingleton<IExecutionRepository, ExecutionRepository>();
 // Background Services
 // ============================================
 builder.Services.AddHostedService<SchedulerService>();
-builder.Services.AddHostedService<ConfigurableWorkerPool>();
+builder.Services.AddSingleton<ConfigurableWorkerPool>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<ConfigurableWorkerPool>());
+builder.Services.AddSingleton<IWorkerStateService>(sp => sp.GetRequiredService<ConfigurableWorkerPool>());
 
 // ============================================
 // Health Checks

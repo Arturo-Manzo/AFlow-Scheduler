@@ -10,6 +10,7 @@ namespace AScheduler.Domain
         public string Name { get; set; } = "";
         public string Description { get; set; } = "";
         public string CronExpression { get; set; } = "";
+        public string TimeZoneId { get; set; } = "Etc/UTC";
         public bool AllowParallel { get; set; }
         public bool Enabled { get; set; }
         public DateTime CreatedAtUtc { get; set; }

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Cronos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
@@ -7,6 +8,7 @@ using AScheduler.Api.Services;
 using AScheduler.Data;
 using AScheduler.Domain;
 using AScheduler.Queue;
+using TimeZoneConverter;
 
 namespace AScheduler.Api.Controllers;
 
@@ -15,6 +17,8 @@ namespace AScheduler.Api.Controllers;
 [Authorize]
 public class BoxesController : ControllerBase
 {
+    private static readonly HashSet<string> ValidIanaTimeZones = new(TZConvert.KnownIanaTimeZoneNames, StringComparer.Ordinal);
+
     private readonly IBoxRepository _boxRepository;
     private readonly ITaskRepository _taskRepository;
     private readonly IAuditLogService _auditLog;
@@ -65,6 +69,9 @@ public class BoxesController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Name))
             return BadRequest(new ApiResponse<object> { Success = false, Message = "Name is required.", ErrorCode = "MISSING_FIELDS" });
 
+        if (!TryValidateSchedule(request.CronExpression, request.TimeZoneId, out var scheduleError))
+            return BadRequest(new ApiResponse<object> { Success = false, Message = scheduleError, ErrorCode = "INVALID_SCHEDULE" });
+
         if (request.InitialTask == null ||
             string.IsNullOrWhiteSpace(request.InitialTask.Name) ||
             string.IsNullOrWhiteSpace(request.InitialTask.Command) ||
@@ -74,7 +81,7 @@ public class BoxesController : ControllerBase
         try
         {
             var boxId = await _boxRepository.CreateAsync(
-                request.Name, request.Description, request.CronExpression, false);
+                request.Name, request.Description, request.CronExpression, request.TimeZoneId, false);
 
             await _taskRepository.CreateAsync(
                 boxId,
@@ -119,7 +126,10 @@ public class BoxesController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Name))
             return BadRequest(new ApiResponse<object> { Success = false, Message = "Name is required.", ErrorCode = "MISSING_FIELDS" });
 
-        await _boxRepository.UpdateAsync(boxId, request.Name, request.Description, request.CronExpression, false, request.Enabled);
+        if (!TryValidateSchedule(request.CronExpression, request.TimeZoneId, out var scheduleError))
+            return BadRequest(new ApiResponse<object> { Success = false, Message = scheduleError, ErrorCode = "INVALID_SCHEDULE" });
+
+        await _boxRepository.UpdateAsync(boxId, request.Name, request.Description, request.CronExpression, request.TimeZoneId, false, request.Enabled);
 
         var userId = GetCurrentUserId();
         if (userId.HasValue)
@@ -155,6 +165,9 @@ public class BoxesController : ControllerBase
         if (box == null)
             return NotFound(new ApiResponse<object> { Success = false, Message = "Box not found.", ErrorCode = "BOX_NOT_FOUND" });
 
+        if (string.IsNullOrWhiteSpace(request.Reason))
+            return BadRequest(new ApiResponse<object> { Success = false, Message = "Reason is required.", ErrorCode = "REASON_REQUIRED" });
+
         var userId = GetCurrentUserId();
         var queueId = await _boxRepository.InsertQueueItemAsync(
             boxId, userId, request.IgnoreDependencies, request.IgnoreSchedule, request.Reason);
@@ -173,6 +186,7 @@ public class BoxesController : ControllerBase
             Name = box.Name,
             Description = box.Description,
             CronExpression = box.CronExpression,
+            TimeZoneId = box.TimeZoneId,
             Enabled = box.Enabled,
             LastRunUtc = box.LastRunUtc,
             CreatedAt = box.CreatedAtUtc
@@ -193,6 +207,50 @@ public class BoxesController : ControllerBase
             }
         }
         return dto;
+    }
+
+    private static bool TryValidateSchedule(string cronExpression, string timeZoneId, out string error)
+    {
+        if (string.IsNullOrWhiteSpace(timeZoneId))
+        {
+            error = "Time zone is required.";
+            return false;
+        }
+
+        if (!ValidIanaTimeZones.Contains(timeZoneId))
+        {
+            error = "Time zone is invalid. Use a valid IANA time zone ID.";
+            return false;
+        }
+
+        try
+        {
+            _ = TZConvert.GetTimeZoneInfo(timeZoneId);
+        }
+        catch
+        {
+            error = "Time zone is invalid. Use a valid IANA time zone ID.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(cronExpression))
+        {
+            error = "Cron expression is required.";
+            return false;
+        }
+
+        try
+        {
+            _ = CronExpression.Parse(cronExpression);
+        }
+        catch
+        {
+            error = "Cron expression is invalid.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
     }
 
     private int? GetCurrentUserId()

@@ -4,6 +4,7 @@ using Cronos;
 using AScheduler.Queue;
 using AScheduler.Data;
 using AScheduler.Domain;
+using TimeZoneConverter;
 
 namespace AScheduler.Services
 {
@@ -13,7 +14,6 @@ namespace AScheduler.Services
         private readonly ITaskQueue _queue;
         private readonly IConfiguration _config;
         private readonly ILogger<SchedulerService> _logger;
-        private readonly HashSet<string> _scheduledKeysInFlight = new();
 
         public SchedulerService(IBoxRepository boxRepository, ITaskQueue queue, IConfiguration config, ILogger<SchedulerService> logger)
         {
@@ -41,7 +41,6 @@ namespace AScheduler.Services
         {
             var boxes = await _boxRepository.GetActiveBoxesAsync();
             var now = DateTime.UtcNow;
-            PruneScheduledKeys(now);
 
             foreach (var box in boxes)
             {
@@ -49,12 +48,10 @@ namespace AScheduler.Services
                 if (!scheduledOccurrence.HasValue)
                     continue;
 
-                var key = BuildScheduledKey(box.Id, scheduledOccurrence.Value);
-                if (_scheduledKeysInFlight.Contains(key))
-                    continue;
-
-                var alreadyExecuted = await _boxRepository.HasBoxRunForScheduledTimeAsync(box.Id, scheduledOccurrence.Value);
-                if (alreadyExecuted)
+                // DB is the single source of truth: any existing BoxRun (Pending, Running, or completed)
+                // means this scheduled occurrence has already been handled.
+                var alreadyExists = await _boxRepository.HasBoxRunForScheduledTimeAsync(box.Id, scheduledOccurrence.Value);
+                if (alreadyExists)
                     continue;
 
                 var boxRunId = await _boxRepository.CreateBoxRunAsync(box.Id, scheduledOccurrence.Value, "Scheduled", null);
@@ -71,10 +68,6 @@ namespace AScheduler.Services
                 if (!enqueued)
                 {
                     _logger.LogWarning("Failed to enqueue BoxRun {BoxRunId} for Box {BoxId}: already pending.", boxRunId, box.Id);
-                }
-                else
-                {
-                    _scheduledKeysInFlight.Add(key);
                 }
             }
 
@@ -129,17 +122,21 @@ namespace AScheduler.Services
             if (string.IsNullOrWhiteSpace(box.CronExpression))
                 return null;
 
+            if (string.IsNullOrWhiteSpace(box.TimeZoneId))
+                return null;
+
             try
             {
+                var timeZone = TZConvert.GetTimeZoneInfo(box.TimeZoneId);
                 var cron = CronExpression.Parse(box.CronExpression);
-                var searchStart = utcNow.Date.AddDays(-7).AddMinutes(-1);
+                var searchStart = utcNow.AddDays(-7).AddMinutes(-1);
                 DateTime? latest = null;
-                var next = cron.GetNextOccurrence(searchStart, TimeZoneInfo.Utc);
+                var next = cron.GetNextOccurrence(searchStart, timeZone);
 
                 while (next.HasValue && next.Value <= utcNow)
                 {
                     latest = next.Value;
-                    next = cron.GetNextOccurrence(next.Value, TimeZoneInfo.Utc);
+                    next = cron.GetNextOccurrence(next.Value, timeZone);
                 }
 
                 if (!latest.HasValue)
@@ -159,22 +156,9 @@ namespace AScheduler.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Box {BoxId} has an invalid cron expression: '{CronExpression}'.", box.Id, box.CronExpression);
+                _logger.LogError(ex, "Box {BoxId} has an invalid schedule: cron '{CronExpression}', time zone '{TimeZoneId}'.", box.Id, box.CronExpression, box.TimeZoneId);
                 return null;
             }
-        }
-
-        private static string BuildScheduledKey(int boxId, DateTime scheduledForUtc) =>
-            $"{boxId}:{scheduledForUtc:O}";
-
-        private void PruneScheduledKeys(DateTime utcNow)
-        {
-            var cutoff = utcNow.AddDays(-2);
-            var keysToRemove = _scheduledKeysInFlight
-                .Where(key => DateTime.TryParse(key.Split(':', 2)[1], out var timestamp) && timestamp < cutoff)
-                .ToList();
-            foreach (var key in keysToRemove)
-                _scheduledKeysInFlight.Remove(key);
         }
     }
 }

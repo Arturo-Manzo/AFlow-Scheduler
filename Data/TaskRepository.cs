@@ -104,7 +104,7 @@ namespace AScheduler.Data
             {
                 Id = dto.Id, BoxId = dto.BoxId, Name = dto.Name, Description = dto.Description,
                 Command = dto.Command, TaskType = taskType, AllowParallel = dto.AllowParallel,
-                SortOrder = dto.SortOrder, Enabled = dto.Enabled, CreatedAtUtc = dto.CreatedAtUtc
+                SortOrder = dto.SortOrder, Enabled = dto.Enabled, CreatedAtUtc = UtcDateTimeMapper.EnsureUtc(dto.CreatedAtUtc)
             };
         }
 

@@ -22,42 +22,44 @@ namespace AScheduler.Data
         {
             using var connection = CreateConnection();
             const string sql = @"
-                SELECT BoxId AS Id, Name, Description, CronExpression, AllowParallel, Enabled, CreatedAtUtc, LastRunUtc
+                SELECT BoxId AS Id, Name, Description, CronExpression, TimeZoneId, AllowParallel, Enabled, CreatedAtUtc, LastRunUtc
                 FROM Boxes WHERE Enabled = 1";
             var result = await connection.QueryAsync<BoxDefinition>(sql);
-            return result.ToList();
+            return result.Select(NormalizeBox).ToList();
         }
 
         public async Task<BoxDefinition?> GetByIdAsync(int boxId)
         {
             using var connection = CreateConnection();
             const string sql = @"
-                SELECT BoxId AS Id, Name, Description, CronExpression, AllowParallel, Enabled, CreatedAtUtc, LastRunUtc
+                SELECT BoxId AS Id, Name, Description, CronExpression, TimeZoneId, AllowParallel, Enabled, CreatedAtUtc, LastRunUtc
                 FROM Boxes WHERE BoxId = @BoxId";
-            return await connection.QueryFirstOrDefaultAsync<BoxDefinition>(sql, new { BoxId = boxId });
+            var box = await connection.QueryFirstOrDefaultAsync<BoxDefinition>(sql, new { BoxId = boxId });
+            return box == null ? null : NormalizeBox(box);
         }
 
-        public async Task<int> CreateAsync(string name, string description, string cronExpression, bool allowParallel)
+        public async Task<int> CreateAsync(string name, string description, string cronExpression, string timeZoneId, bool allowParallel)
         {
             using var connection = CreateConnection();
             const string sql = @"
-                INSERT INTO Boxes (Name, Description, CronExpression, AllowParallel, Enabled, CreatedAtUtc)
-                VALUES (@Name, @Description, @CronExpression, @AllowParallel, 1, SYSUTCDATETIME());
+                INSERT INTO Boxes (Name, Description, CronExpression, TimeZoneId, AllowParallel, Enabled, CreatedAtUtc)
+                VALUES (@Name, @Description, @CronExpression, @TimeZoneId, @AllowParallel, 1, SYSUTCDATETIME());
                 SELECT CAST(SCOPE_IDENTITY() AS INT);";
             return await connection.ExecuteScalarAsync<int>(sql,
-                new { Name = name, Description = description, CronExpression = cronExpression, AllowParallel = allowParallel });
+                new { Name = name, Description = description, CronExpression = cronExpression, TimeZoneId = timeZoneId, AllowParallel = allowParallel });
         }
 
-        public async Task<bool> UpdateAsync(int boxId, string name, string description, string cronExpression, bool allowParallel, bool enabled)
+        public async Task<bool> UpdateAsync(int boxId, string name, string description, string cronExpression, string timeZoneId, bool allowParallel, bool enabled)
         {
             using var connection = CreateConnection();
             const string sql = @"
                 UPDATE Boxes
                 SET Name = @Name, Description = @Description, CronExpression = @CronExpression,
+                    TimeZoneId = @TimeZoneId,
                     AllowParallel = @AllowParallel, Enabled = @Enabled
                 WHERE BoxId = @BoxId";
             var rows = await connection.ExecuteAsync(sql,
-                new { BoxId = boxId, Name = name, Description = description, CronExpression = cronExpression, AllowParallel = allowParallel, Enabled = enabled });
+                new { BoxId = boxId, Name = name, Description = description, CronExpression = cronExpression, TimeZoneId = timeZoneId, AllowParallel = allowParallel, Enabled = enabled });
             return rows > 0;
         }
 
@@ -104,9 +106,10 @@ namespace AScheduler.Data
         public async Task<bool> HasBoxRunForScheduledTimeAsync(int boxId, DateTime scheduledForUtc)
         {
             using var connection = CreateConnection();
+            // Any existing BoxRun (including Pending/Running) means this occurrence is already handled.
             const string sql = @"
                 SELECT COUNT(1) FROM BoxRuns
-                WHERE BoxId = @BoxId AND ScheduledForUtc = @ScheduledForUtc AND Status <> 'Pending'";
+                WHERE BoxId = @BoxId AND ScheduledForUtc = @ScheduledForUtc";
             var count = await connection.ExecuteScalarAsync<int>(sql, new { BoxId = boxId, ScheduledForUtc = scheduledForUtc });
             return count > 0;
         }
@@ -122,7 +125,11 @@ namespace AScheduler.Data
                 WHERE Status = 'Pending'
                 ORDER BY CreatedAt ASC";
             var result = await connection.QueryAsync<BoxQueueItem>(sql);
-            return result.ToList();
+            return result.Select(item =>
+            {
+                item.CreatedAt = UtcDateTimeMapper.EnsureUtc(item.CreatedAt);
+                return item;
+            }).ToList();
         }
 
         public async Task MarkQueueItemAsync(int queueId, string status)
@@ -143,6 +150,13 @@ namespace AScheduler.Data
                 SELECT CAST(SCOPE_IDENTITY() AS INT);";
             return await connection.ExecuteScalarAsync<int>(sql,
                 new { BoxId = boxId, UserId = userId, IgnoreDependencies = ignoreDependencies, IgnoreSchedule = ignoreSchedule, Reason = reason });
+        }
+
+        private static BoxDefinition NormalizeBox(BoxDefinition box)
+        {
+            box.CreatedAtUtc = UtcDateTimeMapper.EnsureUtc(box.CreatedAtUtc);
+            box.LastRunUtc = UtcDateTimeMapper.EnsureUtc(box.LastRunUtc);
+            return box;
         }
     }
 }

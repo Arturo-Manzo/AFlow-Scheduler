@@ -10,6 +10,7 @@ import {
   UpdateUserRequest,
   UserDto
 } from '../../models/models';
+import { detectUserTimeZone, formatUtcInTimeZone } from '../../shared/timezone-utils';
 
 @Component({
   selector: 'app-users',
@@ -70,7 +71,7 @@ import {
                     {{ user.isActive ? 'Active' : 'Inactive' }}
                   </span>
                 </td>
-                <td>{{ user.createdAt | date:'mediumDate' }}</td>
+                <td>{{ formatCreatedAt(user.createdAt) }}</td>
                 <td class="table-actions">
                   <button class="btn btn-sm" (click)="openEdit(user)">Edit</button>
                 </td>
@@ -178,6 +179,8 @@ export class UsersComponent implements OnInit {
   auth = inject(AuthService);
   private fb = inject(FormBuilder);
 
+  readonly userTimeZone = detectUserTimeZone();
+
   users = signal<UserDto[]>([]);
   loading = signal(false);
   saving = signal(false);
@@ -208,6 +211,10 @@ export class UsersComponent implements OnInit {
     if (this.auth.isAdmin) {
       this.loadUsers();
     }
+  }
+
+  formatCreatedAt(value: string): string {
+    return formatUtcInTimeZone(value, this.userTimeZone, { dateStyle: 'medium' });
   }
 
   loadUsers(): void {
