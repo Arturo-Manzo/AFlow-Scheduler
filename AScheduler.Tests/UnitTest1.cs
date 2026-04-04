@@ -4,6 +4,7 @@ using AScheduler.Api.Controllers;
 using AScheduler.Api.Dtos;
 using AScheduler.Data;
 using AScheduler.Domain;
+using AScheduler.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Moq;
@@ -17,7 +18,8 @@ public class ExecutionHistoryControllerTests
         IExecutionRepository? executionRepository = null,
         ITaskRepository? taskRepository = null,
         IBoxRepository? boxRepository = null,
-        IConfiguration? configuration = null)
+        IConfiguration? configuration = null,
+        IStaleThresholdProvider? staleThresholdProvider = null)
     {
         var config = configuration ?? new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -30,7 +32,8 @@ public class ExecutionHistoryControllerTests
             executionRepository ?? Mock.Of<IExecutionRepository>(),
             taskRepository ?? Mock.Of<ITaskRepository>(),
             boxRepository ?? Mock.Of<IBoxRepository>(),
-            config);
+            config,
+            staleThresholdProvider ?? Mock.Of<IStaleThresholdProvider>());
     }
 
     [Fact]
@@ -160,7 +163,11 @@ public class ExecutionHistoryControllerTests
             }
         });
 
-        var controller = BuildController(execRepoMock.Object);
+        var staleMock = new Mock<IStaleThresholdProvider>();
+        staleMock.Setup(s => s.IsStaleAsync(3, It.IsAny<System.DateTime>())).ReturnsAsync(true);
+        staleMock.Setup(s => s.GetStaleThresholdMinutesAsync(3)).ReturnsAsync(15.0);
+
+        var controller = BuildController(execRepoMock.Object, staleThresholdProvider: staleMock.Object);
 
         var result = await controller.GetRunning();
 
@@ -169,6 +176,7 @@ public class ExecutionHistoryControllerTests
         Assert.Single(response.Data);
         Assert.True(response.Data[0].IsStale);
         Assert.Equal("Running", response.Data[0].Status);
+        Assert.Equal(15.0, response.Data[0].StaleThresholdMinutes);
     }
 }
 

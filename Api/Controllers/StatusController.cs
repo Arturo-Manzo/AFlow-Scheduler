@@ -19,6 +19,7 @@ public class StatusController : ControllerBase
     private readonly IWebHostEnvironment _env;
     private readonly INotificationSettingsRepository _notificationSettingsRepository;
     private readonly IExecutionRepository _executionRepository;
+    private readonly IStaleThresholdProvider _staleThresholdProvider;
 
     public StatusController(
         IWorkerStateService workerState,
@@ -26,7 +27,8 @@ public class StatusController : ControllerBase
         IConfiguration configuration,
         IWebHostEnvironment env,
         INotificationSettingsRepository notificationSettingsRepository,
-        IExecutionRepository executionRepository)
+        IExecutionRepository executionRepository,
+        IStaleThresholdProvider staleThresholdProvider)
     {
         ArgumentNullException.ThrowIfNull(workerState);
         ArgumentNullException.ThrowIfNull(taskQueue);
@@ -34,12 +36,14 @@ public class StatusController : ControllerBase
         ArgumentNullException.ThrowIfNull(env);
         ArgumentNullException.ThrowIfNull(notificationSettingsRepository);
         ArgumentNullException.ThrowIfNull(executionRepository);
+        ArgumentNullException.ThrowIfNull(staleThresholdProvider);
         _workerState = workerState;
         _taskQueue = taskQueue;
         _configuration = configuration;
         _env = env;
         _notificationSettingsRepository = notificationSettingsRepository;
         _executionRepository = executionRepository;
+        _staleThresholdProvider = staleThresholdProvider;
     }
 
     [HttpGet]
@@ -51,6 +55,13 @@ public class StatusController : ControllerBase
         var staleThresholdMinutes = Math.Max(1, _configuration.GetValue<int>("WorkerPool:StaleExecutionThresholdMinutes", 15));
         var staleBeforeUtc = DateTime.UtcNow.AddMinutes(-staleThresholdMinutes);
         var runningExecutions = await _executionRepository.GetRunningExecutionsAsync(staleBeforeUtc);
+
+        // Re-compute IsStale per-task using dynamic thresholds
+        foreach (var record in runningExecutions)
+        {
+            record.IsStale = await _staleThresholdProvider.IsStaleAsync(record.TaskId, record.StartedAt);
+        }
+
         var staleExecutions = runningExecutions.Count(record => record.IsStale);
 
         var dto = new SystemStatusDto

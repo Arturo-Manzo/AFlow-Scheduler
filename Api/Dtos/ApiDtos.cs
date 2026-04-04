@@ -341,6 +341,7 @@ public class ExecutionDto
 
 public class RunningExecutionDto : ExecutionDto
 {
+    public double StaleThresholdMinutes { get; set; }
 }
 
 public class BoxRunDto

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using AScheduler.Api.Dtos;
 using AScheduler.Data;
+using AScheduler.Services;
 
 namespace AScheduler.Api.Controllers;
 
@@ -15,17 +16,20 @@ public class ExecutionHistoryController : ControllerBase
     private readonly ITaskRepository _taskRepository;
     private readonly IBoxRepository _boxRepository;
     private readonly IConfiguration _configuration;
+    private readonly IStaleThresholdProvider _staleThresholdProvider;
 
-    public ExecutionHistoryController(IExecutionRepository executionRepository, ITaskRepository taskRepository, IBoxRepository boxRepository, IConfiguration configuration)
+    public ExecutionHistoryController(IExecutionRepository executionRepository, ITaskRepository taskRepository, IBoxRepository boxRepository, IConfiguration configuration, IStaleThresholdProvider staleThresholdProvider)
     {
         ArgumentNullException.ThrowIfNull(executionRepository);
         ArgumentNullException.ThrowIfNull(taskRepository);
         ArgumentNullException.ThrowIfNull(boxRepository);
         ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(staleThresholdProvider);
         _executionRepository = executionRepository;
         _taskRepository = taskRepository;
         _boxRepository = boxRepository;
         _configuration = configuration;
+        _staleThresholdProvider = staleThresholdProvider;
     }
 
     [HttpGet("task/{taskId}")]
@@ -80,12 +84,21 @@ public class ExecutionHistoryController : ControllerBase
         var staleMinutes = Math.Max(1, _configuration.GetValue<int>("WorkerPool:StaleExecutionThresholdMinutes", 15));
         var staleBeforeUtc = DateTime.UtcNow.AddMinutes(-staleMinutes);
         var records = await _executionRepository.GetRunningExecutionsAsync(staleBeforeUtc);
+
+        // Re-compute IsStale per-task using dynamic thresholds
+        foreach (var record in records)
+        {
+            record.IsStale = await _staleThresholdProvider.IsStaleAsync(record.TaskId, record.StartedAt);
+        }
+
         records = await FilterRecordsByDepartmentAsync(records);
         var dtos = records.Select(MapToDto).ToList();
-        return Ok(new ApiResponse<List<RunningExecutionDto>>
+
+        var runningDtos = new List<RunningExecutionDto>();
+        foreach (var dto in dtos)
         {
-            Success = true,
-            Data = dtos.Select(dto => new RunningExecutionDto
+            var thresholdMinutes = await _staleThresholdProvider.GetStaleThresholdMinutesAsync(dto.TaskId);
+            runningDtos.Add(new RunningExecutionDto
             {
                 ExecutionId = dto.ExecutionId,
                 TaskId = dto.TaskId,
@@ -106,9 +119,12 @@ public class ExecutionHistoryController : ControllerBase
                 RequestedByUserId = dto.RequestedByUserId,
                 RequestedByUsername = dto.RequestedByUsername,
                 ErrorMessage = dto.ErrorMessage,
-                IsStale = dto.IsStale
-            }).ToList()
-        });
+                IsStale = dto.IsStale,
+                StaleThresholdMinutes = thresholdMinutes
+            });
+        }
+
+        return Ok(new ApiResponse<List<RunningExecutionDto>> { Success = true, Data = runningDtos });
     }
 
     [HttpGet("boxrun/{boxRunId}")]

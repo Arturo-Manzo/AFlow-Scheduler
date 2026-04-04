@@ -255,6 +255,7 @@ builder.Services.AddSingleton<INotificationSettingsRepository, NotificationSetti
 // All task executions must go through this service.
 // ============================================
 builder.Services.AddSingleton<IBoxRunMetricsService, BoxRunMetricsService>();
+builder.Services.AddSingleton<IStaleThresholdProvider, StaleThresholdProvider>();
 builder.Services.AddSingleton<ITaskExecutionService, TaskExecutionService>();
 
 // ============================================

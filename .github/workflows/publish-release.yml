@@ -1,0 +1,99 @@
+name: publish-release
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (for manual runs)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Resolve release metadata
+        id: meta
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $tag = "${{ github.event.inputs.tag }}"
+          }
+          else {
+            $tag = "${{ github.ref_name }}"
+          }
+
+          if (-not $tag) {
+            throw "Unable to determine release tag."
+          }
+
+          if ($tag.StartsWith("v")) {
+            $version = $tag.Substring(1)
+          }
+          else {
+            $version = $tag
+          }
+
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Run release smoke gates
+        shell: pwsh
+        run: |
+          $smokeScript = Join-Path $env:GITHUB_WORKSPACE "operations\scripts\release\smoke-gates.ps1"
+          if (-not (Test-Path $smokeScript)) {
+            throw "Smoke gates script not found at: $smokeScript"
+          }
+          & $smokeScript -BuildVersion "${{ steps.meta.outputs.version }}"
+
+      - name: Publish backend
+        shell: pwsh
+        run: |
+          dotnet publish AScheduler.csproj --configuration Release --no-restore /p:Version=${{ steps.meta.outputs.version }} --output .\artifacts\backend
+
+      - name: Package backend artifact
+        shell: pwsh
+        run: |
+          Compress-Archive -Path .\artifacts\backend\* -DestinationPath .\artifacts\AScheduler-backend-${{ steps.meta.outputs.tag }}.zip
+
+      - name: Package frontend artifact
+        shell: pwsh
+        run: |
+          $distPath = Join-Path $env:GITHUB_WORKSPACE "frontend\dist"
+          if (-not (Test-Path $distPath)) {
+            throw "Frontend dist folder was not generated: $distPath"
+          }
+          Compress-Archive -Path "$distPath\*" -DestinationPath .\artifacts\AScheduler-frontend-${{ steps.meta.outputs.tag }}.zip
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            artifacts/AScheduler-backend-${{ steps.meta.outputs.tag }}.zip
+            artifacts/AScheduler-frontend-${{ steps.meta.outputs.tag }}.zip

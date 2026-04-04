@@ -23,6 +23,11 @@ namespace AScheduler.Data
         /// </summary>
         Task<Dictionary<int, string>> GetTaskStatusMapForBoxRunAsync(int boxRunId);
         Task<int> FailRunningExecutionsForBoxRunAsync(int boxRunId, DateTime endedAtUtc, string reason);
+        /// <summary>
+        /// Returns the average execution duration (in seconds) for the last <paramref name="sampleSize"/>
+        /// completed executions of a given task. Returns null when no history exists.
+        /// </summary>
+        Task<double?> GetAverageExecutionDurationSecondsAsync(int taskId, int sampleSize = 10);
         Task AddLogAsync(TaskExecutionLog log);
         Task<List<TaskExecutionLog>> GetLogsByTaskExecutionIdAsync(int taskExecutionId);
         Task<List<TaskExecutionLog>> GetLogsByBoxRunIdAsync(int boxRunId);

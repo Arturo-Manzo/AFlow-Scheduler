@@ -12,6 +12,7 @@ public sealed class WorkerPoolHealthCheck(
     IWorkerStateService workerStateService,
     ITaskQueue taskQueue,
     IExecutionRepository executionRepository,
+    IStaleThresholdProvider staleThresholdProvider,
     IConfiguration configuration) : IHealthCheck
 {
     private readonly IWorkerStateService _workerStateService = workerStateService
@@ -20,6 +21,8 @@ public sealed class WorkerPoolHealthCheck(
         ?? throw new ArgumentNullException(nameof(taskQueue));
     private readonly IExecutionRepository _executionRepository = executionRepository
         ?? throw new ArgumentNullException(nameof(executionRepository));
+    private readonly IStaleThresholdProvider _staleThresholdProvider = staleThresholdProvider
+        ?? throw new ArgumentNullException(nameof(staleThresholdProvider));
     private readonly IConfiguration _configuration = configuration
         ?? throw new ArgumentNullException(nameof(configuration));
 
@@ -40,6 +43,13 @@ public sealed class WorkerPoolHealthCheck(
         var queueDepthDegradedThreshold = Math.Max(1, _configuration.GetValue<int>("WorkerPool:QueueDepthDegradedThreshold", 50));
         var staleBeforeUtc = DateTime.UtcNow.AddMinutes(-staleThresholdMinutes);
         var runningExecutions = await _executionRepository.GetRunningExecutionsAsync(staleBeforeUtc);
+
+        // Re-compute IsStale per-task using dynamic thresholds
+        foreach (var record in runningExecutions)
+        {
+            record.IsStale = await _staleThresholdProvider.IsStaleAsync(record.TaskId, record.StartedAt);
+        }
+
         var staleCount = runningExecutions.Count(record => record.IsStale);
 
         var data = new Dictionary<string, object>

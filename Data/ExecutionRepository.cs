@@ -375,6 +375,23 @@ namespace AScheduler.Data
             return await connection.ExecuteScalarAsync<int>(sql, new { BoxRunId = boxRunId, EndedAtUtc = endedAtUtc, Reason = reason });
         }
 
+        public async Task<double?> GetAverageExecutionDurationSecondsAsync(int taskId, int sampleSize = 10)
+        {
+            if (sampleSize <= 0) sampleSize = 10;
+            using var connection = CreateConnection();
+            const string sql = @"
+                SELECT AVG(CAST(DATEDIFF(SECOND, StartedAt, EndedAt) AS FLOAT))
+                FROM (
+                    SELECT TOP (@SampleSize) StartedAt, EndedAt
+                    FROM TaskExecutions
+                    WHERE TaskId = @TaskId
+                      AND Status = 'Success'
+                      AND EndedAt IS NOT NULL
+                    ORDER BY StartedAt DESC
+                ) AS recent";
+            return await connection.ExecuteScalarAsync<double?>(sql, new { TaskId = taskId, SampleSize = sampleSize });
+        }
+
         public async Task AddLogAsync(TaskExecutionLog log)
         {
             using var connection = CreateConnection();
