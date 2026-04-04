@@ -12,6 +12,7 @@ obj/
 **/obj/
 [Dd]ebug/
 [Rr]elease/
+!operations/scripts/release/
 TestResults/
 artifacts/
 *.binlog
