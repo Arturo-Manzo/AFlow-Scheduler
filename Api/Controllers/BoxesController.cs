@@ -13,6 +13,9 @@ using TimeZoneConverter;
 
 namespace AScheduler.Api.Controllers;
 
+/// <summary>
+/// Provides CRUD and operational endpoints for boxes and box runs.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
@@ -27,6 +30,15 @@ public class BoxesController : ControllerBase
     private readonly IWorkerStateService _workerState;
     private readonly ILogger<BoxesController> _logger;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BoxesController"/> class.
+    /// </summary>
+    /// <param name="boxRepository">Repository for box definitions and runs.</param>
+    /// <param name="taskRepository">Repository for tasks and task dependencies.</param>
+    /// <param name="taskQueue">Queue used to schedule box execution requests.</param>
+    /// <param name="auditLog">Audit logging service.</param>
+    /// <param name="workerState">Worker state service for runtime checks.</param>
+    /// <param name="logger">Logger instance.</param>
     public BoxesController(
         IBoxRepository boxRepository,
         ITaskRepository taskRepository,
@@ -49,6 +61,10 @@ public class BoxesController : ControllerBase
         _logger = logger;
     }
 
+    /// <summary>
+    /// Gets all active boxes visible to the current user's department scope.
+    /// </summary>
+    /// <returns>A list of boxes with their tasks.</returns>
     [HttpGet]
     [Authorize(Roles = "Admin,Operator,Viewer")]
     public async Task<IActionResult> GetAll()
@@ -61,6 +77,11 @@ public class BoxesController : ControllerBase
         return Ok(new ApiResponse<List<BoxDto>> { Success = true, Data = dtos });
     }
 
+    /// <summary>
+    /// Gets a box by identifier.
+    /// </summary>
+    /// <param name="boxId">Box identifier.</param>
+    /// <returns>The requested box when accessible; otherwise an error response.</returns>
     [HttpGet("{boxId}")]
     [Authorize(Roles = "Admin,Operator,Viewer")]
     public async Task<IActionResult> GetById(int boxId)
@@ -78,6 +99,11 @@ public class BoxesController : ControllerBase
         return Ok(new ApiResponse<BoxDto> { Success = true, Data = dto });
     }
 
+    /// <summary>
+    /// Creates a new box with its initial task.
+    /// </summary>
+    /// <param name="request">Creation payload.</param>
+    /// <returns>The created box response.</returns>
     [HttpPost]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Create([FromBody] CreateBoxRequest request)
@@ -134,6 +160,12 @@ public class BoxesController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Updates an existing box.
+    /// </summary>
+    /// <param name="boxId">Box identifier.</param>
+    /// <param name="request">Update payload.</param>
+    /// <returns>The updated box response.</returns>
     [HttpPut("{boxId}")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Update(int boxId, [FromBody] UpdateBoxRequest request)
@@ -162,6 +194,11 @@ public class BoxesController : ControllerBase
         return Ok(new ApiResponse<BoxDto> { Success = true, Data = dto });
     }
 
+    /// <summary>
+    /// Deletes a box.
+    /// </summary>
+    /// <param name="boxId">Box identifier.</param>
+    /// <returns>A success response when deletion completes.</returns>
     [HttpDelete("{boxId}")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(int boxId)
@@ -179,6 +216,12 @@ public class BoxesController : ControllerBase
         return Ok(new ApiResponse<object> { Success = true, Message = "Box deleted." });
     }
 
+    /// <summary>
+    /// Queues a box for immediate execution.
+    /// </summary>
+    /// <param name="boxId">Box identifier.</param>
+    /// <param name="request">Execution options.</param>
+    /// <returns>A queue tracking identifier for the enqueued run.</returns>
     [HttpPost("{boxId}/run")]
     [HttpPost("/api/box/{boxId}/run")]
     [Authorize(Roles = "Admin,Operator")]
@@ -212,6 +255,11 @@ public class BoxesController : ControllerBase
         return Ok(new ApiResponse<object> { Success = true, Data = new { QueueId = queueId }, Message = "Box queued for execution." });
     }
 
+    /// <summary>
+    /// Resumes a previously failed, partial, or cancelled box run.
+    /// </summary>
+    /// <param name="boxRunId">Box run identifier.</param>
+    /// <returns>A response indicating whether the run was queued for resume.</returns>
     [HttpPost("runs/{boxRunId}/resume")]
     [HttpPost("/api/box/{boxRunId}/resume")]
     [Authorize(Roles = "Admin,Operator")]

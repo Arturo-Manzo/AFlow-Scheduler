@@ -83,7 +83,7 @@ public class UserService : IUserService
             var countQuery = "SELECT COUNT(*) FROM Users WHERE IsActive = 1";
             using var countCommand = new SqlCommand(countQuery, connection);
             var countResult = await countCommand.ExecuteScalarAsync();
-            var total = countResult is DBNull ? 0 : (int)countResult;
+            var total = countResult is null or DBNull ? 0 : Convert.ToInt32(countResult);
 
             // Get paginated results
             var query = @"
