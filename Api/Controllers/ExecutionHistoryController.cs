@@ -58,6 +58,14 @@ public class ExecutionHistoryController : ControllerBase
         if (task == null)
             return NotFound(new ApiResponse<object> { Success = false, Message = "Task not found.", ErrorCode = "TASK_NOT_FOUND" });
 
+        var box = await _boxRepository.GetByIdAsync(task.BoxId);
+        if (box == null)
+            return NotFound(new ApiResponse<object> { Success = false, Message = "Box not found.", ErrorCode = "BOX_NOT_FOUND" });
+
+        var userDepartmentId = GetCurrentDepartmentId();
+        if (userDepartmentId.HasValue && box.DepartmentId.HasValue && box.DepartmentId != userDepartmentId)
+            return Forbid("You do not have permission to access this task.");
+
         var record = await _executionRepository.GetLastExecutionForTaskAsync(taskId);
         if (record == null)
             return NotFound(new ApiResponse<object> { Success = false, Message = "No execution history found for this task.", ErrorCode = "NO_EXECUTION_HISTORY" });
@@ -72,6 +80,7 @@ public class ExecutionHistoryController : ControllerBase
         var staleMinutes = Math.Max(1, _configuration.GetValue<int>("WorkerPool:StaleExecutionThresholdMinutes", 15));
         var staleBeforeUtc = DateTime.UtcNow.AddMinutes(-staleMinutes);
         var records = await _executionRepository.GetRunningExecutionsAsync(staleBeforeUtc);
+        records = await FilterRecordsByDepartmentAsync(records);
         var dtos = records.Select(MapToDto).ToList();
         return Ok(new ApiResponse<List<RunningExecutionDto>>
         {
@@ -106,6 +115,18 @@ public class ExecutionHistoryController : ControllerBase
     [Authorize(Roles = "Admin,Operator,Viewer")]
     public async Task<IActionResult> GetForBoxRun(int boxRunId)
     {
+        var boxRun = await _boxRepository.GetBoxRunAsync(boxRunId);
+        if (boxRun == null)
+            return NotFound(new ApiResponse<object> { Success = false, Message = "BoxRun not found.", ErrorCode = "BOXRUN_NOT_FOUND" });
+
+        var box = await _boxRepository.GetByIdAsync(boxRun.BoxId);
+        if (box == null)
+            return NotFound(new ApiResponse<object> { Success = false, Message = "Box not found.", ErrorCode = "BOX_NOT_FOUND" });
+
+        var userDepartmentId = GetCurrentDepartmentId();
+        if (userDepartmentId.HasValue && box.DepartmentId.HasValue && box.DepartmentId != userDepartmentId)
+            return Forbid("You do not have permission to access this box run.");
+
         var records = await _executionRepository.GetExecutionsForBoxRunAsync(boxRunId);
         var dtos = records.Select(MapToDto).ToList();
         return Ok(new ApiResponse<List<ExecutionDto>> { Success = true, Data = dtos });
@@ -118,6 +139,7 @@ public class ExecutionHistoryController : ControllerBase
     {
         if (limit <= 0) limit = 20;
         var records = await _executionRepository.GetLatestExecutionsAsync(limit);
+        records = await FilterRecordsByDepartmentAsync(records);
         var dtos = records.Select(MapToDto).ToList();
         return Ok(new ApiResponse<List<ExecutionDto>> { Success = true, Data = dtos });
     }
@@ -183,7 +205,32 @@ public class ExecutionHistoryController : ControllerBase
     /// </summary>
     private int? GetCurrentDepartmentId()
     {
-        var claim = User.FindFirst("department_id");
+        var claim = User?.FindFirst("department_id");
         return claim != null && int.TryParse(claim.Value, out var id) ? id : null;
+    }
+
+    private async Task<List<ExecutionRepository.ExecutionRecord>> FilterRecordsByDepartmentAsync(List<ExecutionRepository.ExecutionRecord> records)
+    {
+        var userDepartmentId = GetCurrentDepartmentId();
+        if (!userDepartmentId.HasValue)
+            return records;
+
+        var accessCache = new Dictionary<int, bool>();
+        var filtered = new List<ExecutionRepository.ExecutionRecord>(records.Count);
+
+        foreach (var record in records)
+        {
+            if (!accessCache.TryGetValue(record.BoxId, out var hasAccess))
+            {
+                var box = await _boxRepository.GetByIdAsync(record.BoxId);
+                hasAccess = box == null || !box.DepartmentId.HasValue || box.DepartmentId == userDepartmentId.Value;
+                accessCache[record.BoxId] = hasAccess;
+            }
+
+            if (hasAccess)
+                filtered.Add(record);
+        }
+
+        return filtered;
     }
 }

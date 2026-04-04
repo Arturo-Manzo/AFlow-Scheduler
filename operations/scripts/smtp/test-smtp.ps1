@@ -1,7 +1,7 @@
 ###############################################################################
 # SMTP Connectivity Test - AScheduler
 # Tests whether the SMTP credentials can authenticate against the server.
-# Usage: .\test-smtp.ps1
+# Usage: .\operations\scripts\smtp\test-smtp.ps1
 ###############################################################################
 
 param(

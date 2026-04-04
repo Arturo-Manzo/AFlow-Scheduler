@@ -28,6 +28,8 @@ BEGIN TRY
     :r .\050_Create_Audit_And_View.sql
     :r .\060_Create_Notification_Settings.sql
     :r .\070_Create_Application_Logs.sql
+    :r .\080_Optimize_Execution_Queries.sql
+    :r .\090_Validate_Integrity_And_Continuity.sql
 
     IF NOT EXISTS (SELECT 1 FROM dbo.Departments WHERE Name = 'Default')
         THROW 51000, 'Validation failed: Default department was not created.', 1;

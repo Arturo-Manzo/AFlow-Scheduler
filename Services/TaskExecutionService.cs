@@ -20,9 +20,12 @@ public class TaskExecutionService : ITaskExecutionService
     private readonly ExecutorFactory _executorFactory;
     private readonly IBoxRepository _boxRepository;
     private readonly ITaskRepository _taskRepository;
+    private readonly IDepartmentRepository _departmentRepository;
     private readonly ITaskFailureNotificationService _notificationService;
     private readonly ILogger<TaskExecutionService> _logger;
     private readonly int _taskTimeoutSeconds;
+    private readonly int _maxAutomaticRetryAttempts;
+    private readonly int _retryBaseDelaySeconds;
 
     // Guards against concurrent execution of the same task on this instance.
     // This is in-memory only; database constraints provide cross-instance protection.
@@ -34,6 +37,7 @@ public class TaskExecutionService : ITaskExecutionService
         ExecutorFactory executorFactory,
         IBoxRepository boxRepository,
         ITaskRepository taskRepository,
+        IDepartmentRepository departmentRepository,
         ITaskFailureNotificationService notificationService,
         IConfiguration configuration,
         ILogger<TaskExecutionService> logger)
@@ -43,6 +47,7 @@ public class TaskExecutionService : ITaskExecutionService
         ArgumentNullException.ThrowIfNull(executorFactory);
         ArgumentNullException.ThrowIfNull(boxRepository);
         ArgumentNullException.ThrowIfNull(taskRepository);
+        ArgumentNullException.ThrowIfNull(departmentRepository);
         ArgumentNullException.ThrowIfNull(notificationService);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(logger);
@@ -52,9 +57,12 @@ public class TaskExecutionService : ITaskExecutionService
         _executorFactory = executorFactory;
         _boxRepository = boxRepository;
         _taskRepository = taskRepository;
+        _departmentRepository = departmentRepository;
         _notificationService = notificationService;
         _logger = logger;
         _taskTimeoutSeconds = Math.Max(10, configuration.GetValue<int>("WorkerPool:TaskTimeoutSeconds", 300));
+        _maxAutomaticRetryAttempts = Math.Max(1, configuration.GetValue<int>("WorkerPool:Retry:MaxAutomaticAttempts", 2));
+        _retryBaseDelaySeconds = Math.Max(1, configuration.GetValue<int>("WorkerPool:Retry:BaseDelaySeconds", 5));
         _runningTaskIds = new ConcurrentDictionary<int, byte>();
     }
 
@@ -94,6 +102,9 @@ public class TaskExecutionService : ITaskExecutionService
 
         try
         {
+            var maxAttempts = await ResolveMaxAttemptsAsync(task);
+            var shouldUseRetries = maxAttempts > 1;
+
             if (boxRunId.HasValue)
             {
                 var latestExecution = await _executionRepository.GetLastExecutionForTaskInBoxRunAsync(task.Id, boxRunId.Value);
@@ -118,109 +129,233 @@ public class TaskExecutionService : ITaskExecutionService
                 }
             }
 
-            var startTime = DateTime.UtcNow;
-            int executionId;
-            try
-            {
-                // Attempt to create execution record. Database constraints will reject cross-instance duplicates.
-                executionId = await _executionRepository.CreateExecutionAsync(
-                    task.Id, boxRunId, startTime, normalizedTriggerSource, scheduledForUtc, requestedByUserId, reason);
-            }
-            catch (SqlException ex) when (ex.Number == 2601 || ex.Number == 2627)
-            {
-                // DB-level unique constraint violation — concurrent execution started across instances.
-                _logger.LogWarning(
-                    "Task {TaskId} ({TaskName}): DB constraint blocked a duplicate execution (cross-instance race).",
-                    task.Id, task.Name);
-                return false;
-            }
-
-            await _executionLogger.LogInfo(boxRunId, executionId, task.Id, "Task started");
-
-            // Execute the task
             var executor = _executorFactory.GetExecutor(task.TaskType);
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            cts.CancelAfter(TimeSpan.FromSeconds(_taskTimeoutSeconds));
-
-            try
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                var result = await executor.ExecuteAsync(task);
-                var endTime = DateTime.UtcNow;
-                var status = result.ExitCode == 0 ? "Success" : "Failed";
+                var isFinalAttempt = attempt >= maxAttempts;
+                var executionReason = BuildAttemptReason(reason, attempt, maxAttempts);
 
-                await _executionRepository.CompleteExecutionAsync(
-                    executionId, endTime, status,
-                    result.Output, result.Error, result.ExitCode,
-                    result.Output, result.Error);
-
-                if (result.ExitCode == 0)
+                var startTime = DateTime.UtcNow;
+                int executionId;
+                try
                 {
-                    await _executionLogger.LogInfo(boxRunId, executionId, task.Id, "Task completed successfully");
+                    // Attempt to create execution record. Database constraints will reject cross-instance duplicates.
+                    executionId = await _executionRepository.CreateExecutionAsync(
+                        task.Id, boxRunId, startTime, normalizedTriggerSource, scheduledForUtc, requestedByUserId, executionReason);
                 }
-                else
+                catch (SqlException ex) when (ex.Number == 2601 || ex.Number == 2627)
                 {
+                    // DB-level unique constraint violation — concurrent execution started across instances.
+                    _logger.LogWarning(
+                        "Task {TaskId} ({TaskName}): DB constraint blocked a duplicate execution (cross-instance race).",
+                        task.Id, task.Name);
+                    return false;
+                }
+
+                await _executionLogger.LogInfo(
+                    boxRunId,
+                    executionId,
+                    task.Id,
+                    shouldUseRetries
+                        ? $"Task started (attempt {attempt}/{maxAttempts})"
+                        : "Task started");
+
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                cts.CancelAfter(TimeSpan.FromSeconds(_taskTimeoutSeconds));
+
+                try
+                {
+                    var result = await executor.ExecuteAsync(task, cts.Token);
+                    var endTime = DateTime.UtcNow;
+                    var status = result.ExitCode == 0 ? "Success" : "Failed";
+
+                    await _executionRepository.CompleteExecutionAsync(
+                        executionId, endTime, status,
+                        result.Output, result.Error, result.ExitCode,
+                        result.Output, result.Error);
+
+                    if (result.ExitCode == 0)
+                    {
+                        await _executionLogger.LogInfo(boxRunId, executionId, task.Id, "Task completed successfully");
+                        _logger.LogInformation(
+                            "Task {TaskId} ({TaskName}) finished successfully on attempt {Attempt}/{MaxAttempts}.",
+                            task.Id,
+                            task.Name,
+                            attempt,
+                            maxAttempts);
+                        return true;
+                    }
+
+                    var failureDetails = string.IsNullOrWhiteSpace(result.Error) ? result.Output : result.Error;
                     await _executionLogger.LogError(
                         boxRunId,
                         executionId,
                         task.Id,
                         "Task failed",
-                        string.IsNullOrWhiteSpace(result.Error) ? result.Output : result.Error);
-                    
-                    // Send notification if box has email configured
+                        failureDetails);
+
+                    var failureReason = $"Exit code {result.ExitCode}: {failureDetails}";
+                    if (!isFinalAttempt)
+                    {
+                        await _executionLogger.LogInfo(
+                            boxRunId,
+                            executionId,
+                            task.Id,
+                            $"Retry scheduled ({attempt + 1}/{maxAttempts}) due to failure.");
+
+                        _logger.LogWarning(
+                            "Task {TaskId} ({TaskName}) failed on attempt {Attempt}/{MaxAttempts}. Scheduling retry.",
+                            task.Id,
+                            task.Name,
+                            attempt,
+                            maxAttempts);
+
+                        await DelayBeforeRetryAsync(attempt, ct);
+                        continue;
+                    }
+
                     await SendTaskFailureNotificationAsync(
-                        task, boxRunId, executionId, normalizedTriggerSource, scheduledForUtc,
-                        failureReason: $"Exit code {result.ExitCode}: {(string.IsNullOrWhiteSpace(result.Error) ? result.Output : result.Error)}",
+                        task,
+                        boxRunId,
+                        executionId,
+                        normalizedTriggerSource,
+                        scheduledForUtc,
+                        failureReason,
                         ct);
+
+                    _logger.LogWarning(
+                        "Task {TaskId} ({TaskName}) exhausted retries ({MaxAttempts}) with final exit code {ExitCode}.",
+                        task.Id,
+                        task.Name,
+                        maxAttempts,
+                        result.ExitCode);
+                    return false;
                 }
+                catch (OperationCanceledException)
+                {
+                    var externallyCancelled = ct.IsCancellationRequested;
+                    var status = externallyCancelled ? "Aborted" : "Failed";
+                    var cancellationReason = externallyCancelled
+                        ? "Cancelled by request."
+                        : $"Timeout after {_taskTimeoutSeconds}s";
 
-                _logger.LogInformation(
-                    "Task {TaskId} ({TaskName}) finished with status {Status} (exit code {ExitCode}).",
-                    task.Id, task.Name, status, result.ExitCode);
-                return result.ExitCode == 0;
+                    await _executionRepository.CompleteExecutionAsync(
+                        executionId,
+                        DateTime.UtcNow,
+                        status,
+                        "",
+                        cancellationReason,
+                        -1,
+                        "",
+                        cancellationReason);
+
+                    await _executionLogger.LogError(
+                        boxRunId,
+                        executionId,
+                        task.Id,
+                        "Task failed",
+                        cancellationReason);
+
+                    if (externallyCancelled)
+                    {
+                        _logger.LogWarning(
+                            "Task {TaskId} ({TaskName}) cancelled externally during attempt {Attempt}/{MaxAttempts}.",
+                            task.Id,
+                            task.Name,
+                            attempt,
+                            maxAttempts);
+                        return false;
+                    }
+
+                    if (!isFinalAttempt)
+                    {
+                        await _executionLogger.LogInfo(
+                            boxRunId,
+                            executionId,
+                            task.Id,
+                            $"Retry scheduled ({attempt + 1}/{maxAttempts}) after timeout.");
+
+                        _logger.LogWarning(
+                            "Task {TaskId} ({TaskName}) timed out on attempt {Attempt}/{MaxAttempts}. Scheduling retry.",
+                            task.Id,
+                            task.Name,
+                            attempt,
+                            maxAttempts);
+
+                        await DelayBeforeRetryAsync(attempt, ct);
+                        continue;
+                    }
+
+                    await SendTaskFailureNotificationAsync(
+                        task,
+                        boxRunId,
+                        executionId,
+                        normalizedTriggerSource,
+                        scheduledForUtc,
+                        cancellationReason,
+                        ct);
+
+                    _logger.LogWarning(
+                        "Task {TaskId} ({TaskName}) timed out after exhausting retries ({MaxAttempts}).",
+                        task.Id,
+                        task.Name,
+                        maxAttempts);
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    await _executionRepository.CompleteExecutionAsync(
+                        executionId,
+                        DateTime.UtcNow,
+                        "Failed",
+                        "",
+                        ex.Message,
+                        -1,
+                        "",
+                        ex.ToString());
+
+                    await _executionLogger.LogError(boxRunId, executionId, task.Id, "Task failed", ex.ToString());
+
+                    if (!isFinalAttempt)
+                    {
+                        await _executionLogger.LogInfo(
+                            boxRunId,
+                            executionId,
+                            task.Id,
+                            $"Retry scheduled ({attempt + 1}/{maxAttempts}) after exception.");
+
+                        _logger.LogWarning(
+                            ex,
+                            "Task {TaskId} ({TaskName}) raised exception on attempt {Attempt}/{MaxAttempts}. Scheduling retry.",
+                            task.Id,
+                            task.Name,
+                            attempt,
+                            maxAttempts);
+
+                        await DelayBeforeRetryAsync(attempt, ct);
+                        continue;
+                    }
+
+                    await SendTaskFailureNotificationAsync(
+                        task,
+                        boxRunId,
+                        executionId,
+                        normalizedTriggerSource,
+                        scheduledForUtc,
+                        $"Exception: {ex.Message}",
+                        ct);
+
+                    _logger.LogError(
+                        ex,
+                        "Task {TaskId} ({TaskName}) failed with exception after exhausting retries ({MaxAttempts}).",
+                        task.Id,
+                        task.Name,
+                        maxAttempts);
+                    return false;
+                }
             }
-            catch (OperationCanceledException)
-            {
-                await _executionRepository.CompleteExecutionAsync(
-                    executionId, DateTime.UtcNow, "Failed",
-                    "", $"Timeout after {_taskTimeoutSeconds}s", -1,
-                    "", $"Timeout after {_taskTimeoutSeconds}s");
 
-                await _executionLogger.LogError(
-                    boxRunId,
-                    executionId,
-                    task.Id,
-                    "Task failed",
-                    $"Timeout after {_taskTimeoutSeconds}s");
-
-                // Send notification if box has email configured
-                await SendTaskFailureNotificationAsync(
-                    task, boxRunId, executionId, normalizedTriggerSource, scheduledForUtc,
-                    failureReason: $"Timeout after {_taskTimeoutSeconds}s",
-                    ct);
-
-                _logger.LogWarning(
-                    "Task {TaskId} ({TaskName}) timed out after {Seconds}s.",
-                    task.Id, task.Name, _taskTimeoutSeconds);
-                return false;
-            }
-            catch (Exception ex)
-            {
-                await _executionRepository.CompleteExecutionAsync(
-                    executionId, DateTime.UtcNow, "Failed",
-                    "", ex.Message, -1,
-                    "", ex.ToString());
-
-                await _executionLogger.LogError(boxRunId, executionId, task.Id, "Task failed", ex.ToString());
-
-                // Send notification if box has email configured
-                await SendTaskFailureNotificationAsync(
-                    task, boxRunId, executionId, normalizedTriggerSource, scheduledForUtc,
-                    failureReason: $"Exception: {ex.Message}",
-                    ct);
-
-                _logger.LogError(ex, "Task {TaskId} ({TaskName}) failed with exception.", task.Id, task.Name);
-                return false;
-            }
+            return false;
         }
         finally
         {
@@ -234,6 +369,44 @@ public class TaskExecutionService : ITaskExecutionService
     internal bool IsTaskRunning(int taskId) => _runningTaskIds.ContainsKey(taskId);
 
     internal int ActiveCount => _runningTaskIds.Count;
+
+    private async Task<int> ResolveMaxAttemptsAsync(TaskDefinition task)
+    {
+        var box = await _boxRepository.GetByIdAsync(task.BoxId);
+        if (box?.DepartmentId is not int departmentId)
+        {
+            return 1;
+        }
+
+        var retryPolicyValue = await _departmentRepository.GetRetryPolicyAsync(departmentId);
+        var retryPolicy = retryPolicyValue.HasValue
+            ? (RetryPolicy)Math.Clamp(retryPolicyValue.Value, 0, 2)
+            : RetryPolicy.RequireApproval;
+
+        return retryPolicy == RetryPolicy.Auto
+            ? _maxAutomaticRetryAttempts
+            : 1;
+    }
+
+    private string? BuildAttemptReason(string? reason, int attempt, int maxAttempts)
+    {
+        if (maxAttempts <= 1)
+        {
+            return reason;
+        }
+
+        var attemptSuffix = $"[Attempt {attempt}/{maxAttempts}]";
+        return string.IsNullOrWhiteSpace(reason)
+            ? attemptSuffix
+            : $"{reason} {attemptSuffix}";
+    }
+
+    private async Task DelayBeforeRetryAsync(int completedAttempt, CancellationToken ct)
+    {
+        var exponent = Math.Clamp(completedAttempt - 1, 0, 5);
+        var delaySeconds = Math.Min(_retryBaseDelaySeconds * (1 << exponent), 120);
+        await Task.Delay(TimeSpan.FromSeconds(delaySeconds), ct);
+    }
 
     /// <summary>
     /// Helper method to send task failure notifications. Loads box details and sends email if configured.

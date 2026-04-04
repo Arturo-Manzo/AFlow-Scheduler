@@ -414,8 +414,16 @@ public class SystemStatusDto
     public bool DbConnected { get; set; }
     public int ActiveWorkers { get; set; }
     public int TotalWorkers { get; set; }
+    public int RunningBoxRuns { get; set; }
+    public int RunningExecutions { get; set; }
+    public int StaleExecutions { get; set; }
+    public int StaleExecutionThresholdMinutes { get; set; }
     public int QueueDepth { get; set; }
     public bool FailNotificationEnabled { get; set; }
+    public bool StartupRecoveryCompleted { get; set; }
+    public DateTime? LastRecoveryCompletedAtUtc { get; set; }
+    public int LastRecoveredExecutionCount { get; set; }
+    public int LastRecoveredBoxRunCount { get; set; }
     public string Environment { get; set; } = "";
 }
 

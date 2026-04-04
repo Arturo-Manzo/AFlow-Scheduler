@@ -68,6 +68,11 @@ public class TasksController : ControllerBase
         var task = await _taskRepository.GetByIdAsync(taskId);
         if (task == null)
             return NotFound(new ApiResponse<object> { Success = false, Message = "Task not found.", ErrorCode = "TASK_NOT_FOUND" });
+
+        var accessDenied = await ValidateTaskDepartmentAccessAsync(task.BoxId);
+        if (accessDenied != null)
+            return accessDenied;
+
         var deps = await _taskRepository.GetTaskDependenciesAsync(taskId);
         return Ok(new ApiResponse<TaskDto> { Success = true, Data = MapToDto(task, deps) });
     }
@@ -176,6 +181,10 @@ public class TasksController : ControllerBase
         if (task == null)
             return NotFound(new ApiResponse<object> { Success = false, Message = "Task not found.", ErrorCode = "TASK_NOT_FOUND" });
 
+        var accessDenied = await ValidateTaskDepartmentAccessAsync(task.BoxId);
+        if (accessDenied != null)
+            return accessDenied;
+
         if (string.IsNullOrWhiteSpace(request?.Reason))
             return BadRequest(new ApiResponse<object> { Success = false, Message = "Reason is required.", ErrorCode = "REASON_REQUIRED" });
 
@@ -280,6 +289,28 @@ public class TasksController : ControllerBase
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub") ?? User.FindFirst("userId");
         return claim != null && int.TryParse(claim.Value, out var id) ? id : null;
+    }
+
+    private async Task<IActionResult?> ValidateTaskDepartmentAccessAsync(int boxId)
+    {
+        var box = await _boxRepository.GetByIdAsync(boxId);
+        if (box == null)
+        {
+            return NotFound(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Box not found.",
+                ErrorCode = "BOX_NOT_FOUND"
+            });
+        }
+
+        var userDepartmentId = GetCurrentDepartmentId();
+        if (userDepartmentId.HasValue && box.DepartmentId.HasValue && box.DepartmentId != userDepartmentId)
+        {
+            return Forbid("You do not have permission to access this task.");
+        }
+
+        return null;
     }
 
     /// <summary>

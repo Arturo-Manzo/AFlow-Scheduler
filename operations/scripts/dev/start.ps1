@@ -1,8 +1,8 @@
 ###############################################################################
 # AScheduler - Start Backend + Frontend
-# Usage: .\start.ps1           -> Starts both backend and frontend
-#        .\start.ps1 -Backend  -> Starts only the .NET backend
-#        .\start.ps1 -Frontend -> Starts only the Angular frontend
+# Usage: .\operations\scripts\dev\start.ps1           -> Starts both backend and frontend
+#        .\operations\scripts\dev\start.ps1 -Backend  -> Starts only the .NET backend
+#        .\operations\scripts\dev\start.ps1 -Frontend -> Starts only the Angular frontend
 ###############################################################################
 
 param(
@@ -10,7 +10,7 @@ param(
     [switch]$Frontend
 )
 
-$ProjectRoot = $PSScriptRoot
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 
 # If no flags specified, start both
 if (-not $Backend -and -not $Frontend) {

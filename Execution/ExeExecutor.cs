@@ -30,9 +30,11 @@ public class ExeExecutor : ITaskExecutor
     /// <returns>The execution result containing output, error, and exit code.</returns>
     /// <exception cref="ArgumentNullException">Thrown when task is null.</exception>
     /// <exception cref="InvalidOperationException">Thrown when the executable file name is invalid.</exception>
-    public async Task<ExecutionResult> ExecuteAsync(TaskDefinition task)
+    public async Task<ExecutionResult> ExecuteAsync(TaskDefinition task, CancellationToken cancellationToken)
     {
-        using var cts = new CancellationTokenSource(_timeout);
+        ArgumentNullException.ThrowIfNull(task);
+        using var timeoutCts = new CancellationTokenSource(_timeout);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 
         var (fileName, arguments) = CommandParser.Parse(task.Command);
 
@@ -89,7 +91,7 @@ public class ExeExecutor : ITaskExecutor
             await Task.WhenAll(
                 outputTask,
                 errorTask,
-                process.WaitForExitAsync(cts.Token)
+                process.WaitForExitAsync(linkedCts.Token)
             ).ConfigureAwait(false);
 
             return new ExecutionResult

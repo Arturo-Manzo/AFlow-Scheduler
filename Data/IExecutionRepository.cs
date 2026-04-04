@@ -6,6 +6,7 @@ namespace AScheduler.Data
     {
         Task<List<ExecutionRepository.ExecutionRecord>> GetExecutionsForBoxRunAsync(int boxRunId);
         Task<List<ExecutionRepository.ExecutionRecord>> GetExecutionsForTaskAsync(int taskId, DateTime? fromUtc = null, DateTime? toUtc = null);
+        Task<ExecutionRepository.ExecutionRecord?> GetExecutionByIdAsync(int executionId);
         Task<ExecutionRepository.ExecutionRecord?> GetLastExecutionForTaskAsync(int taskId);
         Task<List<ExecutionRepository.ExecutionRecord>> GetRunningExecutionsAsync(DateTime staleBeforeUtc);
         Task<int> CreateExecutionAsync(int taskId, int? boxRunId, DateTime startedAtUtc,

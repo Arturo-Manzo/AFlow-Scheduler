@@ -1,0 +1,49 @@
+name: release-gates
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Compute build version
+        shell: pwsh
+        run: |
+          $version = "1.0.${{ github.run_number }}"
+          "BUILD_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Backend restore
+        run: dotnet restore AScheduler.sln
+
+      - name: Backend build
+        run: dotnet build AScheduler.csproj --configuration Release --no-restore /p:Version=$env:BUILD_VERSION
+
+      - name: Backend tests
+        run: dotnet test AScheduler.Tests/AScheduler.Tests.csproj --configuration Release --no-restore /p:Version=$env:BUILD_VERSION
+
+      - name: Frontend build
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build
+
+      - name: Release smoke gates
+        shell: pwsh
+        run: ./operations/scripts/release/smoke-gates.ps1 -BuildVersion $env:BUILD_VERSION

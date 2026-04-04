@@ -18,24 +18,28 @@ public class StatusController : ControllerBase
     private readonly IConfiguration _configuration;
     private readonly IWebHostEnvironment _env;
     private readonly INotificationSettingsRepository _notificationSettingsRepository;
+    private readonly IExecutionRepository _executionRepository;
 
     public StatusController(
         IWorkerStateService workerState,
         ITaskQueue taskQueue,
         IConfiguration configuration,
         IWebHostEnvironment env,
-        INotificationSettingsRepository notificationSettingsRepository)
+        INotificationSettingsRepository notificationSettingsRepository,
+        IExecutionRepository executionRepository)
     {
         ArgumentNullException.ThrowIfNull(workerState);
         ArgumentNullException.ThrowIfNull(taskQueue);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(env);
         ArgumentNullException.ThrowIfNull(notificationSettingsRepository);
+        ArgumentNullException.ThrowIfNull(executionRepository);
         _workerState = workerState;
         _taskQueue = taskQueue;
         _configuration = configuration;
         _env = env;
         _notificationSettingsRepository = notificationSettingsRepository;
+        _executionRepository = executionRepository;
     }
 
     [HttpGet]
@@ -44,6 +48,10 @@ public class StatusController : ControllerBase
     {
         var dbConnected = await CheckDatabaseAsync();
         var smtpSettings = await _notificationSettingsRepository.GetEffectiveSmtpSettingsAsync();
+        var staleThresholdMinutes = Math.Max(1, _configuration.GetValue<int>("WorkerPool:StaleExecutionThresholdMinutes", 15));
+        var staleBeforeUtc = DateTime.UtcNow.AddMinutes(-staleThresholdMinutes);
+        var runningExecutions = await _executionRepository.GetRunningExecutionsAsync(staleBeforeUtc);
+        var staleExecutions = runningExecutions.Count(record => record.IsStale);
 
         var dto = new SystemStatusDto
         {
@@ -51,8 +59,16 @@ public class StatusController : ControllerBase
             DbConnected = dbConnected,
             ActiveWorkers = _workerState.ActiveWorkerCount,
             TotalWorkers = _workerState.TotalWorkerCount,
+            RunningBoxRuns = _workerState.RunningBoxRunCount,
+            RunningExecutions = runningExecutions.Count,
+            StaleExecutions = staleExecutions,
+            StaleExecutionThresholdMinutes = staleThresholdMinutes,
             QueueDepth = _taskQueue.QueueDepth,
             FailNotificationEnabled = smtpSettings.Enabled,
+            StartupRecoveryCompleted = _workerState.StartupRecoveryCompleted,
+            LastRecoveryCompletedAtUtc = _workerState.LastRecoveryCompletedAtUtc,
+            LastRecoveredExecutionCount = _workerState.LastRecoveredExecutionCount,
+            LastRecoveredBoxRunCount = _workerState.LastRecoveredBoxRunCount,
             Environment = _env.EnvironmentName
         };
 

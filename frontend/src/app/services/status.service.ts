@@ -7,8 +7,16 @@ export interface SystemStatus {
   dbConnected: boolean;
   activeWorkers: number;
   totalWorkers: number;
+  runningBoxRuns: number;
+  runningExecutions: number;
+  staleExecutions: number;
+  staleExecutionThresholdMinutes: number;
   queueDepth: number;
   failNotificationEnabled: boolean;
+  startupRecoveryCompleted: boolean;
+  lastRecoveryCompletedAtUtc?: string;
+  lastRecoveredExecutionCount: number;
+  lastRecoveredBoxRunCount: number;
   environment: string;
 }
 
@@ -33,11 +41,33 @@ export class StatusService implements OnDestroy {
     const s = this._status();
     return s ? `${s.activeWorkers}/${s.totalWorkers} Workers` : '-- Workers';
   });
+  readonly runningBoxRuns = computed(() => this._status()?.runningBoxRuns ?? 0);
+  readonly runningExecutions = computed(() => this._status()?.runningExecutions ?? 0);
+  readonly staleExecutions = computed(() => this._status()?.staleExecutions ?? 0);
+  readonly staleExecutionThresholdMinutes = computed(() => this._status()?.staleExecutionThresholdMinutes ?? 0);
+  readonly hasStaleExecutions = computed(() => this.staleExecutions() > 0);
   readonly queueLabel = computed(() => {
     const s = this._status();
     return s ? `${s.queueDepth} in queue` : '-- in queue';
   });
+  readonly staleLabel = computed(() => {
+    const s = this._status();
+    if (!s) return '-- stale';
+    return `${s.staleExecutions} stale > ${s.staleExecutionThresholdMinutes}m`;
+  });
   readonly failNotificationEnabled = computed(() => this._status()?.failNotificationEnabled ?? false);
+  readonly startupRecoveryCompleted = computed(() => this._status()?.startupRecoveryCompleted ?? false);
+  readonly recoveryLabel = computed(() => {
+    const s = this._status();
+    if (!s) return 'Recovery: --';
+    if (!s.startupRecoveryCompleted) return 'Recovery: Pending';
+
+    const completedAt = s.lastRecoveryCompletedAtUtc
+      ? new Date(s.lastRecoveryCompletedAtUtc).toLocaleTimeString()
+      : '--';
+
+    return `Recovery: ${s.lastRecoveredExecutionCount} exec / ${s.lastRecoveredBoxRunCount} runs @ ${completedAt}`;
+  });
   readonly environment = computed(() => this._status()?.environment ?? '--');
   readonly lastSyncLabel = computed(() => {
     const t = this._lastSyncAt();
@@ -79,8 +109,16 @@ export class StatusService implements OnDestroy {
           dbConnected: false,
           activeWorkers: 0,
           totalWorkers: 0,
+          runningBoxRuns: 0,
+          runningExecutions: 0,
+          staleExecutions: 0,
+          staleExecutionThresholdMinutes: 0,
           queueDepth: 0,
           failNotificationEnabled: false,
+          startupRecoveryCompleted: false,
+          lastRecoveryCompletedAtUtc: undefined,
+          lastRecoveredExecutionCount: 0,
+          lastRecoveredBoxRunCount: 0,
           environment: '--'
         });
         this._lastSyncAt.set(new Date());

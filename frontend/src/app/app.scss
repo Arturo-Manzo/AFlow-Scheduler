@@ -286,6 +286,10 @@
 
 .status-text { color:#e2e8f0; }
 
+.status-warn { color:#fbbf24; }
+
+.status-ok-soft { color:#86efac; }
+
 /* ── UNAUTHENTICATED HOST ──────────────────────── */
 // When no sidebar is shown, allow login component to fill:host vertically
 :host > router-outlet + * {

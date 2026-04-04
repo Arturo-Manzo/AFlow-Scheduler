@@ -1,6 +1,7 @@
 
 using System.Collections.ObjectModel;
 using System.Data;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -15,6 +16,7 @@ using Serilog;
 using Serilog.Debugging;
 using Serilog.Events;
 using Serilog.Sinks.MSSqlServer;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -64,7 +66,11 @@ builder.Host.UseSerilog((context, _, loggerConfiguration) =>
 // ============================================
 // CORS Configuration
 // ============================================
-var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+var configuredAllowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+var allowedOrigins = SecurityStartupValidator.ValidateAndNormalizeCorsOrigins(
+    configuredAllowedOrigins,
+    builder.Environment.IsDevelopment(),
+    builder.Environment.IsProduction());
 
 builder.Services.AddCors(options =>
 {
@@ -97,6 +103,10 @@ builder.Services.AddCors(options =>
 
 // JWT Configuration
 var (jwtSecret, usedJwtAppSettingsFallback) = JwtSecretResolver.Resolve(builder.Configuration);
+SecurityStartupValidator.ValidateJwtSecretSource(
+    usedJwtAppSettingsFallback,
+    builder.Environment.IsProduction(),
+    JwtSecretResolver.SecretEnvironmentVariableName);
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "AScheduler";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "ASchedulerAPI";
 
@@ -258,14 +268,18 @@ builder.Services.AddSingleton<IWorkerStateService>(sp => sp.GetRequiredService<C
 // ============================================
 // Health Checks
 // ============================================
-builder.Services.AddHealthChecks();
+builder.Services
+    .AddHealthChecks()
+    .AddCheck<DatabaseConnectivityHealthCheck>("database", tags: new[] { "ready" })
+    .AddCheck<WorkerPoolHealthCheck>("workerpool", tags: new[] { "ready" })
+    .AddCheck("self", () => HealthCheckResult.Healthy("API process is alive."), tags: new[] { "live" });
 
 var app = builder.Build();
 
 if (usedJwtAppSettingsFallback)
 {
-    app.Logger.LogWarning(
-        "JWT secret loaded from appsettings fallback because environment variable {EnvironmentVariable} is not set.",
+    app.Logger.LogInformation(
+        "JWT secret loaded from appsettings fallback in non-production because environment variable {EnvironmentVariable} is not set.",
         JwtSecretResolver.SecretEnvironmentVariableName);
 }
 
@@ -311,6 +325,16 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHealthChecks("/health");
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live"),
+    ResponseWriter = WriteHealthResponseAsync
+});
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = WriteHealthResponseAsync
+});
 
 app.Run();
 
@@ -345,4 +369,26 @@ static ColumnOptions CreateApplicationLogColumnOptions()
     columnOptions.Message.DataLength = 1000;
 
     return columnOptions;
+}
+
+static Task WriteHealthResponseAsync(HttpContext context, Microsoft.Extensions.Diagnostics.HealthChecks.HealthReport report)
+{
+    context.Response.ContentType = "application/json";
+
+    var payload = new
+    {
+        status = report.Status.ToString(),
+        totalDurationMs = report.TotalDuration.TotalMilliseconds,
+        checks = report.Entries.ToDictionary(
+            entry => entry.Key,
+            entry => new
+            {
+                status = entry.Value.Status.ToString(),
+                description = entry.Value.Description,
+                durationMs = entry.Value.Duration.TotalMilliseconds,
+                data = entry.Value.Data
+            })
+    };
+
+    return context.Response.WriteAsync(JsonSerializer.Serialize(payload));
 }

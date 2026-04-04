@@ -123,7 +123,15 @@ public class ExecutionHistoryControllerTests
         var execRepoMock = new Mock<IExecutionRepository>(MockBehavior.Strict);
         execRepoMock.Setup(r => r.GetLastExecutionForTaskAsync(5)).ReturnsAsync((ExecutionRepository.ExecutionRecord?)null);
 
-        var controller = BuildController(execRepoMock.Object, taskRepoMock.Object);
+        var boxRepoMock = new Mock<IBoxRepository>(MockBehavior.Strict);
+        boxRepoMock.Setup(r => r.GetByIdAsync(2)).ReturnsAsync(new BoxDefinition
+        {
+            Id = 2,
+            Name = "Box B",
+            DepartmentId = null
+        });
+
+        var controller = BuildController(execRepoMock.Object, taskRepoMock.Object, boxRepoMock.Object);
 
         var result = await controller.GetLastForTask(5);
 

@@ -30,6 +30,10 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
     private int _workerCount;
     private List<Task> _workerTasks = new();
     private CancellationTokenSource? _stoppingCts;
+    private DateTime? _lastRecoveryCompletedAtUtc;
+    private int _lastRecoveredExecutionCount;
+    private int _lastRecoveredBoxRunCount;
+    private volatile bool _startupRecoveryCompleted;
 
     public ConfigurableWorkerPool(
         IBoxRepository boxRepository,
@@ -440,6 +444,7 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
         // 1. Abort interrupted task executions (they were killed mid-flight and cannot continue).
         const string reason = "Execution interrupted due to server restart.";
         var aborted = await _executionRepository.AbortRunningExecutionsAsync(DateTime.UtcNow, reason);
+        _lastRecoveredExecutionCount = aborted;
         if (aborted > 0)
         {
             _logger.LogWarning(
@@ -450,6 +455,7 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
         // 2. Find BoxRuns that were interrupted (status = "Running") and enqueue them for resume.
         //    Their individual task executions were aborted above, so the DAG loop will retry them.
         var runningBoxRuns = await _boxRepository.GetRunningBoxRunsAsync();
+        var resumedCount = 0;
         foreach (var boxRun in runningBoxRuns)
         {
             var enqueued = await _taskQueue.EnqueueAsync(new BoxRunRequest
@@ -465,11 +471,22 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
 
             if (enqueued)
             {
+                resumedCount++;
                 _logger.LogInformation(
                     "Startup recovery: enqueued interrupted BoxRun {BoxRunId} (Box {BoxId}) for resume.",
                     boxRun.BoxRunId, boxRun.BoxId);
             }
         }
+
+        _lastRecoveredBoxRunCount = resumedCount;
+        _lastRecoveryCompletedAtUtc = DateTime.UtcNow;
+        _startupRecoveryCompleted = true;
+
+        _logger.LogInformation(
+            "Startup recovery completed. AbortedExecutions={AbortedExecutions}, ResumedBoxRuns={ResumedBoxRuns}, RecoveryCompletedAtUtc={RecoveryCompletedAtUtc}",
+            _lastRecoveredExecutionCount,
+            _lastRecoveredBoxRunCount,
+            _lastRecoveryCompletedAtUtc);
     }
 
     private async Task MarkBlockedTasksAsNotExecutedAsync(List<TaskDefinition> blockedTasks, BoxRunRequest request, string failureReason)
@@ -563,4 +580,9 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
     public bool IsTaskRunning(int taskId) => ((TaskExecutionService)_taskExecutionService).IsTaskRunning(taskId);
     public int ActiveWorkerCount => ((TaskExecutionService)_taskExecutionService).ActiveCount;
     public int TotalWorkerCount => _workerCount;
+    public int RunningBoxRunCount => _runningBoxRunIds.Count;
+    public DateTime? LastRecoveryCompletedAtUtc => _lastRecoveryCompletedAtUtc;
+    public int LastRecoveredExecutionCount => _lastRecoveredExecutionCount;
+    public int LastRecoveredBoxRunCount => _lastRecoveredBoxRunCount;
+    public bool StartupRecoveryCompleted => _startupRecoveryCompleted;
 }

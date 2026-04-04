@@ -18,7 +18,7 @@ public class PythonExecutor : ITaskExecutor
         _pythonExecutable = string.IsNullOrWhiteSpace(pythonExecutable) ? "python" : pythonExecutable;
     }
 
-    public async Task<ExecutionResult> ExecuteAsync(TaskDefinition task)
+    public async Task<ExecutionResult> ExecuteAsync(TaskDefinition task, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(task);
         if (string.IsNullOrWhiteSpace(task.Command))
@@ -28,7 +28,8 @@ public class PythonExecutor : ITaskExecutor
         if (string.IsNullOrWhiteSpace(scriptPath))
             throw new ArgumentException("Python task command does not include a valid script path.");
 
-        using var cts = new CancellationTokenSource(_timeout);
+        using var timeoutCts = new CancellationTokenSource(_timeout);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 
         using var process = new Process
         {
@@ -73,7 +74,7 @@ public class PythonExecutor : ITaskExecutor
             var outputTask = process.StandardOutput.ReadToEndAsync();
             var errorTask = process.StandardError.ReadToEndAsync();
 
-            await Task.WhenAll(outputTask, errorTask, process.WaitForExitAsync(cts.Token));
+            await Task.WhenAll(outputTask, errorTask, process.WaitForExitAsync(linkedCts.Token));
 
             return new ExecutionResult
             {

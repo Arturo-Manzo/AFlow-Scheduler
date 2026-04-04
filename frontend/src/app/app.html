@@ -97,7 +97,15 @@
         <span class="status-text">{{ statusService.dbConnected() ? 'DB Connected' : 'DB Disconnected' }}</span>
         <span class="status-text">Fail Notifications: {{ statusService.failNotificationEnabled() ? 'ON' : 'OFF' }}</span>
         <span class="status-text">{{ statusService.workers() }}</span>
+        <span class="status-text">{{ statusService.runningBoxRuns() }} runs active</span>
+        <span class="status-text">{{ statusService.runningExecutions() }} exec running</span>
         <span class="status-text">{{ statusService.queueLabel() }}</span>
+        <span [class]="'status-text ' + (statusService.hasStaleExecutions() ? 'status-warn' : 'status-ok-soft')">
+          {{ statusService.staleLabel() }}
+        </span>
+        <span [class]="'status-text ' + (statusService.startupRecoveryCompleted() ? 'status-ok-soft' : 'status-warn')">
+          {{ statusService.recoveryLabel() }}
+        </span>
       </div>
       <div class="statusbar-right">
         <span>{{ statusService.environment() }}</span>

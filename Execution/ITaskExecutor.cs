@@ -11,8 +11,9 @@ namespace AScheduler.Execution
         /// Executes a task and returns the execution result.
         /// </summary>
         /// <param name="task">The task definition to execute.</param>
+        /// <param name="cancellationToken">Cancellation token for cooperative cancellation.</param>
         /// <returns>The execution result containing output, error streams, and exit code.</returns>
-        Task<ExecutionResult> ExecuteAsync(TaskDefinition task);
+        Task<ExecutionResult> ExecuteAsync(TaskDefinition task, CancellationToken cancellationToken);
     }
 
     /// <summary>

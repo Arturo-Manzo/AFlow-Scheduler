@@ -17,4 +17,19 @@ public interface IWorkerStateService
 
     /// <summary>Total number of worker tasks configured in the pool.</summary>
     int TotalWorkerCount { get; }
+
+    /// <summary>Number of BoxRuns currently being executed in this process.</summary>
+    int RunningBoxRunCount { get; }
+
+    /// <summary>UTC timestamp when startup recovery last completed.</summary>
+    DateTime? LastRecoveryCompletedAtUtc { get; }
+
+    /// <summary>Count of interrupted task executions marked as Aborted during last startup recovery.</summary>
+    int LastRecoveredExecutionCount { get; }
+
+    /// <summary>Count of interrupted BoxRuns re-enqueued during last startup recovery.</summary>
+    int LastRecoveredBoxRunCount { get; }
+
+    /// <summary>Whether startup recovery has completed at least once since process start.</summary>
+    bool StartupRecoveryCompleted { get; }
 }

@@ -26,7 +26,7 @@ public class ApiExecutor : ITaskExecutor
     /// <summary>
     /// Executes an HTTP API request.
     /// </summary>
-    public async Task<ExecutionResult> ExecuteAsync(TaskDefinition task)
+    public async Task<ExecutionResult> ExecuteAsync(TaskDefinition task, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(task);
         ArgumentException.ThrowIfNullOrWhiteSpace(task.Command);
@@ -37,8 +37,9 @@ public class ApiExecutor : ITaskExecutor
 
             var request = ParseApiCommand(task.Command);
             
-            using var cts = new CancellationTokenSource(_timeout);
-            var result = await ExecuteHttpRequestAsync(request, cts.Token);
+            using var timeoutCts = new CancellationTokenSource(_timeout);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+            var result = await ExecuteHttpRequestAsync(request, linkedCts.Token);
 
             _logger.LogInformation(
                 "API request completed with status code {StatusCode}",
@@ -46,7 +47,7 @@ public class ApiExecutor : ITaskExecutor
 
             return new ExecutionResult
             {
-                ExitCode = (int)result.StatusCode,
+                ExitCode = result.IsSuccessStatusCode ? 0 : (int)result.StatusCode,
                 Output = result.ResponseBody,
                 Error = result.ErrorMessage ?? ""
             };
@@ -179,6 +180,7 @@ public class ApiExecutor : ITaskExecutor
             {
                 StatusCode = response.StatusCode,
                 ResponseBody = content,
+                IsSuccessStatusCode = response.IsSuccessStatusCode,
                 ErrorMessage = response.IsSuccessStatusCode ? null : $"HTTP {(int)response.StatusCode}: {content}"
             };
         }
@@ -188,6 +190,7 @@ public class ApiExecutor : ITaskExecutor
             {
                 StatusCode = System.Net.HttpStatusCode.InternalServerError,
                 ResponseBody = "",
+                IsSuccessStatusCode = false,
                 ErrorMessage = ex.Message
             };
         }
@@ -212,5 +215,6 @@ public class ApiExecutor : ITaskExecutor
         public System.Net.HttpStatusCode StatusCode { get; set; }
         public string ResponseBody { get; set; } = "";
         public string? ErrorMessage { get; set; }
+        public bool IsSuccessStatusCode { get; set; }
     }
 }

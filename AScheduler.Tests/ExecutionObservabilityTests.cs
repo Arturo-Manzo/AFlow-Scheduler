@@ -92,6 +92,7 @@ public class ExecutionObservabilityFixture : IAsyncLifetime
             IF OBJECT_ID('dbo.TaskExecutions', 'U') IS NOT NULL DROP TABLE dbo.TaskExecutions;
             IF OBJECT_ID('dbo.Tasks', 'U') IS NOT NULL DROP TABLE dbo.Tasks;
             IF OBJECT_ID('dbo.Boxes', 'U') IS NOT NULL DROP TABLE dbo.Boxes;
+            IF OBJECT_ID('dbo.Departments', 'U') IS NOT NULL DROP TABLE dbo.Departments;
             IF OBJECT_ID('dbo.BoxRuns', 'U') IS NOT NULL DROP TABLE dbo.BoxRuns;
             IF OBJECT_ID('dbo.Users', 'U') IS NOT NULL DROP TABLE dbo.Users;
 
@@ -100,16 +101,25 @@ public class ExecutionObservabilityFixture : IAsyncLifetime
                 Username NVARCHAR(100) NOT NULL
             );
 
+            CREATE TABLE dbo.Departments (
+                DepartmentId INT NOT NULL PRIMARY KEY,
+                Name NVARCHAR(100) NOT NULL
+            );
+
             CREATE TABLE dbo.Boxes (
                 BoxId INT NOT NULL PRIMARY KEY,
                 Name NVARCHAR(200) NOT NULL,
-                TimeZoneId NVARCHAR(100) NOT NULL
+                TimeZoneId NVARCHAR(100) NOT NULL,
+                NotificationEmail NVARCHAR(320) NULL,
+                DepartmentId INT NULL
             );
 
             CREATE TABLE dbo.Tasks (
                 TaskId INT NOT NULL PRIMARY KEY,
                 BoxId INT NOT NULL,
-                Name NVARCHAR(200) NOT NULL
+                Name NVARCHAR(200) NOT NULL,
+                TaskType NVARCHAR(20) NOT NULL,
+                Command NVARCHAR(4000) NOT NULL
             );
 
             CREATE TABLE dbo.BoxRuns (
@@ -136,7 +146,7 @@ public class ExecutionObservabilityFixture : IAsyncLifetime
                 CONSTRAINT CK_TaskExecutions_StatusLifecycle CHECK (
                     (Status = 'Running' AND StartedAt IS NOT NULL AND EndedAt IS NULL)
                     OR
-                    (Status IN ('Success', 'Failed', 'Aborted', 'NotExecuted') AND StartedAt IS NOT NULL AND EndedAt IS NOT NULL)
+                    (Status IN ('Success', 'Failed', 'Aborted', 'NotExecuted', 'Skipped') AND StartedAt IS NOT NULL AND EndedAt IS NOT NULL)
                 )
             );
 
@@ -165,8 +175,11 @@ public class ExecutionObservabilityFixture : IAsyncLifetime
 
         const string sql = @"
             INSERT INTO dbo.Users(UserId, Username) VALUES (1, 'operator1');
-            INSERT INTO dbo.Boxes(BoxId, Name, TimeZoneId) VALUES (10, 'Box A', 'Etc/UTC');
-            INSERT INTO dbo.Tasks(TaskId, BoxId, Name) VALUES (100, 10, 'Task A');
+            INSERT INTO dbo.Departments(DepartmentId, Name) VALUES (1, 'Operations');
+            INSERT INTO dbo.Boxes(BoxId, Name, TimeZoneId, NotificationEmail, DepartmentId)
+            VALUES (10, 'Box A', 'Etc/UTC', 'ops@example.com', 1);
+            INSERT INTO dbo.Tasks(TaskId, BoxId, Name, TaskType, Command)
+            VALUES (100, 10, 'Task A', 'Exe', 'cmd /c echo ok');
             INSERT INTO dbo.BoxRuns(BoxRunId, RequestedByUserId) VALUES (1000, 1);";
 
         await using var command = new SqlCommand(sql, connection);
@@ -436,5 +449,61 @@ public class ExecutionRepositoryIntegrationTests
         // Confirm no Running executions remain
         var running = await repository.GetRunningExecutionsAsync(DateTime.UtcNow.AddMinutes(-1));
         Assert.Empty(running);
+    }
+
+    [Fact]
+    public async Task GetFailedExecutions_DefaultFilter_IncludesNotExecuted()
+    {
+        // Arrange
+        await _fixture.ResetExecutionsAsync();
+        var repository = CreateRepository();
+
+        var startedAt = new DateTime(2026, 3, 30, 15, 0, 0, DateTimeKind.Utc);
+
+        var successExecutionId = await repository.CreateExecutionAsync(
+            taskId: 100,
+            boxRunId: 1000,
+            startedAtUtc: startedAt,
+            triggerSource: "Manual",
+            scheduledForUtc: null,
+            requestedByUserId: 1,
+            reason: "success sample");
+
+        await repository.CompleteExecutionAsync(
+            successExecutionId,
+            endedAtUtc: startedAt.AddSeconds(1),
+            status: "Success",
+            output: "ok",
+            error: "",
+            exitCode: 0,
+            stdOut: "ok",
+            stdErr: "");
+
+        var notExecutedId = await repository.CreateExecutionAsync(
+            taskId: 100,
+            boxRunId: 1000,
+            startedAtUtc: startedAt.AddMinutes(1),
+            triggerSource: "Manual",
+            scheduledForUtc: null,
+            requestedByUserId: 1,
+            reason: "blocked by dependencies");
+
+        await repository.CompleteExecutionAsync(
+            notExecutedId,
+            endedAtUtc: startedAt.AddMinutes(1).AddSeconds(1),
+            status: "NotExecuted",
+            output: "",
+            error: "blocked by dependency",
+            exitCode: null,
+            stdOut: "",
+            stdErr: "blocked by dependency");
+
+        // Act
+        var failed = await repository.GetFailedExecutionsAsync(limit: 10);
+
+        // Assert
+        Assert.Single(failed);
+        Assert.Equal(notExecutedId, failed[0].ExecutionId);
+        Assert.Equal("NotExecuted", failed[0].Status);
     }
 }

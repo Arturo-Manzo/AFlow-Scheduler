@@ -82,6 +82,32 @@ namespace AScheduler.Data
             return result.Select(NormalizeRecord).ToList();
         }
 
+        public async Task<ExecutionRecord?> GetExecutionByIdAsync(int executionId)
+        {
+            using var connection = CreateConnection();
+            const string sql = @"
+                SELECT te.ExecutionId, te.TaskId, te.BoxRunId, t.BoxId, b.Name AS BoxName,
+                       b.TimeZoneId AS BoxTimeZoneId,
+                      d.Name AS DepartmentName,
+                      b.NotificationEmail AS FailureAlertEmail,
+                       t.Name AS TaskName, t.TaskType, t.Command, te.StartedAt, te.EndedAt, te.Status,
+                       te.Output, te.Error, te.ExitCode, te.StdOut, te.StdErr,
+                       te.TriggerSource, te.ScheduledForUtc, te.Reason,
+                       CAST(0 AS bit) AS IsStale,
+                       COALESCE(te.RequestedByUserId, br.RequestedByUserId) AS RequestedByUserId,
+                       u.Username AS RequestedByUsername
+                FROM TaskExecutions te
+                INNER JOIN Tasks t ON te.TaskId = t.TaskId
+                INNER JOIN Boxes b ON t.BoxId = b.BoxId
+                LEFT JOIN Departments d ON b.DepartmentId = d.DepartmentId
+                LEFT JOIN BoxRuns br ON te.BoxRunId = br.BoxRunId
+                LEFT JOIN Users u ON COALESCE(te.RequestedByUserId, br.RequestedByUserId) = u.UserId
+                WHERE te.ExecutionId = @ExecutionId";
+
+            var record = await connection.QueryFirstOrDefaultAsync<ExecutionRecord>(sql, new { ExecutionId = executionId });
+            return record == null ? null : NormalizeRecord(record);
+        }
+
         public async Task<ExecutionRecord?> GetLastExecutionForTaskAsync(int taskId)
         {
             using var connection = CreateConnection();
@@ -275,7 +301,7 @@ namespace AScheduler.Data
             // Default to original behaviour when no status filter is provided
             var allowedStatuses = (status is { Length: > 0 })
                 ? status
-                : new[] { "Failed", "Aborted", "Skipped" };
+                : new[] { "Failed", "Aborted", "NotExecuted", "Skipped" };
 
             var sql = $@"
                 SELECT TOP (@Limit)

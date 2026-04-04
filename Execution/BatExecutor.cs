@@ -26,9 +26,11 @@ public class BatExecutor : ITaskExecutor
     /// <param name="task">The task definition containing the batch command to execute.</param>
     /// <returns>The execution result containing output, error, and exit code.</returns>
     /// <exception cref="ArgumentNullException">Thrown when task is null.</exception>
-    public async Task<ExecutionResult> ExecuteAsync(TaskDefinition task)
+    public async Task<ExecutionResult> ExecuteAsync(TaskDefinition task, CancellationToken cancellationToken)
     {
-        using var cts = new CancellationTokenSource(_timeout);
+        ArgumentNullException.ThrowIfNull(task);
+        using var timeoutCts = new CancellationTokenSource(_timeout);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
         using var process = new Process
         {
             StartInfo = new ProcessStartInfo
@@ -73,7 +75,7 @@ public class BatExecutor : ITaskExecutor
             await Task.WhenAll(
                 outputTask,
                 errorTask,
-                process.WaitForExitAsync(cts.Token)
+                process.WaitForExitAsync(linkedCts.Token)
             );
 
             return new ExecutionResult
