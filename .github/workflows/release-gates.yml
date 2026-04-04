@@ -49,4 +49,9 @@ jobs:
 
       - name: Release smoke gates
         shell: pwsh
-        run: ./operations/scripts/release/smoke-gates.ps1 -BuildVersion $env:BUILD_VERSION
+        run: |
+          $smokeScript = Join-Path $env:GITHUB_WORKSPACE "operations\scripts\release\smoke-gates.ps1"
+          if (-not (Test-Path $smokeScript)) {
+            throw "Smoke gates script not found at: $smokeScript"
+          }
+          & $smokeScript -BuildVersion $env:BUILD_VERSION
