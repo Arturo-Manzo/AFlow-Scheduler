@@ -5,6 +5,7 @@ import { CommonModule } from '@angular/common';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { ApiResponse, LoginResponse } from '../../models/models';
+import { isFieldInvalid } from '../../shared/form-utils';
 
 @Component({
   selector: 'app-login',
@@ -13,11 +14,15 @@ import { ApiResponse, LoginResponse } from '../../models/models';
   template: `
     <div class="login-wrapper">
       <div class="login-card">
-        <div class="login-logo">
-          <span class="logo-icon">⏰</span>
-          <h1>AScheduler</h1>
+        <div class="login-head">
+          <div class="login-eyebrow">Architectural Ledger</div>
+          <div class="login-context">Enterprise Scheduler Access</div>
         </div>
-        <p class="login-subtitle">Sign in to your account</p>
+
+        <div class="login-logo">
+          <h1>AScheduler Control Panel</h1>
+        </div>
+        <p class="login-subtitle">Authenticate to access workflow operations, executions, logs and administrative controls.</p>
 
         <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
 
@@ -85,28 +90,47 @@ import { ApiResponse, LoginResponse } from '../../models/models';
     }
     .login-wrapper {
       width: 100%;
-      max-width: 380px;
+      max-width: 420px;
     }
     .login-card {
       background: var(--bg-surface);
-      padding: 2.25rem 2rem;
+      padding: 0;
       border-radius: var(--radius-3);
       box-shadow: var(--shadow-2);
-      border: 1px solid var(--border);
+      border: 1px solid var(--border-strong);
+    }
+    .login-head {
+      padding: .9rem 1.1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-muted);
+    }
+    .login-eyebrow,
+    .login-context {
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-weight: 700;
+    }
+    .login-eyebrow {
+      color: var(--text-1);
+      font-size: .72rem;
+    }
+    .login-context {
+      margin-top: .2rem;
+      font-size: .64rem;
+      color: var(--text-3);
     }
     .login-logo {
-      display: flex;
-      align-items: center;
-      gap: .5rem;
-      margin-bottom: .375rem;
-      .logo-icon { font-size: 1.5rem; line-height: 1; }
-      h1 { font-size: 1.3rem; font-weight: 700; color: var(--text-1); margin: 0; }
+      padding: 1.4rem 1.5rem 0;
+      h1 { font-size: 1.25rem; font-weight: 800; color: var(--text-1); margin: 0; }
     }
     .login-subtitle {
+      padding: 0 1.5rem;
       font-size: .875rem;
-      color: var(--text-3);
-      margin-bottom: 1.75rem;
+      color: var(--text-2);
+      margin: .5rem 0 1.4rem;
+      line-height: 1.5;
     }
+    form { padding: 0 1.5rem 1.5rem; }
     button[type="submit"] { margin-top: .5rem; }
   `]
 })
@@ -118,15 +142,14 @@ export class LoginComponent {
 
   form = this.fb.group({
     username: ['', [Validators.required]],
-    password: ['', [Validators.required, Validators.minLength(6)]]
+    password: ['', [Validators.required, Validators.minLength(8)]]
   });
 
   loading = signal(false);
   error   = signal('');
 
   isInvalid(field: string): boolean {
-    const c = this.form.get(field)!;
-    return c.invalid && (c.dirty || c.touched);
+    return isFieldInvalid(this.form, field);
   }
 
   submit(): void {

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subscription, interval } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
-import { BoxRun, BoxRunStatus, BoxRunMetricsDto, TaskExecution, TaskExecutionLogEntry } from '../../models/models';
+import { BoxRunDto, BoxRunStatus, BoxRunMetricsDto, BoxRunTaskExecutionDto, TaskExecutionLogDto } from '../../models/models';
 import { ExecutionService } from '../../services/execution.service';
 import { StatusBadgeComponent } from '../../components/status-badge/status-badge.component';
 import { TaskTableComponent } from '../../components/task-table/task-table.component';
@@ -16,47 +16,57 @@ import { TaskLogsModalComponent } from '../../components/task-logs-modal/task-lo
   standalone: true,
   imports: [CommonModule, RouterLink, StatusBadgeComponent, TaskTableComponent, ErrorModalComponent, ConfirmModalComponent, TaskLogsModalComponent],
   template: `
-    <div class="page-header">
-      <div>
-        <a class="back-link" routerLink="/executions">← Back to executions</a>
-        <h1>BoxRun #{{ boxRunId() }}</h1>
+    <div class="view-shell">
+      <div class="page-header">
+        <div>
+          <a class="back-link" routerLink="/executions">← Back to executions</a>
+          <h1>BoxRun #{{ boxRunId() }}</h1>
+          <div class="page-subtitle">Detailed operational view with task breakdown, logs and aggregate metrics.</div>
+        </div>
+        <div class="page-actions">
+          <button class="btn" (click)="reload()">Refresh</button>
+        </div>
       </div>
-      <div class="page-actions">
-        <button class="btn" (click)="reload()">Refresh</button>
-      </div>
-    </div>
 
-    @if (loading()) {
-      <div class="loading-state"><span class="spinner"></span> Loading BoxRun details...</div>
-    } @else if (error()) {
-      <div class="alert alert-danger">{{ error() }}</div>
-    } @else if (run()) {
-      <section class="info-grid">
-        <div class="info-card">
-          <span class="info-label">BoxRun ID</span>
-          <span class="info-value">{{ run()!.id }}</span>
+      @if (loading()) {
+        <div class="loading-state"><span class="spinner"></span> Loading BoxRun details...</div>
+      } @else if (error()) {
+        <div class="alert alert-danger">{{ error() }}</div>
+      } @else if (run()) {
+      <div class="meta-grid">
+        <div class="meta-card">
+          <span class="meta-label">BoxRun ID</span>
+          <span class="meta-value">{{ run()!.id }}</span>
         </div>
-        <div class="info-card">
-          <span class="info-label">Status</span>
-          <span class="info-value"><app-status-badge [status]="displayStatus()" /></span>
+        <div class="meta-card">
+          <span class="meta-label">Status</span>
+          <span class="meta-value"><app-status-badge [status]="displayStatus()" /></span>
         </div>
-        <div class="info-card">
-          <span class="info-label">Start Time</span>
-          <span class="info-value">{{ formatTime(run()!.startTime) }}</span>
+        <div class="meta-card">
+          <span class="meta-label">Trigger</span>
+          <span class="meta-value">{{ run()!.triggerSource }}</span>
         </div>
-        <div class="info-card">
-          <span class="info-label">End Time</span>
-          <span class="info-value">{{ formatTime(run()!.endTime) }}</span>
+        <div class="meta-card">
+          <span class="meta-label">Scheduled For</span>
+          <span class="meta-value">{{ formatTime(run()!.scheduledForUtc) }}</span>
         </div>
-        <div class="info-card">
-          <span class="info-label">Duration</span>
-          <span class="info-value">{{ run()!.durationSeconds != null ? run()!.durationSeconds + 's' : '--' }}</span>
+        <div class="meta-card">
+          <span class="meta-label">Start Time</span>
+          <span class="meta-value">{{ formatTime(run()!.startTime) }}</span>
         </div>
-        <div class="info-card">
-          <span class="info-label">Progress</span>
-          <span class="info-value">{{ completedTasks() }} / {{ tasks().length }}</span>
+        <div class="meta-card">
+          <span class="meta-label">End Time</span>
+          <span class="meta-value">{{ formatTime(run()!.endTime) }}</span>
         </div>
-      </section>
+        <div class="meta-card">
+          <span class="meta-label">Duration</span>
+          <span class="meta-value">{{ run()!.durationSeconds != null ? run()!.durationSeconds + 's' : '--' }}</span>
+        </div>
+        <div class="meta-card">
+          <span class="meta-label">Progress</span>
+          <span class="meta-value">{{ completedTasks() }} / {{ tasks().length }}</span>
+        </div>
+      </div>
 
       @if (metrics()) {
         <section class="metrics-panel">
@@ -105,11 +115,19 @@ import { TaskLogsModalComponent } from '../../components/task-logs-modal/task-lo
         <div class="alert alert-warning">Stop requested. Running tasks may continue until they finish, but no new pending tasks will be scheduled.</div>
       }
 
-      <section>
-        <h2 class="section-title">Task Executions</h2>
+      <section class="data-panel">
+        <div class="panel-header">
+          <div class="panel-title-wrap">
+            <div class="panel-title">Task Executions</div>
+            <div class="panel-subtitle">Latest execution outcome per task within this BoxRun.</div>
+          </div>
+        </div>
+        <div class="panel-body" style="padding:0">
         <app-task-table [tasks]="tasks()" (viewError)="openError($event)" (viewLogs)="openLogs($event)" />
+        </div>
       </section>
-    }
+      }
+    </div>
 
     <app-error-modal
       [visible]="errorTask() !== null"
@@ -148,10 +166,7 @@ import { TaskLogsModalComponent } from '../../components/task-logs-modal/task-lo
   styles: [`
     .back-link { color: var(--text-2); text-decoration: none; font-size: .85rem; }
     .back-link:hover { text-decoration: underline; }
-    .info-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.75rem; margin-bottom:1rem; }
-    .info-card { border:1px solid var(--border); background:var(--bg-surface); border-radius:var(--radius-2); padding:.75rem .9rem; }
-    .info-label { display:block; font-size:.7rem; text-transform:uppercase; font-weight:700; color:var(--text-3); letter-spacing:.05em; }
-    .info-value { display:block; margin-top:.2rem; color:var(--text-1); font-weight:600; }
+    .page-subtitle { margin-top:.35rem; }
     .metrics-panel { margin: 0 0 1rem; padding: 1rem; border:1px solid var(--border); background:var(--bg-surface); border-radius:var(--radius-2); }
     .metrics-header { display:flex; justify-content:space-between; align-items:center; gap:.75rem; margin-bottom:.75rem; }
     .metrics-rate { font-size:1.35rem; font-weight:800; color:var(--text-1); }
@@ -167,15 +182,11 @@ import { TaskLogsModalComponent } from '../../components/task-logs-modal/task-lo
     .metric-failed strong { color:#991b1b; }
     .metric-pending strong { color:#92400e; }
     .actions-bar { display:flex; align-items:center; margin: 1rem 0; gap:.75rem; }
-    .btn-danger-soft { background:#fff1f2; color:#be123c; border-color:#fecdd3; }
-    .btn-danger-soft:hover { background:#ffe4e6; }
     @media (max-width: 900px) {
-      .info-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .metrics-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .actions-bar { flex-direction:column; align-items:flex-start; }
     }
     @media (max-width: 640px) {
-      .info-grid { grid-template-columns:1fr; }
       .metrics-grid { grid-template-columns:1fr; }
     }
   `]
@@ -186,16 +197,16 @@ export class BoxRunDetailComponent implements OnInit, OnDestroy {
   private pollSub?: Subscription;
 
   boxRunId = signal(0);
-  run = signal<BoxRun | null>(null);
-  tasks = signal<TaskExecution[]>([]);
+  run = signal<BoxRunDto | null>(null);
+  tasks = signal<BoxRunTaskExecutionDto[]>([]);
   metrics = signal<BoxRunMetricsDto | null>(null);
   loading = signal(true);
   actionLoading = signal(false);
   error = signal('');
 
-  errorTask = signal<TaskExecution | null>(null);
-  logTask = signal<TaskExecution | null>(null);
-  taskLogs = signal<TaskExecutionLogEntry[]>([]);
+  errorTask = signal<BoxRunTaskExecutionDto | null>(null);
+  logTask = signal<BoxRunTaskExecutionDto | null>(null);
+  taskLogs = signal<TaskExecutionLogDto[]>([]);
   logsLoading = signal(false);
   logsError = signal('');
   showCancelConfirm = signal(false);
@@ -290,11 +301,11 @@ export class BoxRunDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  openError(task: TaskExecution): void {
+  openError(task: BoxRunTaskExecutionDto): void {
     this.errorTask.set(task);
   }
 
-  openLogs(task: TaskExecution): void {
+  openLogs(task: BoxRunTaskExecutionDto): void {
     if (!task.executionId) return;
 
     this.logTask.set(task);
@@ -354,8 +365,8 @@ export class BoxRunDetailComponent implements OnInit, OnDestroy {
     return `${seconds}s`;
   }
 
-  private loadBoxRunState(showError: boolean, knownRun?: BoxRun): void {
-    const handleRun = (run: BoxRun) => {
+  private loadBoxRunState(showError: boolean, knownRun?: BoxRunDto): void {
+    const handleRun = (run: BoxRunDto) => {
       this.run.set(run);
       this.executionService.getBoxRunMetrics(this.boxRunId()).subscribe({
         next: metrics => {

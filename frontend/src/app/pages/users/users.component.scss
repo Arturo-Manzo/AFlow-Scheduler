@@ -1,0 +1,21 @@
+.account-panel { margin-bottom: 1.5rem; }
+.account-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  box-shadow: var(--shadow-1);
+  padding: 1.25rem;
+  max-width: 720px;
+}
+.account-card h3 { margin: 0 0 .35rem; }
+.account-copy {
+  margin: 0 0 1rem;
+  color: var(--text-3);
+  font-size: .9rem;
+  line-height: 1.5;
+}
+.inline-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: .25rem;
+}

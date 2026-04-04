@@ -22,9 +22,23 @@ namespace AScheduler.Data
         {
             using var connection = CreateConnection();
             const string sql = @"
-                SELECT BoxId AS Id, Name, Description, CronExpression, TimeZoneId, AllowParallel, Enabled, CreatedAtUtc, LastRunUtc
-                FROM Boxes WHERE Enabled = 1";
+                SELECT b.BoxId AS Id, b.Name, b.Description, b.CronExpression, b.TimeZoneId, b.AllowParallel, b.Enabled, b.CreatedAtUtc, b.LastRunUtc, b.NotificationEmail, b.DepartmentId, d.Name AS DepartmentName
+                FROM Boxes b
+                LEFT JOIN Departments d ON b.DepartmentId = d.DepartmentId
+                WHERE b.Enabled = 1";
             var result = await connection.QueryAsync<BoxDefinition>(sql);
+            return result.Select(NormalizeBox).ToList();
+        }
+
+        public async Task<List<BoxDefinition>> GetActiveBoxesByDepartmentAsync(int? departmentId)
+        {
+            using var connection = CreateConnection();
+            const string sql = @"
+                SELECT b.BoxId AS Id, b.Name, b.Description, b.CronExpression, b.TimeZoneId, b.AllowParallel, b.Enabled, b.CreatedAtUtc, b.LastRunUtc, b.NotificationEmail, b.DepartmentId, d.Name AS DepartmentName
+                FROM Boxes b
+                LEFT JOIN Departments d ON b.DepartmentId = d.DepartmentId
+                WHERE b.Enabled = 1 AND (@DepartmentId IS NULL OR b.DepartmentId = @DepartmentId)";
+            var result = await connection.QueryAsync<BoxDefinition>(sql, new { DepartmentId = departmentId });
             return result.Select(NormalizeBox).ToList();
         }
 
@@ -32,34 +46,94 @@ namespace AScheduler.Data
         {
             using var connection = CreateConnection();
             const string sql = @"
-                SELECT BoxId AS Id, Name, Description, CronExpression, TimeZoneId, AllowParallel, Enabled, CreatedAtUtc, LastRunUtc
-                FROM Boxes WHERE BoxId = @BoxId";
+                SELECT b.BoxId AS Id, b.Name, b.Description, b.CronExpression, b.TimeZoneId, b.AllowParallel, b.Enabled, b.CreatedAtUtc, b.LastRunUtc, b.NotificationEmail, b.DepartmentId, d.Name AS DepartmentName
+                FROM Boxes b
+                LEFT JOIN Departments d ON b.DepartmentId = d.DepartmentId
+                WHERE b.BoxId = @BoxId";
             var box = await connection.QueryFirstOrDefaultAsync<BoxDefinition>(sql, new { BoxId = boxId });
             return box == null ? null : NormalizeBox(box);
         }
 
-        public async Task<int> CreateAsync(string name, string description, string cronExpression, string timeZoneId, bool allowParallel)
+        public async Task<List<BoxSearchResult>> SearchAsync(string query, int limit)
+        {
+            using var connection = CreateConnection();
+
+            var normalizedQuery = (query ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(normalizedQuery))
+                return new List<BoxSearchResult>();
+
+            var safeLimit = Math.Max(1, Math.Min(limit, 100));
+            var like = $"%{normalizedQuery}%";
+            var startsWith = $"{normalizedQuery}%";
+
+            const string sql = @"
+                SELECT TOP (@Limit)
+                    b.BoxId,
+                    b.Name,
+                    b.Description,
+                    b.TimeZoneId,
+                    b.Enabled,
+                    b.CreatedAtUtc,
+                    ISNULL(taskCounts.ActiveTaskCount, 0) AS ActiveTaskCount
+                FROM Boxes b
+                OUTER APPLY
+                (
+                    SELECT COUNT(1) AS ActiveTaskCount
+                    FROM Tasks t
+                    WHERE t.BoxId = b.BoxId AND t.Enabled = 1
+                ) taskCounts
+                WHERE b.Name LIKE @Like
+                   OR b.Description LIKE @Like
+                   OR b.TimeZoneId LIKE @Like
+                ORDER BY
+                    CASE
+                        WHEN b.Name LIKE @StartsWith THEN 0
+                        WHEN b.Description LIKE @StartsWith THEN 1
+                        ELSE 2
+                    END,
+                    b.Enabled DESC,
+                    b.Name";
+
+            var results = await connection.QueryAsync<BoxSearchResult>(sql, new
+            {
+                Limit = safeLimit,
+                Like = like,
+                StartsWith = startsWith
+            });
+
+            return results
+                .Select(result =>
+                {
+                    result.CreatedAtUtc = UtcDateTimeMapper.EnsureUtc(result.CreatedAtUtc);
+                    return result;
+                })
+                .ToList();
+        }
+
+        public async Task<int> CreateAsync(string name, string description, string cronExpression, string timeZoneId, bool allowParallel, string? notificationEmail, int? departmentId = null)
         {
             using var connection = CreateConnection();
             const string sql = @"
-                INSERT INTO Boxes (Name, Description, CronExpression, TimeZoneId, AllowParallel, Enabled, CreatedAtUtc)
-                VALUES (@Name, @Description, @CronExpression, @TimeZoneId, @AllowParallel, 1, SYSUTCDATETIME());
+                INSERT INTO Boxes (Name, Description, CronExpression, TimeZoneId, AllowParallel, Enabled, CreatedAtUtc, NotificationEmail, DepartmentId)
+                VALUES (@Name, @Description, @CronExpression, @TimeZoneId, @AllowParallel, 1, SYSUTCDATETIME(), @NotificationEmail, @DepartmentId);
                 SELECT CAST(SCOPE_IDENTITY() AS INT);";
+            var normalizedEmail = string.IsNullOrWhiteSpace(notificationEmail) ? null : notificationEmail.Trim();
             return await connection.ExecuteScalarAsync<int>(sql,
-                new { Name = name, Description = description, CronExpression = cronExpression, TimeZoneId = timeZoneId, AllowParallel = allowParallel });
+                new { Name = name, Description = description, CronExpression = cronExpression, TimeZoneId = timeZoneId, AllowParallel = allowParallel, NotificationEmail = normalizedEmail, DepartmentId = departmentId });
         }
 
-        public async Task<bool> UpdateAsync(int boxId, string name, string description, string cronExpression, string timeZoneId, bool allowParallel, bool enabled)
+        public async Task<bool> UpdateAsync(int boxId, string name, string description, string cronExpression, string timeZoneId, bool allowParallel, bool enabled, string? notificationEmail, int? departmentId = null)
         {
             using var connection = CreateConnection();
             const string sql = @"
                 UPDATE Boxes
                 SET Name = @Name, Description = @Description, CronExpression = @CronExpression,
                     TimeZoneId = @TimeZoneId,
-                    AllowParallel = @AllowParallel, Enabled = @Enabled
+                    AllowParallel = @AllowParallel, Enabled = @Enabled, NotificationEmail = @NotificationEmail, DepartmentId = @DepartmentId
                 WHERE BoxId = @BoxId";
+            var normalizedEmail = string.IsNullOrWhiteSpace(notificationEmail) ? null : notificationEmail.Trim();
             var rows = await connection.ExecuteAsync(sql,
-                new { BoxId = boxId, Name = name, Description = description, CronExpression = cronExpression, TimeZoneId = timeZoneId, AllowParallel = allowParallel, Enabled = enabled });
+                new { BoxId = boxId, Name = name, Description = description, CronExpression = cronExpression, TimeZoneId = timeZoneId, AllowParallel = allowParallel, Enabled = enabled, NotificationEmail = normalizedEmail, DepartmentId = departmentId });
             return rows > 0;
         }
 
@@ -114,7 +188,7 @@ namespace AScheduler.Data
             return run == null ? null : NormalizeBoxRunSummary(run);
         }
 
-        public async Task<List<BoxRunSummary>> GetRecentBoxRunsAsync(int limit = 100)
+        public async Task<List<BoxRunSummary>> GetRecentBoxRunsAsync(int limit = 100, int? boxId = null)
         {
             if (limit <= 0) limit = 100;
 
@@ -126,9 +200,10 @@ namespace AScheduler.Data
                        br.TriggerSource, br.RequestedByUserId, br.CreatedAtUtc
                 FROM BoxRuns br
                 INNER JOIN Boxes b ON b.BoxId = br.BoxId
+                WHERE (@BoxId IS NULL OR br.BoxId = @BoxId)
                 ORDER BY br.CreatedAtUtc DESC";
 
-            var result = await connection.QueryAsync<BoxRunSummary>(sql, new { Limit = limit });
+            var result = await connection.QueryAsync<BoxRunSummary>(sql, new { Limit = limit, BoxId = boxId });
             return result.Select(NormalizeBoxRunSummary).ToList();
         }
 

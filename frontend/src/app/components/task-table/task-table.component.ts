@@ -1,6 +1,6 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { TaskExecution } from '../../models/models';
+import { BoxRunTaskExecutionDto } from '../../models/models';
 import { StatusBadgeComponent } from '../status-badge/status-badge.component';
 
 @Component({
@@ -53,16 +53,16 @@ import { StatusBadgeComponent } from '../status-badge/status-badge.component';
   `]
 })
 export class TaskTableComponent {
-  @Input({ required: true }) tasks: TaskExecution[] = [];
-  @Output() viewError = new EventEmitter<TaskExecution>();
-  @Output() viewLogs = new EventEmitter<TaskExecution>();
+  @Input({ required: true }) tasks: BoxRunTaskExecutionDto[] = [];
+  @Output() viewError = new EventEmitter<BoxRunTaskExecutionDto>();
+  @Output() viewLogs = new EventEmitter<BoxRunTaskExecutionDto>();
 
   formatTime(value?: string): string {
     if (!value) return '--';
     return new Date(value).toLocaleString();
   }
 
-  dependenciesLabel(task: TaskExecution): string {
+  dependenciesLabel(task: BoxRunTaskExecutionDto): string {
     if (!task.dependsOn.length) return 'None';
     return task.dependsOn
       .map(id => this.tasks.find(t => t.taskId === id)?.name ?? `#${id}`)

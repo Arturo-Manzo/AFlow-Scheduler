@@ -15,4 +15,7 @@ public interface ITaskQueue
 
     /// <summary>Dequeue the next work item (either BoxRunItem or TaskForceStartItem).</summary>
     Task<WorkerItem> DequeueAsync(CancellationToken ct);
+
+    /// <summary>Number of items currently waiting in the queue (not yet dequeued by a worker).</summary>
+    int QueueDepth { get; }
 }

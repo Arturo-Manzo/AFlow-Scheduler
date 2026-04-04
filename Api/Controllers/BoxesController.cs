@@ -53,7 +53,8 @@ public class BoxesController : ControllerBase
     [Authorize(Roles = "Admin,Operator,Viewer")]
     public async Task<IActionResult> GetAll()
     {
-        var boxes = await _boxRepository.GetActiveBoxesAsync();
+        var departmentId = GetCurrentDepartmentId();
+        var boxes = await _boxRepository.GetActiveBoxesByDepartmentAsync(departmentId);
         var dtos = new List<BoxDto>();
         foreach (var box in boxes)
             dtos.Add(await MapToBoxDtoAsync(box, includeTasks: true));
@@ -67,6 +68,12 @@ public class BoxesController : ControllerBase
         var box = await _boxRepository.GetByIdAsync(boxId);
         if (box == null)
             return NotFound(new ApiResponse<object> { Success = false, Message = "Box not found.", ErrorCode = "BOX_NOT_FOUND" });
+        
+        // Authorization: Check if user can access this box's department
+        var userDepartmentId = GetCurrentDepartmentId();
+        if (userDepartmentId.HasValue && box.DepartmentId.HasValue && box.DepartmentId != userDepartmentId)
+            return Forbid("You do not have permission to access this box.");
+        
         var dto = await MapToBoxDtoAsync(box, includeTasks: true);
         return Ok(new ApiResponse<BoxDto> { Success = true, Data = dto });
     }
@@ -87,10 +94,13 @@ public class BoxesController : ControllerBase
             string.IsNullOrWhiteSpace(request.InitialTask.TaskType))
             return BadRequest(new ApiResponse<object> { Success = false, Message = "A box requires at least one task. Provide initialTask with name, command, and taskType.", ErrorCode = "MISSING_INITIAL_TASK" });
 
+        if (!TryValidateEmail(request.NotificationEmail, out var emailError))
+            return BadRequest(new ApiResponse<object> { Success = false, Message = emailError, ErrorCode = "INVALID_EMAIL" });
+
         try
         {
             var boxId = await _boxRepository.CreateAsync(
-                request.Name, request.Description, request.CronExpression, request.TimeZoneId, false);
+                request.Name, request.Description, request.CronExpression, request.TimeZoneId, false, request.NotificationEmail, request.DepartmentId);
 
             await _taskRepository.CreateAsync(
                 boxId,
@@ -138,7 +148,10 @@ public class BoxesController : ControllerBase
         if (!TryValidateSchedule(request.CronExpression, request.TimeZoneId, out var scheduleError))
             return BadRequest(new ApiResponse<object> { Success = false, Message = scheduleError, ErrorCode = "INVALID_SCHEDULE" });
 
-        await _boxRepository.UpdateAsync(boxId, request.Name, request.Description, request.CronExpression, request.TimeZoneId, false, request.Enabled);
+        if (!TryValidateEmail(request.NotificationEmail, out var emailError))
+            return BadRequest(new ApiResponse<object> { Success = false, Message = emailError, ErrorCode = "INVALID_EMAIL" });
+
+        await _boxRepository.UpdateAsync(boxId, request.Name, request.Description, request.CronExpression, request.TimeZoneId, false, request.Enabled, request.NotificationEmail, request.DepartmentId);
 
         var userId = GetCurrentUserId();
         if (userId.HasValue)
@@ -291,7 +304,10 @@ public class BoxesController : ControllerBase
             TimeZoneId = box.TimeZoneId,
             Enabled = box.Enabled,
             LastRunUtc = box.LastRunUtc,
-            CreatedAt = box.CreatedAtUtc
+            CreatedAt = box.CreatedAtUtc,
+            NotificationEmail = box.NotificationEmail,
+            DepartmentId = box.DepartmentId,
+            DepartmentName = box.DepartmentName
         };
         if (includeTasks)
         {
@@ -309,6 +325,24 @@ public class BoxesController : ControllerBase
             }
         }
         return dto;
+    }
+
+    private static bool TryValidateEmail(string? email, out string error)
+    {
+        error = "";
+        if (string.IsNullOrWhiteSpace(email))
+            return true; // Email is optional
+        
+        try
+        {
+            var addr = new System.Net.Mail.MailAddress(email);
+            return addr.Address == email;
+        }
+        catch
+        {
+            error = "Notification email format is invalid.";
+            return false;
+        }
     }
 
     private static bool TryValidateSchedule(string cronExpression, string timeZoneId, out string error)
@@ -358,6 +392,16 @@ public class BoxesController : ControllerBase
     private int? GetCurrentUserId()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub") ?? User.FindFirst("userId");
+        return claim != null && int.TryParse(claim.Value, out var id) ? id : null;
+    }
+
+    /// <summary>
+    /// Gets the department ID from the current user's JWT claims.
+    /// Returns null if the claim is missing (for backward compatibility with non-department users).
+    /// </summary>
+    private int? GetCurrentDepartmentId()
+    {
+        var claim = User.FindFirst("department_id");
         return claim != null && int.TryParse(claim.Value, out var id) ? id : null;
     }
 }

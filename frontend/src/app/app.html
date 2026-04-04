@@ -1,8 +1,10 @@
 @if (auth.currentUser()) {
   <aside class="sidebar" role="navigation" aria-label="Main navigation">
     <div class="sidebar-brand">
-      <span class="brand-icon">⏰</span>
-      <span class="brand-name">AScheduler</span>
+      <div>
+        <div class="brand-title">AScheduler Core</div>
+        <div class="brand-subtitle">Workflow Control Cluster</div>
+      </div>
     </div>
 
     <nav class="sidebar-nav">
@@ -10,18 +12,30 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         Dashboard
       </a>
-      <a routerLink="/tasks" routerLinkActive="active">
+      <a routerLink="/boxes" routerLinkActive="active">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-        Tasks
+        Boxes
       </a>
       <a routerLink="/executions" routerLinkActive="active">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
         Executions
       </a>
-      <a routerLink="/logs" routerLinkActive="active">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        Logs
+      <a routerLink="/history" routerLinkActive="active">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Execution History
       </a>
+      @if (auth.isAdmin) {
+        <a routerLink="/departments" routerLinkActive="active">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+          Departments
+        </a>
+      }
+      @if (auth.isAdmin) {
+        <a routerLink="/notification-settings" routerLinkActive="active">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v4"/><path d="M12 17v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="m16.24 16.24 2.83 2.83"/><path d="M3 12h4"/><path d="M17 12h4"/><path d="m4.93 19.07 2.83-2.83"/><path d="m16.24 7.76 2.83-2.83"/><circle cx="12" cy="12" r="3"/></svg>
+          SMTP Settings
+        </a>
+      }
       @if (auth.isAdmin) {
         <a routerLink="/users" routerLinkActive="active">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -36,11 +50,14 @@
     </nav>
 
     <div class="sidebar-footer">
-      <div class="sidebar-user">
-        <div class="user-avatar">{{ auth.currentUser()!.username[0].toUpperCase() }}</div>
-        <div class="user-meta">
-          <span class="user-name">{{ auth.currentUser()!.username }}</span>
-          <span class="user-role">{{ auth.currentUser()!.roleName }}</span>
+      <div class="sidebar-user-block">
+        <div class="sidebar-support">Support</div>
+        <div class="sidebar-user">
+          <div class="user-avatar">{{ auth.currentUser()!.username[0].toUpperCase() }}</div>
+          <div class="user-meta">
+            <span class="user-name">{{ auth.currentUser()!.username }}</span>
+            <span class="user-role">{{ auth.currentUser()!.roleName }}</span>
+          </div>
         </div>
       </div>
       <div class="user-menu-shell">
@@ -58,9 +75,37 @@
     </div>
   </aside>
 
-  <main class="main-content" role="main">
-    <router-outlet />
-  </main>
+  <div class="workspace-shell">
+    <header class="topbar">
+      <div class="topbar-main">
+        <div class="topbar-title">Architectural Ledger</div>
+        <div class="topbar-context">Control Panel > {{ currentSection() }}</div>
+      </div>
+    </header>
+
+    <main class="main-content" role="main">
+      <div class="content-viewport">
+        <router-outlet />
+      </div>
+    </main>
+
+    <footer class="statusbar">
+      <div class="statusbar-left">
+        <span [class]="'status-pill ' + (statusService.apiOnline() ? 'status-ok' : 'status-err')">
+          {{ statusService.apiOnline() ? 'System Online' : 'API Offline' }}
+        </span>
+        <span class="status-text">{{ statusService.dbConnected() ? 'DB Connected' : 'DB Disconnected' }}</span>
+        <span class="status-text">Fail Notifications: {{ statusService.failNotificationEnabled() ? 'ON' : 'OFF' }}</span>
+        <span class="status-text">{{ statusService.workers() }}</span>
+        <span class="status-text">{{ statusService.queueLabel() }}</span>
+      </div>
+      <div class="statusbar-right">
+        <span>{{ statusService.environment() }}</span>
+        <span>v{{ statusService.appVersion }}</span>
+        <span>{{ statusService.lastSyncLabel() }}</span>
+      </div>
+    </footer>
+  </div>
 
   @if (showChangePassword()) {
     <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="Change password dialog">
@@ -120,3 +165,4 @@
 } @else {
   <router-outlet />
 }
+<app-toast />

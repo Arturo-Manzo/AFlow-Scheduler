@@ -16,6 +16,7 @@ public class ExecutionHistoryControllerTests
     private static ExecutionHistoryController BuildController(
         IExecutionRepository? executionRepository = null,
         ITaskRepository? taskRepository = null,
+        IBoxRepository? boxRepository = null,
         IConfiguration? configuration = null)
     {
         var config = configuration ?? new ConfigurationBuilder()
@@ -28,6 +29,7 @@ public class ExecutionHistoryControllerTests
         return new ExecutionHistoryController(
             executionRepository ?? Mock.Of<IExecutionRepository>(),
             taskRepository ?? Mock.Of<ITaskRepository>(),
+            boxRepository ?? Mock.Of<IBoxRepository>(),
             config);
     }
 
@@ -38,8 +40,9 @@ public class ExecutionHistoryControllerTests
         taskRepoMock.Setup(r => r.GetByIdAsync(42)).ReturnsAsync((TaskDefinition?)null);
 
         var execRepoMock = new Mock<IExecutionRepository>(MockBehavior.Strict);
+        var boxRepoMock = new Mock<IBoxRepository>(MockBehavior.Loose);
 
-        var controller = BuildController(execRepoMock.Object, taskRepoMock.Object);
+        var controller = BuildController(execRepoMock.Object, taskRepoMock.Object, boxRepoMock.Object);
 
         var result = await controller.GetForTask(42);
 
@@ -60,6 +63,14 @@ public class ExecutionHistoryControllerTests
             Name = "Task A",
             Command = "cmd",
             TaskType = TaskType.Exe
+        });
+
+        var boxRepoMock = new Mock<IBoxRepository>(MockBehavior.Strict);
+        boxRepoMock.Setup(r => r.GetByIdAsync(10)).ReturnsAsync(new BoxDefinition
+        {
+            Id = 10,
+            Name = "Box A",
+            DepartmentId = null  // No department
         });
 
         var startedAt = System.DateTime.UtcNow.AddMinutes(-2);
@@ -84,7 +95,7 @@ public class ExecutionHistoryControllerTests
             }
         });
 
-        var controller = BuildController(execRepoMock.Object, taskRepoMock.Object);
+        var controller = BuildController(execRepoMock.Object, taskRepoMock.Object, boxRepoMock.Object);
 
         var result = await controller.GetForTask(1);
 

@@ -34,9 +34,9 @@ public class BoxRunsController : ControllerBase
 
     [HttpGet]
     [Authorize(Roles = "Admin,Operator,Viewer")]
-    public async Task<IActionResult> GetAll([FromQuery] int limit = 100)
+    public async Task<IActionResult> GetAll([FromQuery] int limit = 100, [FromQuery] int? boxId = null)
     {
-        var runs = await _boxRepository.GetRecentBoxRunsAsync(limit);
+        var runs = await _boxRepository.GetRecentBoxRunsAsync(limit, boxId);
         var dtos = runs.Select(MapToBoxRunDto).ToList();
         return Ok(new ApiResponse<List<BoxRunDto>> { Success = true, Data = dtos });
     }

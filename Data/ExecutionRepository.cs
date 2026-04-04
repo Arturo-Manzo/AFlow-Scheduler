@@ -24,7 +24,9 @@ namespace AScheduler.Data
             const string sql = @"
                 SELECT te.ExecutionId, te.TaskId, te.BoxRunId, t.BoxId, b.Name AS BoxName,
                        b.TimeZoneId AS BoxTimeZoneId,
-                       t.Name AS TaskName, te.StartedAt, te.EndedAt, te.Status,
+                      d.Name AS DepartmentName,
+                      b.NotificationEmail AS FailureAlertEmail,
+                       t.Name AS TaskName, t.TaskType, t.Command, te.StartedAt, te.EndedAt, te.Status,
                        te.Output, te.Error, te.ExitCode, te.StdOut, te.StdErr,
                        te.TriggerSource, te.ScheduledForUtc, te.Reason,
                        CAST(CASE WHEN te.Status = 'Running' AND te.StartedAt < @StaleBeforeUtc THEN 1 ELSE 0 END AS bit) AS IsStale,
@@ -33,6 +35,7 @@ namespace AScheduler.Data
                 FROM TaskExecutions te
                 INNER JOIN Tasks t ON te.TaskId = t.TaskId
                 INNER JOIN Boxes b ON t.BoxId = b.BoxId
+                LEFT JOIN Departments d ON b.DepartmentId = d.DepartmentId
                 INNER JOIN BoxRuns br ON te.BoxRunId = br.BoxRunId
                 LEFT JOIN Users u ON COALESCE(te.RequestedByUserId, br.RequestedByUserId) = u.UserId
                 WHERE te.BoxRunId = @BoxRunId
@@ -51,7 +54,9 @@ namespace AScheduler.Data
             const string sql = @"
                 SELECT te.ExecutionId, te.TaskId, te.BoxRunId, t.BoxId, b.Name AS BoxName,
                        b.TimeZoneId AS BoxTimeZoneId,
-                       t.Name AS TaskName, te.StartedAt, te.EndedAt, te.Status,
+                      d.Name AS DepartmentName,
+                      b.NotificationEmail AS FailureAlertEmail,
+                       t.Name AS TaskName, t.TaskType, t.Command, te.StartedAt, te.EndedAt, te.Status,
                        te.Output, te.Error, te.ExitCode, te.StdOut, te.StdErr,
                        te.TriggerSource, te.ScheduledForUtc, te.Reason,
                        CAST(CASE WHEN te.Status = 'Running' AND te.StartedAt < @StaleBeforeUtc THEN 1 ELSE 0 END AS bit) AS IsStale,
@@ -60,6 +65,7 @@ namespace AScheduler.Data
                 FROM TaskExecutions te
                 INNER JOIN Tasks t ON te.TaskId = t.TaskId
                 INNER JOIN Boxes b ON t.BoxId = b.BoxId
+                LEFT JOIN Departments d ON b.DepartmentId = d.DepartmentId
                 LEFT JOIN BoxRuns br ON te.BoxRunId = br.BoxRunId
                 LEFT JOIN Users u ON COALESCE(te.RequestedByUserId, br.RequestedByUserId) = u.UserId
                 WHERE te.TaskId = @TaskId
@@ -82,7 +88,9 @@ namespace AScheduler.Data
             const string sql = @"
                 SELECT TOP 1 te.ExecutionId, te.TaskId, te.BoxRunId, t.BoxId, b.Name AS BoxName,
                        b.TimeZoneId AS BoxTimeZoneId,
-                       t.Name AS TaskName, te.StartedAt, te.EndedAt, te.Status,
+                      d.Name AS DepartmentName,
+                      b.NotificationEmail AS FailureAlertEmail,
+                       t.Name AS TaskName, t.TaskType, t.Command, te.StartedAt, te.EndedAt, te.Status,
                        te.Output, te.Error, te.ExitCode, te.StdOut, te.StdErr,
                        te.TriggerSource, te.ScheduledForUtc, te.Reason,
                        CAST(0 AS bit) AS IsStale,
@@ -91,6 +99,7 @@ namespace AScheduler.Data
                 FROM TaskExecutions te
                 INNER JOIN Tasks t ON te.TaskId = t.TaskId
                 INNER JOIN Boxes b ON t.BoxId = b.BoxId
+                LEFT JOIN Departments d ON b.DepartmentId = d.DepartmentId
                 LEFT JOIN BoxRuns br ON te.BoxRunId = br.BoxRunId
                 LEFT JOIN Users u ON COALESCE(te.RequestedByUserId, br.RequestedByUserId) = u.UserId
                 WHERE te.TaskId = @TaskId
@@ -105,7 +114,9 @@ namespace AScheduler.Data
             const string sql = @"
                 SELECT te.ExecutionId, te.TaskId, te.BoxRunId, t.BoxId, b.Name AS BoxName,
                        b.TimeZoneId AS BoxTimeZoneId,
-                       t.Name AS TaskName, te.StartedAt, te.EndedAt, te.Status,
+                      d.Name AS DepartmentName,
+                      b.NotificationEmail AS FailureAlertEmail,
+                       t.Name AS TaskName, t.TaskType, t.Command, te.StartedAt, te.EndedAt, te.Status,
                        te.Output, te.Error, te.ExitCode, te.StdOut, te.StdErr,
                        te.TriggerSource, te.ScheduledForUtc, te.Reason,
                        CAST(CASE WHEN te.StartedAt < @StaleBeforeUtc THEN 1 ELSE 0 END AS bit) AS IsStale,
@@ -114,6 +125,7 @@ namespace AScheduler.Data
                 FROM TaskExecutions te
                 INNER JOIN Tasks t ON te.TaskId = t.TaskId
                 INNER JOIN Boxes b ON t.BoxId = b.BoxId
+                LEFT JOIN Departments d ON b.DepartmentId = d.DepartmentId
                 LEFT JOIN BoxRuns br ON te.BoxRunId = br.BoxRunId
                 LEFT JOIN Users u ON COALESCE(te.RequestedByUserId, br.RequestedByUserId) = u.UserId
                 WHERE te.Status = 'Running'
@@ -204,7 +216,9 @@ namespace AScheduler.Data
             const string sql = @"
                 SELECT TOP 1 te.ExecutionId, te.TaskId, te.BoxRunId, t.BoxId, b.Name AS BoxName,
                        b.TimeZoneId AS BoxTimeZoneId,
-                       t.Name AS TaskName, te.StartedAt, te.EndedAt, te.Status,
+                      d.Name AS DepartmentName,
+                      b.NotificationEmail AS FailureAlertEmail,
+                       t.Name AS TaskName, t.TaskType, t.Command, te.StartedAt, te.EndedAt, te.Status,
                        te.Output, te.Error, te.ExitCode, te.StdOut, te.StdErr,
                        te.TriggerSource, te.ScheduledForUtc, te.Reason,
                        CAST(0 AS bit) AS IsStale,
@@ -213,6 +227,7 @@ namespace AScheduler.Data
                 FROM TaskExecutions te
                 INNER JOIN Tasks t ON te.TaskId = t.TaskId
                 INNER JOIN Boxes b ON t.BoxId = b.BoxId
+                LEFT JOIN Departments d ON b.DepartmentId = d.DepartmentId
                 INNER JOIN BoxRuns br ON te.BoxRunId = br.BoxRunId
                 LEFT JOIN Users u ON COALESCE(te.RequestedByUserId, br.RequestedByUserId) = u.UserId
                 WHERE te.TaskId = @TaskId AND te.BoxRunId = @BoxRunId
@@ -229,7 +244,9 @@ namespace AScheduler.Data
                 SELECT TOP (@Limit)
                        te.ExecutionId, te.TaskId, te.BoxRunId, t.BoxId, b.Name AS BoxName,
                        b.TimeZoneId AS BoxTimeZoneId,
-                       t.Name AS TaskName, te.StartedAt, te.EndedAt, te.Status,
+                      d.Name AS DepartmentName,
+                      b.NotificationEmail AS FailureAlertEmail,
+                       t.Name AS TaskName, t.TaskType, t.Command, te.StartedAt, te.EndedAt, te.Status,
                        te.Output, te.Error, te.ExitCode, te.StdOut, te.StdErr,
                        te.TriggerSource, te.ScheduledForUtc, te.Reason,
                        CAST(CASE WHEN te.Status = 'Running' AND te.StartedAt < @StaleBeforeUtc THEN 1 ELSE 0 END AS bit) AS IsStale,
@@ -238,6 +255,7 @@ namespace AScheduler.Data
                 FROM TaskExecutions te
                 INNER JOIN Tasks t ON te.TaskId = t.TaskId
                 INNER JOIN Boxes b ON t.BoxId = b.BoxId
+                LEFT JOIN Departments d ON b.DepartmentId = d.DepartmentId
                 LEFT JOIN BoxRuns br ON te.BoxRunId = br.BoxRunId
                 LEFT JOIN Users u ON COALESCE(te.RequestedByUserId, br.RequestedByUserId) = u.UserId
                 ORDER BY te.StartedAt DESC";
@@ -249,8 +267,59 @@ namespace AScheduler.Data
             return result.Select(NormalizeRecord).ToList();
         }
 
-        public async Task<Dictionary<int, string>> GetTaskStatusMapForBoxRunAsync(int boxRunId)
+        public async Task<List<ExecutionRecord>> GetFailedExecutionsAsync(int limit = 50, int? boxId = null, DateTime? fromUtc = null, DateTime? toUtc = null, int? departmentId = null, string[]? status = null, string? taskName = null, string? triggerSource = null)
         {
+            if (limit <= 0) limit = 50;
+            using var connection = CreateConnection();
+
+            // Default to original behaviour when no status filter is provided
+            var allowedStatuses = (status is { Length: > 0 })
+                ? status
+                : new[] { "Failed", "Aborted", "Skipped" };
+
+            var sql = $@"
+                SELECT TOP (@Limit)
+                       te.ExecutionId, te.TaskId, te.BoxRunId, t.BoxId, b.Name AS BoxName,
+                       b.TimeZoneId AS BoxTimeZoneId,
+                      d.Name AS DepartmentName,
+                      b.NotificationEmail AS FailureAlertEmail,
+                       t.Name AS TaskName, t.TaskType, t.Command, te.StartedAt, te.EndedAt, te.Status,
+                       te.Output, te.Error, te.ExitCode, te.StdOut, te.StdErr,
+                       te.TriggerSource, te.ScheduledForUtc, te.Reason,
+                       CAST(0 AS bit) AS IsStale,
+                       COALESCE(te.RequestedByUserId, br.RequestedByUserId) AS RequestedByUserId,
+                       u.Username AS RequestedByUsername
+                FROM TaskExecutions te
+                INNER JOIN Tasks t ON te.TaskId = t.TaskId
+                INNER JOIN Boxes b ON t.BoxId = b.BoxId
+                LEFT JOIN Departments d ON b.DepartmentId = d.DepartmentId
+                LEFT JOIN BoxRuns br ON te.BoxRunId = br.BoxRunId
+                LEFT JOIN Users u ON COALESCE(te.RequestedByUserId, br.RequestedByUserId) = u.UserId
+                WHERE te.Status IN ({string.Join(", ", allowedStatuses.Select((_, i) => $"@Status{i}"))})
+                  AND (@BoxId IS NULL OR t.BoxId = @BoxId)
+                  AND (@FromUtc IS NULL OR te.StartedAt >= @FromUtc)
+                  AND (@ToUtc IS NULL OR te.StartedAt <= @ToUtc)
+                  AND (@DepartmentId IS NULL OR b.DepartmentId = @DepartmentId OR b.DepartmentId IS NULL)
+                  AND (@TaskName IS NULL OR t.Name LIKE '%' + @TaskName + '%')
+                  AND (@TriggerSource IS NULL OR te.TriggerSource = @TriggerSource)
+                ORDER BY te.StartedAt DESC";
+
+            var parameters = new DynamicParameters();
+            parameters.Add("Limit", limit);
+            parameters.Add("BoxId", boxId);
+            parameters.Add("FromUtc", fromUtc);
+            parameters.Add("ToUtc", toUtc);
+            parameters.Add("DepartmentId", departmentId);
+            parameters.Add("TaskName", string.IsNullOrWhiteSpace(taskName) ? null : taskName);
+            parameters.Add("TriggerSource", string.IsNullOrWhiteSpace(triggerSource) ? null : triggerSource);
+            for (var i = 0; i < allowedStatuses.Length; i++)
+                parameters.Add($"Status{i}", allowedStatuses[i]);
+
+            var result = await connection.QueryAsync<ExecutionRecord>(sql, parameters);
+            return result.Select(NormalizeRecord).ToList();
+        }
+
+        public async Task<Dictionary<int, string>> GetTaskStatusMapForBoxRunAsync(int boxRunId)        {
             using var connection = CreateConnection();
             const string sql = @"
                 WITH LatestExecution AS (
@@ -337,7 +406,11 @@ namespace AScheduler.Data
             public int BoxId { get; set; }        // Always populated via Tasks.BoxId
             public string BoxName { get; set; } = "";
             public string BoxTimeZoneId { get; set; } = "Etc/UTC";
+            public string? DepartmentName { get; set; }
+            public string? FailureAlertEmail { get; set; }
             public string TaskName { get; set; } = "";
+            public string TaskType { get; set; } = "";
+            public string Command { get; set; } = "";
             public DateTime StartedAt { get; set; }
             public DateTime? EndedAt { get; set; }
             public string Status { get; set; } = "";

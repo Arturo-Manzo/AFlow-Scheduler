@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { Subscription, interval } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
-import { BoxRun, BoxRunStatus } from '../../models/models';
+import { BoxRunDto, BoxRunStatus } from '../../models/models';
 import { ExecutionService } from '../../services/execution.service';
 import { StatusBadgeComponent } from '../../components/status-badge/status-badge.component';
 import { ConfirmModalComponent } from '../../components/confirm-modal/confirm-modal.component';
@@ -13,52 +13,85 @@ import { ConfirmModalComponent } from '../../components/confirm-modal/confirm-mo
   standalone: true,
   imports: [CommonModule, RouterLink, StatusBadgeComponent, ConfirmModalComponent],
   template: `
-    <div class="page-header">
-      <div>
-        <h1>Workflow Executions</h1>
-        <div class="page-subtitle">Operational view of BoxRuns and status.</div>
+    <div class="view-shell">
+      <div class="view-hero">
+        <div class="view-hero-main">
+          <div class="view-eyebrow">Operational Execution Monitor</div>
+          <h1>Workflow Executions</h1>
+          <p class="view-description">
+            Latest active or non-terminal BoxRuns, optimized for operational control, resume decisions and stop-request tracking.
+          </p>
+        </div>
+        <div class="view-hero-kpi">
+          <span class="kpi-value">{{ loading() ? '--' : runs().length }}</span>
+          <span class="kpi-label">Visible Runs</span>
+        </div>
+        <div class="view-hero-kpi">
+          <span class="kpi-value">{{ loading() ? '--' : runningCount() }}</span>
+          <span class="kpi-label">Running</span>
+        </div>
+        <div class="view-hero-kpi">
+          <span class="kpi-value">{{ loading() ? '--' : resumableCount() }}</span>
+          <span class="kpi-label">Resumable</span>
+        </div>
       </div>
-      <div class="page-actions">
-        <button class="btn" (click)="reload()">Refresh</button>
-      </div>
-    </div>
 
-    @if (loading()) {
-      <div class="loading-state"><span class="spinner"></span> Loading executions...</div>
-    } @else if (error()) {
-      <div class="alert alert-danger">{{ error() }}</div>
-    } @else if (runs().length === 0) {
-      <p class="empty-state">No active executions. All workflows completed successfully.</p>
-    } @else {
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Box Name</th>
-            <th>Status</th>
-            <th>Start Time</th>
-            <th>End Time</th>
-            <th>Duration</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (run of runs(); track run.id) {
-            <tr>
-              <td><strong>{{ run.boxName }}</strong></td>
-              <td><app-status-badge [status]="displayStatus(run)" /></td>
-              <td>{{ formatTime(run.startTime) }}</td>
-              <td>{{ formatTime(run.endTime) }}</td>
-              <td>{{ run.durationSeconds != null ? run.durationSeconds + 's' : '--' }}</td>
-              <td class="table-actions">
-                <a class="btn btn-sm btn-view" [routerLink]="['/executions', run.id]">View Details</a>
-                <button class="btn btn-sm btn-danger-soft" [disabled]="!canCancelFromList(run) || actionLoading()" (click)="pendingCancelId.set(run.id)">Stop Run</button>
-                <button class="btn btn-sm" [disabled]="!canResumeFromList(run) || actionLoading()" (click)="pendingResumeId.set(run.id)">Resume</button>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    }
+      <section class="data-panel">
+        <div class="panel-header">
+          <div class="panel-title-wrap">
+            <div class="panel-title">Active BoxRun Queue</div>
+            <div class="panel-subtitle">One latest run per Box, excluding fully completed workflows.</div>
+          </div>
+          <div class="panel-toolbar">
+            <button class="btn" (click)="reload()">Refresh</button>
+          </div>
+        </div>
+
+        @if (loading()) {
+          <div class="loading-state"><span class="spinner"></span> Loading executions...</div>
+        } @else if (error()) {
+          <div class="panel-body"><div class="alert alert-danger">{{ error() }}</div></div>
+        } @else if (runs().length === 0) {
+          <p class="empty-state">No active executions. All workflows completed successfully.</p>
+        } @else {
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Box Name</th>
+                <th>Status</th>
+                <th>Trigger</th>
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Duration</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (run of runs(); track run.id) {
+                <tr>
+                  <td>
+                    <strong>{{ run.boxName }}</strong>
+                    <div class="row-meta">BoxRun #{{ run.id }}</div>
+                  </td>
+                  <td><app-status-badge [status]="displayStatus(run)" /></td>
+                  <td><span class="badge badge-neutral">{{ run.triggerSource }}</span></td>
+                  <td>{{ formatTime(run.startTime) }}</td>
+                  <td>{{ formatTime(run.endTime) }}</td>
+                  <td>{{ run.durationSeconds != null ? run.durationSeconds + 's' : '--' }}</td>
+                    <td>
+                      <div class="table-actions">
+                        <a class="btn btn-sm btn-view" [routerLink]="['/executions', run.id]">View Details</a>
+                        <button class="btn btn-sm btn-danger-soft" [disabled]="!canCancelFromList(run) || actionLoading()" (click)="pendingCancelId.set(run.id)">Stop Run</button>
+                        <button class="btn btn-sm" [disabled]="!canResumeFromList(run) || actionLoading()" (click)="pendingResumeId.set(run.id)">Resume</button>
+                      </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+    </div>
 
     <app-confirm-modal
       [visible]="pendingResumeId() !== null"
@@ -79,18 +112,14 @@ import { ConfirmModalComponent } from '../../components/confirm-modal/confirm-mo
     />
   `,
   styles: [`
-    .page-subtitle { margin-top:.2rem; font-size:.84rem; color:var(--text-3); }
-    .btn-view { background:var(--bg-muted);color:var(--text-2);border-color:var(--border); text-decoration:none; }
-    .btn-view:hover { background:var(--border); }
-    .btn-danger-soft { background:#fff1f2; color:#be123c; border-color:#fecdd3; }
-    .btn-danger-soft:hover { background:#ffe4e6; }
+    .row-meta { margin-top:.2rem; color:var(--text-3); font-size:.75rem; }
   `]
 })
 export class BoxRunListComponent implements OnInit, OnDestroy {
   private executionService = inject(ExecutionService);
   private pollSub?: Subscription;
 
-  runs = signal<BoxRun[]>([]);
+  runs = signal<BoxRunDto[]>([]);
   loading = signal(true);
   error = signal('');
   actionLoading = signal(false);
@@ -111,9 +140,9 @@ export class BoxRunListComponent implements OnInit, OnDestroy {
     this.pollSub?.unsubscribe();
   }
 
-  private activeOnly(runs: BoxRun[]): BoxRun[] {
+  private activeOnly(runs: BoxRunDto[]): BoxRunDto[] {
     // Keep only latest run per box; if latest is Completed, hide the box entirely
-    const latestPerBox = new Map<number, BoxRun>();
+    const latestPerBox = new Map<number, BoxRunDto>();
     for (const run of runs) {
       const existing = latestPerBox.get(run.boxId);
       if (!existing || run.id > existing.id) {
@@ -140,15 +169,15 @@ export class BoxRunListComponent implements OnInit, OnDestroy {
     });
   }
 
-  canResumeFromList(run: BoxRun): boolean {
+  canResumeFromList(run: BoxRunDto): boolean {
     return !run.isCancellationRequested && (run.status === 'Failed' || run.status === 'Partial' || run.status === 'Cancelled');
   }
 
-  canCancelFromList(run: BoxRun): boolean {
+  canCancelFromList(run: BoxRunDto): boolean {
     return !run.isCancellationRequested && run.status === 'Running';
   }
 
-  displayStatus(run: BoxRun): BoxRunStatus {
+  displayStatus(run: BoxRunDto): BoxRunStatus {
     return run.isCancellationRequested && run.status === 'Running' ? 'Stopping' : run.status;
   }
 
@@ -187,5 +216,13 @@ export class BoxRunListComponent implements OnInit, OnDestroy {
   formatTime(value?: string): string {
     if (!value) return '--';
     return new Date(value).toLocaleString();
+  }
+
+  runningCount(): number {
+    return this.runs().filter(run => run.status === 'Running').length;
+  }
+
+  resumableCount(): number {
+    return this.runs().filter(run => run.status === 'Failed' || run.status === 'Partial' || run.status === 'Cancelled').length;
   }
 }

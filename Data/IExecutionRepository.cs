@@ -15,6 +15,7 @@ namespace AScheduler.Data
         Task<int> AbortRunningExecutionsAsync(DateTime endedAtUtc, string reason);
         Task<ExecutionRepository.ExecutionRecord?> GetLastExecutionForTaskInBoxRunAsync(int taskId, int boxRunId);
         Task<List<ExecutionRepository.ExecutionRecord>> GetLatestExecutionsAsync(int limit = 20);
+        Task<List<ExecutionRepository.ExecutionRecord>> GetFailedExecutionsAsync(int limit = 50, int? boxId = null, DateTime? fromUtc = null, DateTime? toUtc = null, int? departmentId = null, string[]? status = null, string? taskName = null, string? triggerSource = null);
         /// <summary>
         /// Returns the latest execution status for each task in the given BoxRun.
         /// Used to seed in-memory state when resuming an interrupted BoxRun.

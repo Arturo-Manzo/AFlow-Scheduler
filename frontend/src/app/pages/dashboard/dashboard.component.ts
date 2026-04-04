@@ -1,80 +1,108 @@
-﻿import { Component, HostListener, OnInit, inject, signal } from '@angular/core';
+﻿import { Component, DestroyRef, HostListener, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { forkJoin } from 'rxjs';
-import { LogsService } from '../../services/logs.service';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ExecutionService } from '../../services/execution.service';
 import { BoxesService } from '../../services/boxes.service';
 import { ExecutionDto, BoxDto, RunningExecutionDto } from '../../models/models';
+import { StatusBadgeComponent } from '../../components/status-badge/status-badge.component';
 import { detectUserTimeZone, formatUtcWithZoneContext, getDateKeyInTimeZone } from '../../shared/timezone-utils';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, StatusBadgeComponent],
   template: `
-    <div class="page-header">
-      <div>
-        <h1>Dashboard</h1>
-        <div class="page-subtitle">Times shown in {{ userTimeZone }}</div>
+    <div class="view-shell">
+      <div class="view-hero">
+        <div class="view-hero-main">
+          <div class="view-eyebrow">System Summary Overview</div>
+          <h1>Execution Metrics</h1>
+          <p class="view-description">
+            Aggregate workflow activity, current load, and recent task movement across the scheduler control plane.
+            All timestamps are normalized to {{ userTimeZone }} for this session.
+          </p>
+        </div>
+        <div class="view-hero-kpi">
+          <span class="kpi-value">{{ loadingBoxes() ? '--' : boxes().length }}</span>
+          <span class="kpi-label">Registered Boxes</span>
+        </div>
+        <div class="view-hero-kpi">
+          <span class="kpi-value">{{ loadingLogs() ? '--' : runningCount() }}</span>
+          <span class="kpi-label">Running Now</span>
+        </div>
+        <div class="view-hero-kpi">
+          <span class="kpi-value">{{ loadingLogs() ? '--' : successToday() }}</span>
+          <span class="kpi-label">Succeeded Today</span>
+        </div>
       </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <span class="stat-value">{{ loadingLogs() ? '--' : logs().length }}</span>
+          <span class="stat-label">Recent Records Loaded</span>
+        </div>
+        <div class="stat-card stat-warning">
+          <span class="stat-value">{{ loadingLogs() ? '--' : running().length }}</span>
+          <span class="stat-label">Live Executions</span>
+        </div>
+        <div class="stat-card stat-success">
+          <span class="stat-value">{{ loadingBoxes() ? '--' : activeBoxes() }}</span>
+          <span class="stat-label">Active Boxes</span>
+        </div>
+        <div class="stat-card stat-danger">
+          <span class="stat-value">{{ loadingLogs() ? '--' : failedToday() }}</span>
+          <span class="stat-label">Failed Today</span>
+        </div>
+      </div>
+
+      <section class="data-panel">
+        <div class="panel-header">
+          <div class="panel-title-wrap">
+            <div class="panel-title">Recent Task Executions</div>
+            <div class="panel-subtitle">Latest execution records available for inspection from the dashboard.</div>
+          </div>
+          <div class="microcopy">Showing {{ logs().length }} rows</div>
+        </div>
+
+        @if (loadingLogs()) {
+          <div class="loading-state"><span class="spinner"></span> Loading logs...</div>
+        } @else if (logsError()) {
+          <div class="panel-body"><div class="alert alert-danger">{{ logsError() }}</div></div>
+        } @else if (logs().length === 0) {
+          <p class="empty-state">No executions recorded yet.</p>
+        } @else {
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Task</th>
+                <th>Box</th>
+                <th>Trigger</th>
+                <th>Status</th>
+                <th>Started</th>
+                <th>Duration</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (log of logs(); track log.executionId) {
+                <tr
+                  (click)="select(log)"
+                  [class.row-selected]="selected()?.executionId === log.executionId"
+                  style="cursor:pointer"
+                >
+                  <td><strong>{{ log.taskName }}</strong></td>
+                  <td class="box-cell">{{ log.boxName || '--' }}</td>
+                  <td><span class="badge badge-neutral">{{ log.triggerSource }}</span></td>
+                  <td><app-status-badge [status]="log.status" /></td>
+                  <td>{{ formatExecutionTime(log.startedAt, log.boxTimeZoneId, 'short') }}</td>
+                  <td>{{ log.durationSeconds != null ? log.durationSeconds + 's' : '--' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
     </div>
-
-    <div class="stats-row">
-      <div class="stat-card">
-        <span class="stat-value">{{ loadingBoxes() ? '--' : boxes().length }}</span>
-        <span class="stat-label">Total Boxes</span>
-      </div>
-      <div class="stat-card stat-warning">
-        <span class="stat-value">{{ loadingLogs() ? '--' : runningCount() }}</span>
-        <span class="stat-label">Running Now</span>
-      </div>
-      <div class="stat-card stat-success">
-        <span class="stat-value">{{ loadingLogs() ? '--' : successToday() }}</span>
-        <span class="stat-label">Succeeded Today</span>
-      </div>
-      <div class="stat-card stat-danger">
-        <span class="stat-value">{{ loadingLogs() ? '--' : failedToday() }}</span>
-        <span class="stat-label">Failed Today</span>
-      </div>
-    </div>
-
-    <p class="section-title">Recent Executions</p>
-
-    @if (loadingLogs()) {
-      <div class="loading-state"><span class="spinner"></span> Loading logs...</div>
-    } @else if (logsError()) {
-      <div class="alert alert-danger">{{ logsError() }}</div>
-    } @else if (logs().length === 0) {
-      <p class="empty-state">No executions recorded yet.</p>
-    } @else {
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Task</th>
-            <th>Box</th>
-            <th>Trigger</th>
-            <th>Status</th>
-            <th>Started</th>
-            <th>Duration</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (log of logs(); track log.executionId) {
-            <tr
-              (click)="select(log)"
-              [class.row-selected]="selected()?.executionId === log.executionId"
-              style="cursor:pointer"
-            >
-              <td><strong>{{ log.taskName }}</strong></td>
-              <td class="box-cell">{{ log.boxName || '--' }}</td>
-              <td><span class="badge badge-neutral">{{ log.triggerSource }}</span></td>
-              <td><span [class]="'badge badge-' + log.status.toLowerCase()">{{ log.status }}</span></td>
-              <td>{{ formatExecutionTime(log.startedAt, log.boxTimeZoneId, 'short') }}</td>
-              <td>{{ log.durationSeconds != null ? log.durationSeconds + 's' : '--' }}</td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    }
 
     @if (selected()) {
       <div class="modal-overlay" role="dialog" aria-modal="true" (click)="selected.set(null)">
@@ -90,7 +118,7 @@ import { detectUserTimeZone, formatUtcWithZoneContext, getDateKeyInTimeZone } fr
             <div class="exec-meta-grid">
               <div class="exec-kv">
                 <span class="exec-key">Status</span>
-                <span><span [class]="'badge badge-' + selected()!.status.toLowerCase()">{{ selected()!.status }}</span></span>
+                <span><app-status-badge [status]="selected()!.status" /></span>
               </div>
               <div class="exec-kv">
                 <span class="exec-key">Trigger</span>
@@ -129,19 +157,12 @@ import { detectUserTimeZone, formatUtcWithZoneContext, getDateKeyInTimeZone } fr
       </div>
     }
   `,
-  styles: [`
-    .page-subtitle { margin-top:.2rem; font-size:.84rem; color:var(--text-3); }
-    .box-cell { font-size:.85rem; color:var(--text-2); }
-    .row-selected { background: color-mix(in srgb, var(--primary, #4f6ef7) 8%, white); }
-    .exec-meta-grid { display:grid; grid-template-columns:1fr 1fr; gap:.5rem .75rem; }
-    .exec-kv { display:flex; flex-direction:column; gap:.15rem; }
-    .exec-kv-full { grid-column:1 / -1; }
-    .exec-key { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-3); }
-  `]
+  styleUrl: './dashboard.component.scss'
 })
 export class DashboardComponent implements OnInit {
-  private logsService = inject(LogsService);
+  private executionService = inject(ExecutionService);
   private boxesService = inject(BoxesService);
+  private destroyRef = inject(DestroyRef);
 
   readonly userTimeZone = detectUserTimeZone();
 
@@ -163,7 +184,7 @@ export class DashboardComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.boxesService.getAll().subscribe({
+    this.boxesService.getAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (bs: BoxDto[]) => {
         this.boxes.set(bs);
         this.loadingBoxes.set(false);
@@ -172,9 +193,9 @@ export class DashboardComponent implements OnInit {
     });
 
     forkJoin({
-      latest: this.logsService.getLatest(50),
-      running: this.logsService.getRunning()
-    }).subscribe({
+      latest: this.executionService.getLatest(50),
+      running: this.executionService.getRunning()
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: ({ latest, running }) => {
         this.logs.set(latest.slice(0, 10));
         this.running.set(running);
@@ -210,5 +231,9 @@ export class DashboardComponent implements OnInit {
 
   displayRequestedBy(log: ExecutionDto): string {
     return log.requestedByUsername || (log.requestedByUserId ? 'Unknown user' : '');
+  }
+
+  activeBoxes(): number {
+    return this.boxes().filter(box => box.enabled).length;
   }
 }

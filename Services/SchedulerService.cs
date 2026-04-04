@@ -89,30 +89,47 @@ namespace AScheduler.Services
 
             foreach (var item in pendingItems)
             {
-                await _boxRepository.MarkQueueItemAsync(item.QueueId, "Processing");
-
-                var boxRunId = await _boxRepository.CreateBoxRunAsync(
-                    item.BoxId, null, TriggerSources.Manual, item.RequestedByUserId);
-
-                var enqueued = await _queue.EnqueueAsync(new BoxRunRequest
+                try
                 {
-                    BoxRunId = boxRunId,
-                    BoxId = item.BoxId,
-                    RequestedAt = item.CreatedAt,
-                    ForceIgnoreDependencies = item.IgnoreDependencies,
-                    ForceIgnoreSchedule = item.IgnoreSchedule,
-                    RequestedByUserId = item.RequestedByUserId,
-                    TriggerSource = TriggerSources.Manual
-                });
+                    // Keep queue status vocabulary aligned with DB constraint.
+                    await _boxRepository.MarkQueueItemAsync(item.QueueId, "Running");
 
-                if (!enqueued)
-                {
-                    await _boxRepository.MarkQueueItemAsync(item.QueueId, "Failed");
-                    _logger.LogWarning("Manual queue item {QueueId} for box {BoxId} could not be enqueued.", item.QueueId, item.BoxId);
+                    var boxRunId = await _boxRepository.CreateBoxRunAsync(
+                        item.BoxId, null, TriggerSources.Manual, item.RequestedByUserId);
+
+                    var enqueued = await _queue.EnqueueAsync(new BoxRunRequest
+                    {
+                        BoxRunId = boxRunId,
+                        BoxId = item.BoxId,
+                        RequestedAt = item.CreatedAt,
+                        ForceIgnoreDependencies = item.IgnoreDependencies,
+                        ForceIgnoreSchedule = item.IgnoreSchedule,
+                        RequestedByUserId = item.RequestedByUserId,
+                        TriggerSource = TriggerSources.Manual
+                    });
+
+                    if (!enqueued)
+                    {
+                        await _boxRepository.MarkQueueItemAsync(item.QueueId, "Failed");
+                        _logger.LogWarning("Manual queue item {QueueId} for box {BoxId} could not be enqueued.", item.QueueId, item.BoxId);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Manual queue item {QueueId} for box {BoxId} enqueued as BoxRun {BoxRunId}.", item.QueueId, item.BoxId, boxRunId);
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    _logger.LogInformation("Manual queue item {QueueId} for box {BoxId} enqueued as BoxRun {BoxRunId}.", item.QueueId, item.BoxId, boxRunId);
+                    _logger.LogError(ex, "Manual queue item {QueueId} for box {BoxId} failed during processing.", item.QueueId, item.BoxId);
+
+                    try
+                    {
+                        await _boxRepository.MarkQueueItemAsync(item.QueueId, "Failed");
+                    }
+                    catch (Exception markEx)
+                    {
+                        _logger.LogError(markEx, "Could not mark manual queue item {QueueId} as Failed after processing error.", item.QueueId);
+                    }
                 }
             }
         }

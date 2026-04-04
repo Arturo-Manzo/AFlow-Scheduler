@@ -16,19 +16,22 @@ namespace AScheduler.Api.Controllers;
 public class TasksController : ControllerBase
 {
     private readonly ITaskRepository _taskRepository;
+    private readonly IBoxRepository _boxRepository;
     private readonly IAuditLogService _auditLog;
     private readonly ITaskQueue _queue;
     private readonly IWorkerStateService _workerState;
     private readonly ILogger<TasksController> _logger;
 
-    public TasksController(ITaskRepository taskRepository, IAuditLogService auditLog, ITaskQueue queue, IWorkerStateService workerState, ILogger<TasksController> logger)
+    public TasksController(ITaskRepository taskRepository, IBoxRepository boxRepository, IAuditLogService auditLog, ITaskQueue queue, IWorkerStateService workerState, ILogger<TasksController> logger)
     {
         ArgumentNullException.ThrowIfNull(taskRepository);
+        ArgumentNullException.ThrowIfNull(boxRepository);
         ArgumentNullException.ThrowIfNull(auditLog);
         ArgumentNullException.ThrowIfNull(queue);
         ArgumentNullException.ThrowIfNull(workerState);
         ArgumentNullException.ThrowIfNull(logger);
         _taskRepository = taskRepository;
+        _boxRepository = boxRepository;
         _auditLog = auditLog;
         _queue = queue;
         _workerState = workerState;
@@ -39,6 +42,15 @@ public class TasksController : ControllerBase
     [Authorize(Roles = "Admin,Operator,Viewer")]
     public async Task<IActionResult> GetForBox([FromQuery] int boxId)
     {
+        // Authorization: Check if user can access this box's department
+        var box = await _boxRepository.GetByIdAsync(boxId);
+        if (box == null)
+            return NotFound(new ApiResponse<object> { Success = false, Message = "Box not found.", ErrorCode = "BOX_NOT_FOUND" });
+
+        var userDepartmentId = GetCurrentDepartmentId();
+        if (userDepartmentId.HasValue && box.DepartmentId.HasValue && box.DepartmentId != userDepartmentId)
+            return Forbid("You do not have permission to access this box.");
+
         var tasks = await _taskRepository.GetTasksForBoxAsync(boxId);
         var dtos = new List<TaskDto>();
         foreach (var t in tasks)
@@ -67,6 +79,15 @@ public class TasksController : ControllerBase
         if (request.BoxId <= 0 || string.IsNullOrWhiteSpace(request.Name) ||
             string.IsNullOrWhiteSpace(request.Command) || string.IsNullOrWhiteSpace(request.TaskType))
             return BadRequest(new ApiResponse<object> { Success = false, Message = "Missing required fields.", ErrorCode = "MISSING_FIELDS" });
+
+        // Authorization: Check if user can access this box's department
+        var box = await _boxRepository.GetByIdAsync(request.BoxId);
+        if (box == null)
+            return BadRequest(new ApiResponse<object> { Success = false, Message = "Box not found.", ErrorCode = "BOX_NOT_FOUND" });
+
+        var userDepartmentId = GetCurrentDepartmentId();
+        if (userDepartmentId.HasValue && box.DepartmentId.HasValue && box.DepartmentId != userDepartmentId)
+            return Forbid("You do not have permission to access this box.");
 
         var validation = await ValidateDependenciesAsync(request.BoxId, null, request.DependencyTaskIds);
         if (!validation.Success)
@@ -258,6 +279,16 @@ public class TasksController : ControllerBase
     private int? GetCurrentUserId()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst("sub") ?? User.FindFirst("userId");
+        return claim != null && int.TryParse(claim.Value, out var id) ? id : null;
+    }
+
+    /// <summary>
+    /// Gets the department ID from the current user's JWT claims.
+    /// Returns null if the claim is missing (for backward compatibility with non-department users).
+    /// </summary>
+    private int? GetCurrentDepartmentId()
+    {
+        var claim = User.FindFirst("department_id");
         return claim != null && int.TryParse(claim.Value, out var id) ? id : null;
     }
 }

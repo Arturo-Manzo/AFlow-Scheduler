@@ -39,6 +39,66 @@ namespace AScheduler.Data
             return dto == null ? null : MapToDefinition(dto);
         }
 
+        public async Task<List<TaskSearchResult>> SearchAsync(string query, int limit)
+        {
+            using var connection = CreateConnection();
+
+            var normalizedQuery = (query ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(normalizedQuery))
+                return new List<TaskSearchResult>();
+
+            var safeLimit = Math.Max(1, Math.Min(limit, 100));
+            var like = $"%{normalizedQuery}%";
+            var startsWith = $"{normalizedQuery}%";
+
+            const string sql = @"
+                SELECT TOP (@Limit)
+                    t.TaskId,
+                    t.BoxId,
+                    t.Name AS TaskName,
+                    t.Description AS TaskDescription,
+                    t.Command,
+                    t.TaskType,
+                    t.Enabled AS TaskEnabled,
+                    t.CreatedAtUtc,
+                    b.Name AS BoxName,
+                    b.Description AS BoxDescription,
+                    b.Enabled AS BoxEnabled
+                FROM Tasks t
+                INNER JOIN Boxes b ON b.BoxId = t.BoxId
+                WHERE t.Name LIKE @Like
+                   OR t.Description LIKE @Like
+                   OR t.Command LIKE @Like
+                   OR b.Name LIKE @Like
+                   OR b.Description LIKE @Like
+                ORDER BY
+                    CASE
+                        WHEN t.Name LIKE @StartsWith THEN 0
+                        WHEN b.Name LIKE @StartsWith THEN 1
+                        WHEN t.Command LIKE @StartsWith THEN 2
+                        ELSE 3
+                    END,
+                    t.Enabled DESC,
+                    b.Enabled DESC,
+                    t.Name,
+                    b.Name";
+
+            var results = await connection.QueryAsync<TaskSearchResult>(sql, new
+            {
+                Limit = safeLimit,
+                Like = like,
+                StartsWith = startsWith
+            });
+
+            return results
+                .Select(result =>
+                {
+                    result.CreatedAtUtc = UtcDateTimeMapper.EnsureUtc(result.CreatedAtUtc);
+                    return result;
+                })
+                .ToList();
+        }
+
         public async Task<int> CreateAsync(int boxId, string name, string description, string command, string taskType)
         {
             using var connection = CreateConnection();

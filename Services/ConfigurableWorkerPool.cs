@@ -62,6 +62,7 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _stoppingCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+
         _logger.LogInformation("Worker pool starting with {WorkerCount} workers.", _workerCount);
 
         try
@@ -560,4 +561,6 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
 
     // IWorkerStateService implementation
     public bool IsTaskRunning(int taskId) => ((TaskExecutionService)_taskExecutionService).IsTaskRunning(taskId);
+    public int ActiveWorkerCount => ((TaskExecutionService)_taskExecutionService).ActiveCount;
+    public int TotalWorkerCount => _workerCount;
 }

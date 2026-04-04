@@ -34,6 +34,8 @@ export interface UserDto {
   roleId: number;
   roleName: string;
   isActive: boolean;
+  departmentId?: number;
+  departmentName?: string;
   createdAt: string;
 }
 
@@ -65,6 +67,9 @@ export interface BoxDto {
   enabled: boolean;
   lastRunUtc?: string;
   createdAt: string;
+  notificationEmail?: string;
+  departmentId?: number;
+  departmentName?: string;
   tasks: TaskDto[];
 }
 
@@ -80,6 +85,8 @@ export interface CreateBoxRequest {
   description: string;
   cronExpression: string;
   timeZoneId: string;
+  notificationEmail?: string;
+  departmentId?: number;
   initialTask: InitialTaskRequest;
 }
 
@@ -89,6 +96,8 @@ export interface UpdateBoxRequest {
   cronExpression: string;
   timeZoneId: string;
   enabled: boolean;
+  notificationEmail?: string;
+  departmentId?: number;
 }
 
 export interface ExecuteBoxRequest {
@@ -108,6 +117,24 @@ export interface TaskDto {
   enabled: boolean;
   createdAt: string;
   dependencyTaskIds: number[];
+}
+
+export type SearchScope = 'all' | 'box' | 'task';
+
+export interface SearchResultDto {
+  resultType: 'box' | 'task' | string;
+  boxId: number;
+  taskId?: number;
+  title: string;
+  description: string;
+  boxName: string;
+  command: string;
+  taskType: string;
+  timeZoneId: string;
+  createdAt: string;
+  enabled: boolean;
+  boxEnabled: boolean;
+  activeTaskCount: number;
 }
 
 export interface CreateTaskRequest {
@@ -137,9 +164,13 @@ export interface ExecutionDto {
   executionId: number;
   taskId: number;
   taskName: string;
+  taskType: string;
+  command: string;
   boxId: number;
   boxName: string;
   boxTimeZoneId: string;
+  departmentName?: string;
+  failureAlertEmail?: string;
   boxRunId?: number;   // null for ForceStart executions
   startedAt: string;
   endedAt?: string;
@@ -162,7 +193,7 @@ export type BoxRunStatus = 'Pending' | 'Running' | 'Stopping' | 'Completed' | 'P
 
 export type TaskExecutionStatus = 'Pending' | 'Running' | 'Success' | 'Failed' | 'Skipped';
 
-export interface BoxRun {
+export interface BoxRunDto {
   id: number;
   boxId: number;
   boxName: string;
@@ -195,7 +226,7 @@ export interface BoxRunMetricsDto {
   tasks: TaskMetricDto[];
 }
 
-export interface TaskExecution {
+export interface BoxRunTaskExecutionDto {
   executionId?: number;
   taskId: number;
   name: string;
@@ -208,7 +239,7 @@ export interface TaskExecution {
   dependsOn: number[];
 }
 
-export interface TaskExecutionLogEntry {
+export interface TaskExecutionLogDto {
   id: string;
   boxRunId?: number;
   taskId: number;
@@ -217,4 +248,71 @@ export interface TaskExecutionLogEntry {
   level: 'Info' | 'Warning' | 'Error' | string;
   message: string;
   details?: string;
+}
+
+// --- Departments ---
+export enum RetryPolicy {
+  RequireApproval = 0,
+  Auto = 1,
+  ManualOnly = 2
+}
+
+export interface DepartmentDto {
+  departmentId: number;
+  name: string;
+  description?: string;
+  contactEmail: string;
+  retryPolicy?: RetryPolicy;
+  logRetentionDays: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateDepartmentRequest {
+  name: string;
+  description?: string;
+  contactEmail: string;
+  retryPolicy?: RetryPolicy;
+  logRetentionDays: number;
+}
+
+export interface UpdateDepartmentRequest {
+  name: string;
+  description?: string;
+  contactEmail: string;
+  retryPolicy?: RetryPolicy;
+  logRetentionDays: number;
+}
+
+// --- Notification Settings ---
+export interface SmtpNotificationSettingsDto {
+  enabled: boolean;
+  host: string;
+  port: number;
+  username: string;
+  hasPassword: boolean;
+  fromAddress: string;
+  fromDisplayName: string;
+  enableSsl: boolean;
+}
+
+export interface UpdateSmtpNotificationSettingsRequest {
+  enabled: boolean;
+  host: string;
+  port: number;
+  username: string;
+  password?: string;
+  fromAddress: string;
+  fromDisplayName: string;
+  enableSsl: boolean;
+}
+
+export interface TestSmtpNotificationRequest {
+  testRecipientEmail: string;
+}
+
+export interface SmtpTestResultDto {
+  success: boolean;
+  message: string;
+  durationMs: number;
 }

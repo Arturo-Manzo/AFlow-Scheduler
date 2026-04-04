@@ -79,6 +79,16 @@ public class UserDto
     /// Timestamp of account creation.
     /// </summary>
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>
+    /// Department ID that this user belongs to.
+    /// </summary>
+    public int? DepartmentId { get; set; }
+
+    /// <summary>
+    /// Department name (denormalized for convenience).
+    /// </summary>
+    public string? DepartmentName { get; set; }
 }
 
 /// <summary>
@@ -159,6 +169,18 @@ public class BoxDto
     public DateTime? LastRunUtc { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<TaskDto> Tasks { get; set; } = new();
+    /// <summary>
+    /// Optional email address for failure notifications.
+    /// </summary>
+    public string? NotificationEmail { get; set; }
+    /// <summary>
+    /// Department ID that owns this box.
+    /// </summary>
+    public int? DepartmentId { get; set; }
+    /// <summary>
+    /// Department name (denormalized for convenience).
+    /// </summary>
+    public string? DepartmentName { get; set; }
 }
 
 public class InitialTaskRequest
@@ -176,6 +198,15 @@ public class CreateBoxRequest
     public string CronExpression { get; set; } = "";
     public string TimeZoneId { get; set; } = "";
     public InitialTaskRequest InitialTask { get; set; } = new();
+    /// <summary>
+    /// Optional email address for failure notifications.
+    /// </summary>
+    public string? NotificationEmail { get; set; }
+    /// <summary>
+    /// Department ID (optional for backward compatibility).
+    /// If omitted, assigned to requesting user's department.
+    /// </summary>
+    public int? DepartmentId { get; set; }
 }
 
 public class UpdateBoxRequest
@@ -185,6 +216,14 @@ public class UpdateBoxRequest
     public string CronExpression { get; set; } = "";
     public string TimeZoneId { get; set; } = "";
     public bool Enabled { get; set; }
+    /// <summary>
+    /// Optional email address for failure notifications.
+    /// </summary>
+    public string? NotificationEmail { get; set; }
+    /// <summary>
+    /// Department ID (only updatable by Admin).
+    /// </summary>
+    public int? DepartmentId { get; set; }
 }
 
 public class ExecuteBoxRequest
@@ -209,6 +248,23 @@ public class TaskDto
     public bool Enabled { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<int> DependencyTaskIds { get; set; } = new();
+}
+
+public class SearchResultDto
+{
+    public string ResultType { get; set; } = "";
+    public int BoxId { get; set; }
+    public int? TaskId { get; set; }
+    public string Title { get; set; } = "";
+    public string Description { get; set; } = "";
+    public string BoxName { get; set; } = "";
+    public string Command { get; set; } = "";
+    public string TaskType { get; set; } = "";
+    public string TimeZoneId { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
+    public bool Enabled { get; set; }
+    public bool BoxEnabled { get; set; }
+    public int ActiveTaskCount { get; set; }
 }
 
 public class CreateTaskRequest
@@ -260,9 +316,13 @@ public class ExecutionDto
     public int ExecutionId { get; set; }
     public int TaskId { get; set; }
     public string TaskName { get; set; } = "";
+    public string TaskType { get; set; } = "";
+    public string Command { get; set; } = "";
     public int BoxId { get; set; }
     public string BoxName { get; set; } = "";
     public string BoxTimeZoneId { get; set; } = "Etc/UTC";
+    public string? DepartmentName { get; set; }
+    public string? FailureAlertEmail { get; set; }
     public int? BoxRunId { get; set; }   // NULL for ForceStart executions
     public DateTime StartedAt { get; set; }
     public DateTime? EndedAt { get; set; }
@@ -344,6 +404,70 @@ public class TaskExecutionLogDto
     public string Message { get; set; } = "";
     public string? Details { get; set; }
 }
+// ============================================
+// Status DTOs
+// ============================================
+
+public class SystemStatusDto
+{
+    public bool ApiOnline { get; set; }
+    public bool DbConnected { get; set; }
+    public int ActiveWorkers { get; set; }
+    public int TotalWorkers { get; set; }
+    public int QueueDepth { get; set; }
+    public bool FailNotificationEnabled { get; set; }
+    public string Environment { get; set; } = "";
+}
+
+/// <summary>
+/// SMTP notification settings returned to admin clients.
+/// </summary>
+public class SmtpNotificationSettingsDto
+{
+    public bool Enabled { get; set; }
+    public string Host { get; set; } = "";
+    public int Port { get; set; } = 587;
+    public string Username { get; set; } = "";
+    public bool HasPassword { get; set; }
+    public string FromAddress { get; set; } = "";
+    public string FromDisplayName { get; set; } = "";
+    public bool EnableSsl { get; set; } = true;
+}
+
+/// <summary>
+/// Request to update SMTP notification settings.
+/// </summary>
+public class UpdateSmtpNotificationSettingsRequest
+{
+    public bool Enabled { get; set; }
+    public string Host { get; set; } = "";
+    public int Port { get; set; } = 587;
+    public string Username { get; set; } = "";
+    public string? Password { get; set; }
+    public string FromAddress { get; set; } = "";
+    public string FromDisplayName { get; set; } = "";
+    public bool EnableSsl { get; set; } = true;
+}
+
+/// <summary>
+/// Request to send a real SMTP test email using current saved settings.
+/// </summary>
+public class TestSmtpNotificationRequest
+{
+    public string TestRecipientEmail { get; set; } = "";
+}
+
+/// <summary>
+/// SMTP test response payload.
+/// </summary>
+public class SmtpTestResultDto
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = "";
+    public long DurationMs { get; set; }
+}
+
+// ============================================
 // API Response DTOs
 // ============================================
 
@@ -402,4 +526,116 @@ public class PaginatedResponse<T>
     /// Total number of pages.
     /// </summary>
     public int TotalPages => (Total + PageSize - 1) / PageSize;
+}
+
+// ============================================
+// Department DTOs
+// ============================================
+
+/// <summary>
+/// Data transfer object for department information.
+/// </summary>
+public class DepartmentDto
+{
+    /// <summary>
+    /// Unique department identifier.
+    /// </summary>
+    public int DepartmentId { get; set; }
+
+    /// <summary>
+    /// Department name (unique).
+    /// </summary>
+    public string Name { get; set; } = "";
+
+    /// <summary>
+    /// Department description.
+    /// </summary>
+    public string? Description { get; set; }
+
+    /// <summary>
+    /// Contact email for department ownership reference.
+    /// </summary>
+    public string ContactEmail { get; set; } = "";
+
+    /// <summary>
+    /// Retry policy for failed tasks: RequireApproval (0), Auto (1), ManualOnly (2).
+    /// </summary>
+    public int RetryPolicy { get; set; } = 0;
+
+    /// <summary>
+    /// Log retention period in days.
+    /// </summary>
+    public int LogRetentionDays { get; set; } = 90;
+
+    /// <summary>
+    /// Creation timestamp.
+    /// </summary>
+    public DateTime CreatedAt { get; set; }
+
+    /// <summary>
+    /// Last update timestamp.
+    /// </summary>
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// Request to create a new department.
+/// </summary>
+public class CreateDepartmentRequest
+{
+    /// <summary>
+    /// Department name (must be unique).
+    /// </summary>
+    public string Name { get; set; } = "";
+
+    /// <summary>
+    /// Department description.
+    /// </summary>
+    public string? Description { get; set; }
+
+    /// <summary>
+    /// Contact email for department ownership reference.
+    /// </summary>
+    public string ContactEmail { get; set; } = "";
+
+    /// <summary>
+    /// Retry policy: RequireApproval (0), Auto (1), ManualOnly (2).
+    /// </summary>
+    public int RetryPolicy { get; set; } = 0;
+
+    /// <summary>
+    /// Log retention period in days.
+    /// </summary>
+    public int LogRetentionDays { get; set; } = 90;
+}
+
+/// <summary>
+/// Request to update an existing department.
+/// </summary>
+public class UpdateDepartmentRequest
+{
+    /// <summary>
+    /// Department name.
+    /// </summary>
+    public string Name { get; set; } = "";
+
+    /// <summary>
+    /// Department description.
+    /// </summary>
+    public string? Description { get; set; }
+
+    /// <summary>
+    /// Contact email for department ownership reference.
+    /// </summary>
+    public string ContactEmail { get; set; } = "";
+
+    /// <summary>
+    /// Retry policy: RequireApproval (0), Auto (1), ManualOnly (2).
+    /// </summary>
+    public int RetryPolicy { get; set; } = 0;
+
+    /// <summary>
+    /// Log retention period in days.
+    /// </summary>
+    public int LogRetentionDays { get; set; } = 90;
 }

@@ -1,0 +1,6 @@
+.box-cell { font-size:.85rem; color:var(--text-2); }
+.row-selected { background: color-mix(in srgb, var(--primary, #4f6ef7) 8%, white); }
+.exec-meta-grid { display:grid; grid-template-columns:1fr 1fr; gap:.5rem .75rem; }
+.exec-kv { display:flex; flex-direction:column; gap:.15rem; }
+.exec-kv-full { grid-column:1 / -1; }
+.exec-key { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-3); }

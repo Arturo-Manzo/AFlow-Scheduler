@@ -1,5 +1,13 @@
 const DEFAULT_LOCALE = 'es-MX';
 
+export type FrequencyOption = 'hourly' | 'every10' | 'every15' | 'every30' | 'onceDaily';
+
+export interface CronSchedule {
+  days: number[];
+  frequency: FrequencyOption;
+  specificTime: string;
+}
+
 export function detectUserTimeZone(): string {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -53,4 +61,88 @@ export function getDateKeyInTimeZone(value: string | Date, timeZone: string): st
     month: '2-digit',
     day: '2-digit'
   });
+}
+
+export function parseCronToSchedule(cron: string): CronSchedule | null {
+  if (!cron) return null;
+  const parts = cron.trim().split(/\s+/);
+  if (parts.length !== 5) return null;
+
+  const [minute, hour, , , dayOfWeek] = parts;
+  const days = dayOfWeek === '*'
+    ? [0, 1, 2, 3, 4, 5, 6]
+    : dayOfWeek.split(',').map(Number).filter(d => d >= 0 && d <= 6);
+
+  if (days.length === 0) return null;
+
+  if (minute === '0' && hour === '*') return { days, frequency: 'hourly', specificTime: '00:00' };
+  if (minute === '*/10' && hour === '*') return { days, frequency: 'every10', specificTime: '00:00' };
+  if (minute === '*/15' && hour === '*') return { days, frequency: 'every15', specificTime: '00:00' };
+  if (minute === '*/30' && hour === '*') return { days, frequency: 'every30', specificTime: '00:00' };
+
+  if (/^\d+$/.test(minute) && /^\d+$/.test(hour)) {
+    return {
+      days,
+      frequency: 'onceDaily',
+      specificTime: `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`
+    };
+  }
+
+  return null;
+}
+
+export function describeCron(cron: string, timeZoneId = 'Etc/UTC'): string {
+  const config = parseCronToSchedule(cron);
+  if (!config) return cron || 'Manual only';
+
+  const days = config.days.length === 7
+    ? 'Every day'
+    : config.days.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ');
+
+  const frequency = config.frequency === 'hourly'
+    ? 'every hour'
+    : config.frequency === 'every10'
+      ? 'every 10 min'
+      : config.frequency === 'every15'
+        ? 'every 15 min'
+        : config.frequency === 'every30'
+          ? 'every 30 min'
+          : `at ${config.specificTime}`;
+
+  return `${days} \u00B7 ${frequency} in ${timeZoneId} time`;
+}
+
+type FormatVariant = 'short' | 'medium' | 'date';
+
+export function formatUtcShorthand(
+  value: string | undefined | null,
+  userTimeZone: string,
+  variant: FormatVariant
+): string {
+  return formatUtcInTimeZone(
+    value,
+    userTimeZone,
+    variant === 'short'
+      ? { dateStyle: 'short', timeStyle: 'short' }
+      : variant === 'medium'
+        ? { dateStyle: 'medium', timeStyle: 'short' }
+        : { dateStyle: 'medium' }
+  );
+}
+
+export function formatUtcWithBoxContextShorthand(
+  value: string | undefined | null,
+  userTimeZone: string,
+  boxTimeZoneId: string | undefined,
+  variant: 'short' | 'medium'
+): string {
+  return formatUtcWithZoneContext(
+    value,
+    userTimeZone,
+    boxTimeZoneId,
+    variant === 'short'
+      ? { dateStyle: 'short', timeStyle: 'short' }
+      : { dateStyle: 'medium', timeStyle: 'short' },
+    { timeStyle: 'short' }
+  );
 }

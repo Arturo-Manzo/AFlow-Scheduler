@@ -1,6 +1,6 @@
 import { AfterViewChecked, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { TaskExecutionLogEntry } from '../../models/models';
+import { TaskExecutionLogDto } from '../../models/models';
 
 @Component({
   selector: 'app-task-logs-modal',
@@ -115,12 +115,12 @@ export class TaskLogsModalComponent implements AfterViewChecked {
     return this._visible;
   }
 
-  private _logs: TaskExecutionLogEntry[] = [];
-  @Input() set logs(value: TaskExecutionLogEntry[]) {
+  private _logs: TaskExecutionLogDto[] = [];
+  @Input() set logs(value: TaskExecutionLogDto[]) {
     this._logs = value;
     this.scheduleScroll();
   }
-  get logs(): TaskExecutionLogEntry[] {
+  get logs(): TaskExecutionLogDto[] {
     return this._logs;
   }
 
@@ -140,7 +140,7 @@ export class TaskLogsModalComponent implements AfterViewChecked {
     this.pendingScroll = false;
   }
 
-  orderedLogs(): TaskExecutionLogEntry[] {
+  orderedLogs(): TaskExecutionLogDto[] {
     return this.newestFirst ? [...this.logs].reverse() : this.logs;
   }
 

@@ -1,70 +1,221 @@
-import { Component, HostListener, OnInit, inject, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
+import { Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { BoxesService } from '../../services/boxes.service';
+import { DepartmentsService } from '../../services/departments.service';
+import { SearchService } from '../../services/search.service';
 import { TasksService } from '../../services/tasks.service';
 import { AuthService } from '../../services/auth.service';
-import { BoxDto, CreateBoxRequest, UpdateBoxRequest, ExecuteBoxRequest, TaskDto, CreateTaskRequest, UpdateTaskRequest, ForceStartTaskRequest } from '../../models/models';
-import { detectUserTimeZone, formatUtcInTimeZone, formatUtcWithZoneContext, getAvailableTimeZones } from '../../shared/timezone-utils';
-
-type FrequencyOption = 'hourly' | 'every10' | 'every15' | 'every30' | 'onceDaily';
+import { BoxDto, CreateBoxRequest, UpdateBoxRequest, ExecuteBoxRequest, TaskDto, SearchResultDto, SearchScope, CreateTaskRequest, UpdateTaskRequest, ForceStartTaskRequest, DepartmentDto } from '../../models/models';
+import { detectUserTimeZone, formatUtcShorthand, formatUtcWithBoxContextShorthand, getAvailableTimeZones, FrequencyOption, parseCronToSchedule, describeCron as sharedDescribeCron } from '../../shared/timezone-utils';
+import { isFieldInvalid } from '../../shared/form-utils';
+import { HighlightPipe } from '../../shared/highlight.pipe';
 
 @Component({
   selector: 'app-tasks',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, HighlightPipe],
   template: `
-    <div class="page-header">
-      <h1>Boxes</h1>
-      <div class="page-actions">
-        @if (auth.isAdmin) {
-          <button class="btn btn-primary" (click)="openCreate()">New Box</button>
-        }
+    <div class="view-shell">
+      <div class="view-hero">
+        <div class="view-hero-main">
+          <div class="view-eyebrow">Configuration Workspace</div>
+          <h1>Boxes And Tasks</h1>
+          <p class="view-description">
+            Manage workflow definitions, schedules, time zones, task composition and dependency structure without changing runtime behavior.
+          </p>
+        </div>
+        <div class="view-hero-kpi">
+          <span class="kpi-value">{{ loading() ? '--' : boxes().length }}</span>
+          <span class="kpi-label">Boxes</span>
+        </div>
+        <div class="view-hero-kpi">
+          <span class="kpi-value">{{ loading() ? '--' : activeBoxes() }}</span>
+          <span class="kpi-label">Active</span>
+        </div>
+        <div class="view-hero-kpi">
+          <span class="kpi-value">{{ loading() ? '--' : totalTasks() }}</span>
+          <span class="kpi-label">Tasks</span>
+        </div>
       </div>
-    </div>
 
-    @if (loadError()) {
-      <div class="alert alert-danger">{{ loadError() }}
-        <button class="btn btn-ghost btn-sm" style="margin-left:auto" (click)="loadBoxes()">Retry</button>
-      </div>
-    }
+      <section class="data-panel">
+        <div class="panel-header">
+          <div class="panel-title-wrap">
+            <div class="panel-title">Global Search</div>
+            <div class="panel-subtitle">Search boxes and tasks from a single entry point, then jump directly to the matching record. Use Ctrl+K or / to focus the search box.</div>
+          </div>
+        </div>
 
-    @if (loading()) {
-      <div class="loading-state"><span class="spinner"></span> Loading boxes...</div>
-    } @else if (boxes().length === 0 && !loadError()) {
-      <div class="empty-state"><p>No boxes configured yet.</p></div>
-    } @else {
-      <table class="data-table">
-        <thead><tr>
-          <th>Name</th><th>Schedule</th><th>Tasks</th>
-          <th>Enabled</th><th>Last Run</th><th>Actions</th>
-        </tr></thead>
-        <tbody>
-          @for (box of boxes(); track box.boxId) {
-            <tr>
-              <td>
-                <strong>{{ box.name }}</strong>
-                @if (box.description) { <div style="font-size:.78rem;color:var(--text-3);margin-top:.15rem">{{ box.description }}</div> }
-              </td>
-              <td><span class="schedule-chip">{{ describeCron(box.cronExpression, box.timeZoneId) }}</span></td>
-              <td>{{ box.tasks.length }} step(s)</td>
-              <td><span [class]="'badge ' + (box.enabled ? 'badge-success' : 'badge-danger')">{{ box.enabled ? 'Active' : 'Disabled' }}</span></td>
-              <td>{{ box.lastRunUtc ? formatUtcWithBoxContext(box.lastRunUtc, box.timeZoneId, 'short') : '-' }}</td>
-              <td class="table-actions">
-                <button class="btn btn-sm btn-view" (click)="openDetail(box)">View</button>
-                @if (auth.isOperator) {
-                  <button class="btn btn-sm" style="background:var(--info-bg);color:var(--info);border-color:transparent" (click)="runNow(box)">Run</button>
-                }
-                @if (auth.isAdmin) {
-                  <button class="btn btn-sm" (click)="openEdit(box)">Edit</button>
-                  <button class="btn btn-sm btn-danger" (click)="requestDelete(box)">Delete</button>
-                }
-              </td>
-            </tr>
+        <div class="panel-body task-search-shell">
+          <form [formGroup]="taskSearchForm" (ngSubmit)="submitTaskSearch()" class="task-search-form" novalidate>
+            <div class="field search-field">
+              <label for="task-search-query">Search text</label>
+              <input id="task-search-query" formControlName="query" placeholder="Try task name, command fragment, box name or time zone" [class.is-invalid]="taskSearchFieldInvalid()" />
+              @if (taskSearchFieldInvalid()) { <span class="field-hint">Enter at least 2 characters.</span> }
+            </div>
+            <div class="field search-scope-field">
+              <label for="task-search-scope">Scope</label>
+              <select id="task-search-scope" formControlName="scope">
+                <option value="all">All</option>
+                <option value="box">Boxes</option>
+                <option value="task">Tasks</option>
+              </select>
+            </div>
+            <div class="field search-limit-field">
+              <label for="task-search-limit">Limit</label>
+              <select id="task-search-limit" formControlName="limit">
+                <option [value]="10">10</option>
+                <option [value]="25">25</option>
+                <option [value]="50">50</option>
+              </select>
+            </div>
+            <div class="search-actions">
+              <button type="submit" class="btn btn-primary" [disabled]="taskSearchLoading()">{{ taskSearchLoading() ? 'Searching...' : 'Search' }}</button>
+              <button type="button" class="btn" (click)="clearTaskSearch()" [disabled]="taskSearchLoading()">Clear</button>
+            </div>
+          </form>
+
+          @if (taskSearchError()) {
+            <div class="alert alert-danger">{{ taskSearchError() }}</div>
           }
-        </tbody>
-      </table>
-    }
+
+          @if (taskSearchLoading()) {
+            <div class="loading-state"><span class="spinner"></span> Searching boxes and tasks...</div>
+          } @else if (!taskSearchPerformed()) {
+            <div class="empty-state compact-empty"><p>Use the scope filter to search only boxes, only tasks, or both.</p></div>
+          } @else if (taskSearchResults().length === 0) {
+            <div class="empty-state compact-empty"><p>No results matched the current search.</p></div>
+          } @else {
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Name</th>
+                  <th>Context</th>
+                  <th>Details</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (result of taskSearchResults(); track searchTrackBy(result)) {
+                  <tr>
+                    <td>
+                      <span [class]="'type-badge ' + (result.resultType === 'task' ? 'type-api' : 'type-exe')">{{ result.resultType }}</span>
+                    </td>
+                    <td>
+                      <strong><span [innerHTML]="result.title | highlight:taskSearchQuery()"></span></strong>
+                      @if (result.description) { <div class="box-row-copy" [innerHTML]="result.description | highlight:taskSearchQuery()"></div> }
+                    </td>
+                    <td>
+                      @if (result.resultType === 'task') {
+                        <strong><span [innerHTML]="result.boxName | highlight:taskSearchQuery()"></span></strong>
+                        <div class="box-row-copy">Parent box</div>
+                      } @else {
+                        <strong><span [innerHTML]="(result.timeZoneId || '--') | highlight:taskSearchQuery()"></span></strong>
+                        <div class="box-row-copy">Time zone</div>
+                      }
+                    </td>
+                    <td>
+                      @if (result.resultType === 'task') {
+                        <div class="search-detail-stack">
+                          <span [class]="'type-badge type-' + result.taskType.toLowerCase()">{{ result.taskType }}</span>
+                          <code class="search-command" [innerHTML]="result.command | highlight:taskSearchQuery()"></code>
+                        </div>
+                      } @else {
+                        <div class="search-detail-stack">
+                          <span>{{ result.activeTaskCount }} active task(s)</span>
+                        </div>
+                      }
+                    </td>
+                    <td>
+                      <div class="search-status-stack">
+                        <span [class]="'badge ' + (result.enabled ? 'badge-success' : 'badge-danger')">{{ result.enabled ? 'Enabled' : 'Disabled' }}</span>
+                        @if (result.resultType === 'task') {
+                          <span [class]="'badge ' + (result.boxEnabled ? 'badge-success' : 'badge-danger')">{{ result.boxEnabled ? 'Box On' : 'Box Off' }}</span>
+                        }
+                      </div>
+                    </td>
+                    <td>{{ formatUtc(result.createdAt, 'date') }}</td>
+                    <td class="table-actions">
+                      @if (result.resultType === 'task') {
+                        <button class="btn btn-sm btn-view" (click)="openTaskSearchResult(result)">Open Task</button>
+                      }
+                      <button class="btn btn-sm" (click)="openBoxFromSearch(result)">Open Box</button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
+      </section>
+
+      <section class="data-panel">
+        <div class="panel-header">
+          <div class="panel-title-wrap">
+            <div class="panel-title">Box Catalog</div>
+            <div class="panel-subtitle">Primary registry of workflow containers, schedules and task counts.</div>
+          </div>
+          <div class="panel-toolbar">
+            @if (auth.isAdmin) {
+              <button class="btn btn-primary" (click)="openCreate()">New Box</button>
+            }
+          </div>
+        </div>
+
+        @if (loadError()) {
+          <div class="panel-body"><div class="alert alert-danger">{{ loadError() }}</div></div>
+        }
+
+        @if (loading()) {
+          <div class="loading-state"><span class="spinner"></span> Loading boxes...</div>
+        } @else if (boxes().length === 0 && !loadError()) {
+          <div class="empty-state"><p>No boxes configured yet.</p></div>
+        } @else {
+          <table class="data-table">
+            <thead><tr>
+              <th>Name</th><th>Department</th><th>Schedule</th><th>Time Zone</th><th>Tasks</th>
+              <th>Status</th><th>Last Run</th><th>Created</th><th>Actions</th>
+            </tr></thead>
+            <tbody>
+              @for (box of boxes(); track box.boxId) {
+                <tr>
+                  <td>
+                    <strong>{{ box.name }}</strong>
+                    @if (box.description) { <div class="box-row-copy">{{ box.description }}</div> }
+                  </td>
+                  <td>{{ box.departmentName || 'Not assigned' }}</td>
+                  <td><span class="schedule-chip">{{ describeCron(box.cronExpression, box.timeZoneId) }}</span></td>
+                  <td>{{ box.timeZoneId }}</td>
+                  <td>{{ box.tasks.length }} step(s)</td>
+                  <td><span [class]="'badge ' + (box.enabled ? 'badge-success' : 'badge-danger')">{{ box.enabled ? 'Active' : 'Disabled' }}</span></td>
+                  <td>{{ box.lastRunUtc ? formatUtcWithBoxContext(box.lastRunUtc, box.timeZoneId, 'short') : '-' }}</td>
+                  <td>{{ formatUtc(box.createdAt, 'date') }}</td>
+                    <td>
+                      <div class="table-actions">
+                        <button class="btn btn-sm btn-view" (click)="openDetail(box)">View</button>
+                        @if (auth.isOperator) {
+                          <button class="btn btn-sm btn-run" (click)="runNow(box)">Run</button>
+                        }
+                        @if (auth.isAdmin) {
+                          <button class="btn btn-sm" (click)="openEdit(box)">Edit</button>
+                          <button class="btn btn-sm btn-danger" (click)="requestDelete(box)">Delete</button>
+                        }
+                      </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+    </div>
 
     @if (showBoxForm()) {
       <div class="modal-overlay" role="dialog" aria-modal="true">
@@ -83,6 +234,21 @@ type FrequencyOption = 'hourly' | 'every10' | 'every15' | 'every30' | 'onceDaily
               <div class="field">
                 <label for="b-desc">Description</label>
                 <input id="b-desc" formControlName="description" placeholder="Optional description" />
+              </div>
+              <div class="field">
+                <label for="b-email">Notification Email</label>
+                <input id="b-email" type="email" formControlName="notificationEmail" placeholder="Optional. Email to notify on task failure." [class.is-invalid]="bfi('notificationEmail')" />
+                @if (bfi('notificationEmail')) { <span class="field-hint">Enter a valid email address.</span> }
+              </div>
+              <div class="field">
+                <label for="b-dept">Department</label>
+                <select id="b-dept" formControlName="departmentId">
+                  <option [ngValue]="null">Not assigned</option>
+                  @for (department of departments(); track department.departmentId) {
+                    <option [ngValue]="department.departmentId">{{ department.name }}</option>
+                  }
+                </select>
+                <span class="field-hint" style="color:var(--text-3)">Department controls governance defaults for this box.</span>
               </div>
               <section class="scheduler-box">
                 <h4>Schedule</h4>
@@ -464,25 +630,43 @@ type FrequencyOption = 'hourly' | 'every10' | 'every15' | 'every30' | 'onceDaily
     .type-bat { background:#fdf3e8;color:#c17a00 }
     .type-python { background:#e8f5e9;color:#2e7d32 }
     .type-api { background:#f3e8fd;color:#6a1b9a }
-    .btn-view { background:var(--bg-muted);color:var(--text-2);border-color:var(--border) }
-    .btn-view:hover { background:var(--border) }
+    .task-search-shell { display:flex;flex-direction:column;gap:1rem }
+    .task-search-form { display:grid;grid-template-columns:minmax(0,1fr) 140px 120px auto;gap:.85rem;align-items:end }
+    .search-field,.search-scope-field,.search-limit-field { margin:0 }
+    .search-actions { display:flex;gap:.5rem;align-items:center;justify-content:flex-end }
+    .compact-empty { padding:1rem 0 }
+    :host ::ng-deep mark.search-hit { background:#fff3a3;color:#1f2937;padding:0 .12rem;border-radius:3px }
+    .search-detail-stack { display:flex;flex-direction:column;gap:.4rem }
+    .search-command { font-size:.78rem;background:var(--bg-muted);border:1px solid var(--border);border-radius:4px;padding:.15rem .4rem;word-break:break-all;display:block }
+    .search-status-stack { display:flex;gap:.35rem;flex-wrap:wrap }
+    .box-row-copy { font-size:.78rem;color:var(--text-3);margin-top:.15rem }
     .modal-overlay-top { z-index:1100 }
     .dep-list { border:1px solid var(--border);border-radius:var(--radius-1);padding:.5rem .6rem;max-height:160px;overflow:auto;background:var(--bg-surface) }
     .dep-item { display:flex;align-items:center;gap:.5rem;padding:.2rem 0;font-size:.9rem;color:var(--text-1) }
     .dep-item input[type='checkbox'] { width:1rem;height:1rem;accent-color:var(--primary);cursor:pointer }
+    @media (max-width: 920px) {
+      .task-search-form { grid-template-columns:1fr }
+      .search-actions { justify-content:flex-start }
+    }
   `]
 })
-export class TasksComponent implements OnInit {
+export class TasksComponent implements OnInit, OnDestroy {
   private boxesService = inject(BoxesService);
+  private departmentsService = inject(DepartmentsService);
+  private searchService = inject(SearchService);
   private tasksService = inject(TasksService);
+  private router = inject(Router);
   auth = inject(AuthService);
   private fb = inject(FormBuilder);
 
   readonly userTimeZone = detectUserTimeZone();
   readonly availableTimeZones = getAvailableTimeZones(this.userTimeZone);
+  private taskSearchSubscription?: Subscription;
+  private lastExecutedSearch = '';
 
   // --- Box list ---
   boxes = signal<BoxDto[]>([]);
+  departments = signal<DepartmentDto[]>([]);
   loading = signal(true);
   saving = signal(false);
   deleteLoading = signal(false);
@@ -496,6 +680,13 @@ export class TasksComponent implements OnInit {
   deleteError = signal('');
   runMessage = signal('');
   runError = signal('');
+
+  // --- Global task search ---
+  taskSearchResults = signal<SearchResultDto[]>([]);
+  taskSearchLoading = signal(false);
+  taskSearchError = signal('');
+  taskSearchPerformed = signal(false);
+  taskSearchQuery = signal('');
 
   // --- Task force start ---
   forceStartPendingTask = signal<TaskDto | null>(null);
@@ -535,14 +726,16 @@ export class TasksComponent implements OnInit {
   ];
 
   boxForm = this.fb.group({
-    name: ['', Validators.required],
+    name: ['', [Validators.required, Validators.maxLength(100)]],
     description: [''],
+    notificationEmail: ['', Validators.email],
     frequency: ['hourly' as FrequencyOption],
     specificTime: ['07:00'],
     timeZoneId: [this.userTimeZone, Validators.required],
     dayMon: [true], dayTue: [true], dayWed: [true], dayThu: [true],
     dayFri: [true], daySat: [false], daySun: [false],
     enabled: [true],
+    departmentId: [this.auth.currentUser()?.departmentId ?? null],
     // First task fields — validators applied dynamically in openCreate()
     taskName: [''],
     taskDescription: [''],
@@ -568,6 +761,12 @@ export class TasksComponent implements OnInit {
     reason: ['', Validators.required]
   });
 
+  taskSearchForm = this.fb.group({
+    query: ['', [Validators.required, Validators.minLength(2)]],
+    scope: ['all' as SearchScope, Validators.required],
+    limit: [25, Validators.required]
+  });
+
   @HostListener('document:keydown.escape')
   onEscape(): void {
     if (this.forceStartPendingTask()) { this.closeForceStart(); return; }
@@ -579,26 +778,132 @@ export class TasksComponent implements OnInit {
     if (this.viewingBox()) { this.closeDetail(); return; }
   }
 
-  ngOnInit(): void { this.loadBoxes(); }
+  @HostListener('document:keydown', ['$event'])
+  onGlobalKeydown(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement | null;
+    const isTypingTarget = !!target && (
+      target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.tagName === 'SELECT' ||
+      target.isContentEditable
+    );
+
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      this.focusSearchInput();
+      return;
+    }
+
+    if (!isTypingTarget && event.key === '/') {
+      event.preventDefault();
+      this.focusSearchInput();
+    }
+  }
+
+  ngOnInit(): void {
+    this.loadBoxes();
+    this.loadDepartments();
+    this.taskSearchSubscription = this.taskSearchForm.valueChanges
+      .pipe(
+        debounceTime(300),
+        distinctUntilChanged((left, right) => JSON.stringify(left) === JSON.stringify(right))
+      )
+      .subscribe(() => this.runTaskSearch(false));
+  }
+
+  ngOnDestroy(): void {
+    this.taskSearchSubscription?.unsubscribe();
+  }
 
   bfi(field: string): boolean {
-    const c = this.boxForm.get(field)!;
-    return c.invalid && (c.dirty || c.touched);
+    return isFieldInvalid(this.boxForm, field);
   }
 
   bft(field: string): boolean {
-    const c = this.taskForm.get(field)!;
-    return c.invalid && (c.dirty || c.touched);
+    return isFieldInvalid(this.taskForm, field);
   }
 
   bfr(field: string): boolean {
-    const c = this.runFormGroup.get(field)!;
-    return c.invalid && (c.dirty || c.touched);
+    return isFieldInvalid(this.runFormGroup, field);
   }
 
   bffs(): boolean {
-    const c = this.forceStartForm.get('reason')!;
-    return c.invalid && (c.dirty || c.touched);
+    return isFieldInvalid(this.forceStartForm, 'reason');
+  }
+
+  taskSearchFieldInvalid(): boolean {
+    return isFieldInvalid(this.taskSearchForm, 'query');
+  }
+
+  submitTaskSearch(): void {
+    this.runTaskSearch(true);
+  }
+
+  private runTaskSearch(markTouched: boolean): void {
+    if (markTouched) {
+      this.taskSearchForm.markAllAsTouched();
+    }
+
+    const query = this.taskSearchForm.value.query?.trim() ?? '';
+    const scope = (this.taskSearchForm.value.scope ?? 'all') as SearchScope;
+    const limit = Number(this.taskSearchForm.value.limit ?? 25);
+
+    this.taskSearchQuery.set(query);
+
+    if (query.length === 0) {
+      this.lastExecutedSearch = '';
+      this.taskSearchResults.set([]);
+      this.taskSearchError.set('');
+      this.taskSearchPerformed.set(false);
+      this.taskSearchLoading.set(false);
+      return;
+    }
+
+    if (query.length < 2) {
+      this.taskSearchResults.set([]);
+      this.taskSearchError.set(markTouched ? 'Enter at least 2 characters.' : '');
+      this.taskSearchPerformed.set(false);
+      this.taskSearchLoading.set(false);
+      return;
+    }
+
+    const searchKey = `${query}::${scope}::${limit}`;
+    if (searchKey === this.lastExecutedSearch && !markTouched) {
+      return;
+    }
+
+    this.lastExecutedSearch = searchKey;
+    this.taskSearchLoading.set(true);
+    this.taskSearchError.set('');
+    this.taskSearchPerformed.set(true);
+
+    this.searchService.search(query, scope, limit).subscribe({
+      next: (results) => {
+        this.taskSearchResults.set(results);
+        this.taskSearchLoading.set(false);
+      },
+      error: (err) => {
+        this.taskSearchResults.set([]);
+        this.taskSearchError.set(err?.error?.message || 'Failed to search.');
+        this.taskSearchLoading.set(false);
+      }
+    });
+  }
+
+  clearTaskSearch(): void {
+    this.taskSearchForm.reset({ query: '', scope: 'all', limit: 25 });
+    this.lastExecutedSearch = '';
+    this.taskSearchResults.set([]);
+    this.taskSearchError.set('');
+    this.taskSearchPerformed.set(false);
+    this.taskSearchQuery.set('');
+  }
+
+  focusSearchInput(): void {
+    const input = document.getElementById('task-search-query') as HTMLInputElement | null;
+    input?.focus();
+    input?.select();
+    input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   loadBoxes(): void {
@@ -610,6 +915,13 @@ export class TasksComponent implements OnInit {
     });
   }
 
+  loadDepartments(): void {
+    this.departmentsService.getAll().subscribe({
+      next: (depts) => this.departments.set(depts),
+      error: () => this.departments.set([])
+    });
+  }
+
   openCreate(): void {
     this.editingBox.set(null);
     this.boxForm.reset({
@@ -617,6 +929,7 @@ export class TasksComponent implements OnInit {
       timeZoneId: this.userTimeZone,
       dayMon: true, dayTue: true, dayWed: true, dayThu: true, dayFri: true, daySat: false, daySun: false,
       enabled: true,
+      departmentId: this.auth.currentUser()?.departmentId ?? null,
       taskName: '', taskDescription: '', taskCommand: '', taskType: 'Exe'
     });
     this.boxForm.get('taskName')!.setValidators(Validators.required);
@@ -635,10 +948,11 @@ export class TasksComponent implements OnInit {
     this.boxForm.get('taskCommand')!.updateValueAndValidity();
     const parsed = this.parseCronToSchedule(box.cronExpression);
     this.boxForm.patchValue({
-      name: box.name, description: box.description,
+      name: box.name, description: box.description, notificationEmail: box.notificationEmail || '',
       frequency: parsed?.frequency ?? 'hourly',
       specificTime: parsed?.specificTime ?? '07:00',
       timeZoneId: box.timeZoneId,
+      departmentId: box.departmentId ?? null,
       dayMon: parsed ? parsed.days.includes(1) : true,
       dayTue: parsed ? parsed.days.includes(2) : true,
       dayWed: parsed ? parsed.days.includes(3) : true,
@@ -664,14 +978,14 @@ export class TasksComponent implements OnInit {
     const v = this.boxForm.value;
     const editing = this.editingBox();
     if (editing) {
-      const req: UpdateBoxRequest = { name: v.name!, description: v.description ?? '', cronExpression, timeZoneId: v.timeZoneId!, enabled: v.enabled ?? true };
+      const req: UpdateBoxRequest = { name: v.name!, description: v.description ?? '', cronExpression, timeZoneId: v.timeZoneId!, enabled: v.enabled ?? true, notificationEmail: v.notificationEmail || undefined, departmentId: v.departmentId || undefined };
       this.boxesService.update(editing.boxId, req).subscribe({
         next: () => { this.saving.set(false); this.closeBoxForm(); this.loadBoxes(); },
         error: (err) => { this.boxFormError.set(err?.error?.message || 'Failed to save.'); this.saving.set(false); }
       });
     } else {
       const req: CreateBoxRequest = {
-        name: v.name!, description: v.description ?? '', cronExpression, timeZoneId: v.timeZoneId!,
+        name: v.name!, description: v.description ?? '', cronExpression, timeZoneId: v.timeZoneId!, notificationEmail: v.notificationEmail || undefined, departmentId: v.departmentId || undefined,
         initialTask: {
           name: v.taskName!,
           description: v.taskDescription ?? '',
@@ -725,13 +1039,22 @@ export class TasksComponent implements OnInit {
   // Box detail view
   // =====================================================================
   openDetail(box: BoxDto): void {
-    this.viewingBox.set(box);
-    this.loadingDetail.set(true);
-    this.detailError.set('');
-    this.boxesService.getById(box.boxId).subscribe({
-      next: (b) => { this.viewingBox.set(b); this.loadingDetail.set(false); },
-      error: () => { this.detailError.set('Failed to load box details.'); this.loadingDetail.set(false); }
-    });
+    void this.router.navigate(['/boxes', box.boxId]);
+  }
+
+  searchTrackBy(result: SearchResultDto): string {
+    return result.resultType === 'task'
+      ? `task-${result.taskId ?? 0}`
+      : `box-${result.boxId}`;
+  }
+
+  openTaskSearchResult(result: SearchResultDto): void {
+    if (!result.taskId) return;
+    void this.router.navigate(['/boxes', result.boxId, 'task', result.taskId]);
+  }
+
+  openBoxFromSearch(result: SearchResultDto): void {
+    void this.router.navigate(['/boxes', result.boxId]);
   }
 
   closeDetail(): void { this.viewingBox.set(null); this.detailError.set(''); }
@@ -944,15 +1267,7 @@ export class TasksComponent implements OnInit {
   }
 
   describeCron(cron: string, timeZoneId = 'Etc/UTC'): string {
-    const cfg = this.parseCronToSchedule(cron);
-    if (!cfg) return cron || 'Manual only';
-    const days = cfg.days.length === 7 ? 'Every day' : cfg.days.map(d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ');
-    const freq = cfg.frequency === 'hourly' ? 'every hour'
-      : cfg.frequency === 'every10' ? 'every 10 min'
-      : cfg.frequency === 'every15' ? 'every 15 min'
-      : cfg.frequency === 'every30' ? 'every 30 min'
-      : 'at ' + cfg.specificTime;
-    return days + ' \u00B7 ' + freq + ' in ' + timeZoneId + ' time';
+    return sharedDescribeCron(cron, timeZoneId);
   }
 
   liveScheduleSummary(): string {
@@ -964,27 +1279,11 @@ export class TasksComponent implements OnInit {
   }
 
   formatUtc(value: string | undefined | null, variant: 'short' | 'medium' | 'date'): string {
-    return formatUtcInTimeZone(
-      value,
-      this.userTimeZone,
-      variant === 'short'
-        ? { dateStyle: 'short', timeStyle: 'short' }
-        : variant === 'medium'
-          ? { dateStyle: 'medium', timeStyle: 'short' }
-          : { dateStyle: 'medium' }
-    );
+    return formatUtcShorthand(value, this.userTimeZone, variant);
   }
 
   formatUtcWithBoxContext(value: string | undefined | null, boxTimeZoneId: string | undefined, variant: 'short' | 'medium'): string {
-    return formatUtcWithZoneContext(
-      value,
-      this.userTimeZone,
-      boxTimeZoneId,
-      variant === 'short'
-        ? { dateStyle: 'short', timeStyle: 'short' }
-        : { dateStyle: 'medium', timeStyle: 'short' },
-      { timeStyle: 'short' }
-    );
+    return formatUtcWithBoxContextShorthand(value, this.userTimeZone, boxTimeZoneId, variant);
   }
 
   private selectedDays(): number[] {
@@ -1011,27 +1310,15 @@ export class TasksComponent implements OnInit {
     return minutePart + ' ' + hourPart + ' * * ' + dowStr;
   }
 
-  private parseCronToSchedule(cron: string): { days: number[]; frequency: FrequencyOption; specificTime: string } | null {
-    if (!cron) return null;
-    const parts = cron.trim().split(/\s+/);
-    if (parts.length !== 5) return null;
-    const [minute, hour, , , dow] = parts;
-    let days: number[];
-    if (dow === '*') { days = [0,1,2,3,4,5,6]; }
-    else {
-      try { days = dow.split(',').map(Number).filter(d => d >= 0 && d <= 6); }
-      catch { return null; }
-    }
-    let frequency: FrequencyOption;
-    let specificTime = '07:00';
-    if (minute === '0' && hour === '*') { frequency = 'hourly'; }
-    else if (minute === '*/10' && hour === '*') { frequency = 'every10'; }
-    else if (minute === '*/15' && hour === '*') { frequency = 'every15'; }
-    else if (minute === '*/30' && hour === '*') { frequency = 'every30'; }
-    else if (/^\d+$/.test(minute) && /^\d+$/.test(hour)) {
-      frequency = 'onceDaily';
-      specificTime = hour.padStart(2,'0') + ':' + minute.padStart(2,'0');
-    } else return null;
-    return { days, frequency, specificTime };
+  private parseCronToSchedule(cron: string) {
+    return parseCronToSchedule(cron);
+  }
+
+  activeBoxes(): number {
+    return this.boxes().filter(box => box.enabled).length;
+  }
+
+  totalTasks(): number {
+    return this.boxes().reduce((total, box) => total + box.tasks.length, 0);
   }
 }

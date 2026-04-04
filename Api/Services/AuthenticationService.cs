@@ -17,8 +17,9 @@ public interface ITokenService
     /// <param name="userId">The user ID.</param>
     /// <param name="username">The username.</param>
     /// <param name="roleName">The user's role name.</param>
+    /// <param name="departmentId">The user's department ID.</param>
     /// <returns>The JWT token string.</returns>
-    string GenerateToken(int userId, string username, string roleName);
+    string GenerateToken(int userId, string username, string roleName, int? departmentId = null);
 
     /// <summary>
     /// Validates a JWT token and extracts claims.
@@ -45,20 +46,16 @@ public class JwtTokenService : ITokenService
     /// <exception cref="ArgumentException">Thrown when required JWT settings are missing.</exception>
     public JwtTokenService(IConfiguration configuration)
     {
-        _secretKey = configuration["Jwt:Secret"] 
-            ?? throw new ArgumentException("Missing Jwt:Secret in configuration");
+        (_secretKey, _) = JwtSecretResolver.Resolve(configuration);
         _issuer = configuration["Jwt:Issuer"] ?? "AScheduler";
         _audience = configuration["Jwt:Audience"] ?? "ASchedulerAPI";
         _expirationMinutes = configuration.GetValue<int>("Jwt:ExpirationMinutes", 480);
-
-        if (_secretKey.Length < 32)
-            throw new ArgumentException("JWT Secret must be at least 32 characters long");
     }
 
     /// <summary>
     /// Generates a JWT token for the authenticated user.
     /// </summary>
-    public string GenerateToken(int userId, string username, string roleName)
+    public string GenerateToken(int userId, string username, string roleName, int? departmentId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(username);
         ArgumentException.ThrowIfNullOrWhiteSpace(roleName);
@@ -73,6 +70,12 @@ public class JwtTokenService : ITokenService
             new(ClaimTypes.Role, roleName),
             new("sub", username)
         };
+
+        // Add department claim if provided
+        if (departmentId.HasValue)
+        {
+            claims.Add(new Claim("department_id", departmentId.Value.ToString()));
+        }
 
         var token = new JwtSecurityToken(
             issuer: _issuer,
@@ -190,7 +193,7 @@ public class AuthenticationService : IAuthenticationService
             await connection.OpenAsync();
 
             var query = @"
-                SELECT u.UserId, u.Username, u.Email, u.PasswordHash, u.IsActive, r.RoleName
+                SELECT u.UserId, u.Username, u.Email, u.PasswordHash, u.IsActive, r.RoleName, u.DepartmentId
                 FROM Users u
                 INNER JOIN Roles r ON u.RoleId = r.RoleId
                 WHERE u.Username = @Username";
@@ -211,7 +214,7 @@ public class AuthenticationService : IAuthenticationService
             var passwordHash = reader.GetString(3);
             var isActive = reader.GetBoolean(4);
             var roleName = reader.GetString(5);
-            var roleId = 0; // Will be fetched from role name
+            var departmentId = reader.IsDBNull(6) ? (int?)null : reader.GetInt32(6);
 
             if (!isActive)
             {
@@ -232,10 +235,11 @@ public class AuthenticationService : IAuthenticationService
                 Email = email,
                 RoleName = roleName,
                 IsActive = isActive,
+                DepartmentId = departmentId,
                 CreatedAt = DateTime.UtcNow
             };
 
-            var token = _tokenService.GenerateToken(userId, dbUsername, roleName);
+            var token = _tokenService.GenerateToken(userId, dbUsername, roleName, departmentId);
 
             _logger.LogInformation("User {Username} authenticated successfully.", username);
             return (user, token);

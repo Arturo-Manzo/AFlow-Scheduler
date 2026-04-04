@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using AScheduler.Data;
 using AScheduler.Domain;
 using AScheduler.Execution;
@@ -17,6 +18,9 @@ public class TaskExecutionService : ITaskExecutionService
     private readonly IExecutionRepository _executionRepository;
     private readonly IExecutionLogger _executionLogger;
     private readonly ExecutorFactory _executorFactory;
+    private readonly IBoxRepository _boxRepository;
+    private readonly ITaskRepository _taskRepository;
+    private readonly ITaskFailureNotificationService _notificationService;
     private readonly ILogger<TaskExecutionService> _logger;
     private readonly int _taskTimeoutSeconds;
 
@@ -28,23 +32,46 @@ public class TaskExecutionService : ITaskExecutionService
         IExecutionRepository executionRepository,
         IExecutionLogger executionLogger,
         ExecutorFactory executorFactory,
+        IBoxRepository boxRepository,
+        ITaskRepository taskRepository,
+        ITaskFailureNotificationService notificationService,
         IConfiguration configuration,
         ILogger<TaskExecutionService> logger)
     {
         ArgumentNullException.ThrowIfNull(executionRepository);
         ArgumentNullException.ThrowIfNull(executionLogger);
         ArgumentNullException.ThrowIfNull(executorFactory);
+        ArgumentNullException.ThrowIfNull(boxRepository);
+        ArgumentNullException.ThrowIfNull(taskRepository);
+        ArgumentNullException.ThrowIfNull(notificationService);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(logger);
 
         _executionRepository = executionRepository;
         _executionLogger = executionLogger;
         _executorFactory = executorFactory;
+        _boxRepository = boxRepository;
+        _taskRepository = taskRepository;
+        _notificationService = notificationService;
         _logger = logger;
         _taskTimeoutSeconds = Math.Max(10, configuration.GetValue<int>("WorkerPool:TaskTimeoutSeconds", 300));
         _runningTaskIds = new ConcurrentDictionary<int, byte>();
     }
 
+    /// <summary>
+    /// Executes a task with concurrency guards, lifecycle persistence, logging, and failure notification.
+    /// </summary>
+    /// <param name="task">Task definition to execute.</param>
+    /// <param name="boxRunId">Associated box run identifier, or null for force-start executions.</param>
+    /// <param name="triggerSource">Trigger source value; normalized before persistence.</param>
+    /// <param name="scheduledForUtc">Original scheduled UTC time, when applicable.</param>
+    /// <param name="requestedByUserId">Requesting user identifier for manual/force-start flows, if available.</param>
+    /// <param name="reason">Optional free-text reason for execution.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>
+    /// True when task execution completes successfully (exit code 0);
+    /// otherwise false when duplicate prevention, timeout, cancellation, or execution failure occurs.
+    /// </returns>
     public async Task<bool> ExecuteTaskAsync(
         TaskDefinition task,
         int? boxRunId,
@@ -138,6 +165,12 @@ public class TaskExecutionService : ITaskExecutionService
                         task.Id,
                         "Task failed",
                         string.IsNullOrWhiteSpace(result.Error) ? result.Output : result.Error);
+                    
+                    // Send notification if box has email configured
+                    await SendTaskFailureNotificationAsync(
+                        task, boxRunId, executionId, normalizedTriggerSource, scheduledForUtc,
+                        failureReason: $"Exit code {result.ExitCode}: {(string.IsNullOrWhiteSpace(result.Error) ? result.Output : result.Error)}",
+                        ct);
                 }
 
                 _logger.LogInformation(
@@ -159,6 +192,12 @@ public class TaskExecutionService : ITaskExecutionService
                     "Task failed",
                     $"Timeout after {_taskTimeoutSeconds}s");
 
+                // Send notification if box has email configured
+                await SendTaskFailureNotificationAsync(
+                    task, boxRunId, executionId, normalizedTriggerSource, scheduledForUtc,
+                    failureReason: $"Timeout after {_taskTimeoutSeconds}s",
+                    ct);
+
                 _logger.LogWarning(
                     "Task {TaskId} ({TaskName}) timed out after {Seconds}s.",
                     task.Id, task.Name, _taskTimeoutSeconds);
@@ -172,6 +211,12 @@ public class TaskExecutionService : ITaskExecutionService
                     "", ex.ToString());
 
                 await _executionLogger.LogError(boxRunId, executionId, task.Id, "Task failed", ex.ToString());
+
+                // Send notification if box has email configured
+                await SendTaskFailureNotificationAsync(
+                    task, boxRunId, executionId, normalizedTriggerSource, scheduledForUtc,
+                    failureReason: $"Exception: {ex.Message}",
+                    ct);
 
                 _logger.LogError(ex, "Task {TaskId} ({TaskName}) failed with exception.", task.Id, task.Name);
                 return false;
@@ -187,6 +232,103 @@ public class TaskExecutionService : ITaskExecutionService
     /// Internal helper for querying in-process state (used by IWorkerStateService).
     /// </remarks>
     internal bool IsTaskRunning(int taskId) => _runningTaskIds.ContainsKey(taskId);
+
+    internal int ActiveCount => _runningTaskIds.Count;
+
+    /// <summary>
+    /// Helper method to send task failure notifications. Loads box details and sends email if configured.
+    /// This method is best-effort; failures are logged but not propagated.
+    /// </summary>
+    private async Task SendTaskFailureNotificationAsync(
+        TaskDefinition task,
+        int? boxRunId,
+        int executionId,
+        string normalizedTriggerSource,
+        DateTime? scheduledForUtc,
+        string failureReason,
+        CancellationToken ct)
+    {
+        var notificationStopwatch = Stopwatch.StartNew();
+        try
+        {
+            _logger.LogInformation(
+                "Preparing task failure notification. TaskId={TaskId}, TaskName={TaskName}, BoxId={BoxId}, BoxRunId={BoxRunId}, ExecutionId={ExecutionId}, TriggerSource={TriggerSource}",
+                task.Id,
+                task.Name,
+                task.BoxId,
+                boxRunId,
+                executionId,
+                normalizedTriggerSource);
+
+            var box = await _boxRepository.GetByIdAsync(task.BoxId);
+            if (box == null)
+            {
+                _logger.LogWarning(
+                    "Notification skipped because box was not found. TaskId={TaskId}, BoxId={BoxId}, ExecutionId={ExecutionId}",
+                    task.Id,
+                    task.BoxId,
+                    executionId);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(box.NotificationEmail))
+            {
+                _logger.LogInformation(
+                    "Notification skipped because box has no failure alert email. TaskId={TaskId}, BoxId={BoxId}, ExecutionId={ExecutionId}",
+                    task.Id,
+                    task.BoxId,
+                    executionId);
+                return; // No email configured for this box
+            }
+
+            var sent = await _notificationService.SendTaskFailureNotificationAsync(
+                boxId: task.BoxId,
+                taskId: task.Id,
+                boxRunId: boxRunId,
+                taskName: task.Name,
+                boxName: box.Name,
+                notificationEmail: box.NotificationEmail,
+                failureReason: failureReason,
+                executionId: executionId,
+                triggerSource: normalizedTriggerSource,
+                scheduledForUtc: scheduledForUtc,
+                requestedByUsername: null, // Could be enriched from requestedByUserId if needed
+                cancellationToken: ct);
+
+            notificationStopwatch.Stop();
+            if (sent)
+            {
+                _logger.LogInformation(
+                    "Task failure notification sent successfully. TaskId={TaskId}, BoxId={BoxId}, ExecutionId={ExecutionId}, Email={Email}, ElapsedMs={ElapsedMs}",
+                    task.Id,
+                    task.BoxId,
+                    executionId,
+                    MaskEmail(box.NotificationEmail),
+                    notificationStopwatch.ElapsedMilliseconds);
+                return;
+            }
+
+            _logger.LogWarning(
+                "Task failure notification attempt completed without send. TaskId={TaskId}, BoxId={BoxId}, ExecutionId={ExecutionId}, Email={Email}, ElapsedMs={ElapsedMs}",
+                task.Id,
+                task.BoxId,
+                executionId,
+                MaskEmail(box.NotificationEmail),
+                notificationStopwatch.ElapsedMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            notificationStopwatch.Stop();
+            _logger.LogError(
+                ex,
+                "Task failure notification pipeline failed. TaskId={TaskId}, BoxId={BoxId}, ExecutionId={ExecutionId}, TriggerSource={TriggerSource}, ElapsedMs={ElapsedMs}",
+                task.Id,
+                task.BoxId,
+                executionId,
+                normalizedTriggerSource,
+                notificationStopwatch.ElapsedMilliseconds);
+        }
+    }
 
     /// <remarks>
     /// Internal helper for creating pre-failed executions (e.g., blocked tasks due to dependency failures).
@@ -214,6 +356,39 @@ public class TaskExecutionService : ITaskExecutionService
             executionId, failedAtUtc, "Failed", "", failureReason, -2, "", failureReason);
 
         await _executionLogger.LogError(boxRunId, executionId, taskId, "Task failed", failureReason);
+
+        // Send notification if box has email configured
+        try
+        {
+            var task = await _taskRepository.GetByIdAsync(taskId);
+            if (task == null)
+            {
+                _logger.LogWarning(
+                    "Could not load task for failed-execution notification. TaskId={TaskId}, BoxRunId={BoxRunId}, ExecutionId={ExecutionId}",
+                    taskId,
+                    boxRunId,
+                    executionId);
+                return;
+            }
+
+            await SendTaskFailureNotificationAsync(
+                task,
+                boxRunId,
+                executionId,
+                normalizedTriggerSource,
+                scheduledForUtc,
+                failureReason,
+                CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed-execution notification path failed. TaskId={TaskId}, BoxRunId={BoxRunId}, ExecutionId={ExecutionId}",
+                taskId,
+                boxRunId,
+                executionId);
+        }
     }
 
     /// <remarks>
@@ -239,5 +414,20 @@ public class TaskExecutionService : ITaskExecutionService
             executionId, markedAtUtc, "NotExecuted", "", reason, null, "", reason);
 
         await _executionLogger.LogError(boxRunId, executionId, taskId, "Task failed", reason);
+    }
+
+    private static string MaskEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return "<empty>";
+
+        var atIndex = email.IndexOf('@');
+        if (atIndex <= 1 || atIndex == email.Length - 1)
+            return "***";
+
+        var local = email[..atIndex];
+        var domain = email[(atIndex + 1)..];
+        var visibleLocal = local.Length <= 2 ? local[0].ToString() : local[..2];
+        return $"{visibleLocal}***@{domain}";
     }
 }

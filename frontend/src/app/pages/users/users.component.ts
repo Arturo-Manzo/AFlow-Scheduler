@@ -11,76 +11,100 @@ import {
   UserDto
 } from '../../models/models';
 import { detectUserTimeZone, formatUtcInTimeZone } from '../../shared/timezone-utils';
+import { isFieldInvalid } from '../../shared/form-utils';
 
 @Component({
   selector: 'app-users',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
   template: `
-    <div class="page-header">
-      <h1>{{ auth.isAdmin ? 'Users' : 'Account' }}</h1>
-      <div class="page-actions">
-        @if (auth.isAdmin) {
-          <button class="btn btn-primary" (click)="openCreate()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            New User
-          </button>
-        }
+    <div class="view-shell">
+      <div class="view-hero">
+        <div class="view-hero-main">
+          <div class="view-eyebrow">Security And Access</div>
+          <h1>{{ auth.isAdmin ? 'Users' : 'Account' }}</h1>
+          <p class="view-description">
+            {{ auth.isAdmin ? 'Manage access, roles and activation state for platform users.' : 'Review your account context and use the shell menu to change credentials.' }}
+          </p>
+        </div>
+        <div class="view-hero-kpi">
+          <span class="kpi-value">{{ auth.isAdmin ? users().length : 1 }}</span>
+          <span class="kpi-label">{{ auth.isAdmin ? 'Known Users' : 'Account' }}</span>
+        </div>
+        <div class="view-hero-kpi">
+          <span class="kpi-value">{{ auth.isAdmin ? activeUsers() : '--' }}</span>
+          <span class="kpi-label">Active</span>
+        </div>
+        <div class="view-hero-kpi">
+          <span class="kpi-value">{{ auth.isAdmin ? adminUsers() : auth.currentUser()!.roleName }}</span>
+          <span class="kpi-label">{{ auth.isAdmin ? 'Administrators' : 'Current Role' }}</span>
+        </div>
       </div>
-    </div>
 
-    @if (!auth.isAdmin) {
-      <div class="account-card">
-        <h3>Account</h3>
-        <p class="account-copy">Use the account menu in the sidebar footer to change your password or sign out.</p>
-      </div>
-    }
-
-    @if (auth.isAdmin) {
-      @if (loadError()) {
-        <div class="alert alert-danger">
-          {{ loadError() }}
-          <button class="btn btn-ghost btn-sm" style="margin-left:auto" (click)="loadUsers()">Retry</button>
+      @if (!auth.isAdmin) {
+        <div class="account-card">
+          <h3>Account</h3>
+          <p class="account-copy">Use the account menu in the sidebar footer to change your password or sign out.</p>
         </div>
       }
 
-      @if (loading()) {
-        <div class="loading-state"><span class="spinner"></span> Loading users...</div>
-      } @else if (users().length === 0 && !loadError()) {
-        <p class="empty-state">No users found.</p>
-      } @else {
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Username</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Active</th>
-              <th>Created</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (user of users(); track user.userId) {
-              <tr>
-                <td><strong>{{ user.username }}</strong></td>
-                <td>{{ user.email }}</td>
-                <td><span class="badge badge-neutral">{{ user.roleName }}</span></td>
-                <td>
-                  <span [class]="'badge ' + (user.isActive ? 'badge-success' : 'badge-danger')">
-                    {{ user.isActive ? 'Active' : 'Inactive' }}
-                  </span>
-                </td>
-                <td>{{ formatCreatedAt(user.createdAt) }}</td>
-                <td class="table-actions">
-                  <button class="btn btn-sm" (click)="openEdit(user)">Edit</button>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
+      @if (auth.isAdmin) {
+        <section class="data-panel">
+          <div class="panel-header">
+            <div class="panel-title-wrap">
+              <div class="panel-title">User Directory</div>
+              <div class="panel-subtitle">Current access registry grouped by identity, role and lifecycle state.</div>
+            </div>
+            <div class="panel-toolbar">
+              <button class="btn btn-primary" (click)="openCreate()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                New User
+              </button>
+            </div>
+          </div>
+
+          @if (loadError()) {
+            <div class="panel-body"><div class="alert alert-danger">{{ loadError() }}</div></div>
+          }
+
+          @if (loading()) {
+            <div class="loading-state"><span class="spinner"></span> Loading users...</div>
+          } @else if (users().length === 0 && !loadError()) {
+            <p class="empty-state">No users found.</p>
+          } @else {
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Active</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (user of users(); track user.userId) {
+                  <tr>
+                    <td><strong>{{ user.username }}</strong></td>
+                    <td>{{ user.email }}</td>
+                    <td><span class="badge badge-neutral">{{ user.roleName }}</span></td>
+                    <td>
+                      <span [class]="'badge ' + (user.isActive ? 'badge-success' : 'badge-danger')">
+                        {{ user.isActive ? 'Active' : 'Inactive' }}
+                      </span>
+                    </td>
+                    <td>{{ formatCreatedAt(user.createdAt) }}</td>
+                    <td class="table-actions">
+                      <button class="btn btn-sm" (click)="openEdit(user)">Edit</button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </section>
       }
-    }
 
     @if (showForm()) {
       <div class="modal-overlay" role="dialog" aria-modal="true" [attr.aria-label]="editingUser() ? 'Edit user' : 'New user'">
@@ -150,29 +174,7 @@ import { detectUserTimeZone, formatUtcInTimeZone } from '../../shared/timezone-u
       </div>
     }
   `,
-  styles: [`
-    .account-panel { margin-bottom: 1.5rem; }
-    .account-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-2);
-      box-shadow: var(--shadow-1);
-      padding: 1.25rem;
-      max-width: 720px;
-    }
-    .account-card h3 { margin: 0 0 .35rem; }
-    .account-copy {
-      margin: 0 0 1rem;
-      color: var(--text-3);
-      font-size: .9rem;
-      line-height: 1.5;
-    }
-    .inline-actions {
-      display: flex;
-      justify-content: flex-start;
-      margin-top: .25rem;
-    }
-  `]
+  styleUrl: './users.component.scss'
 })
 export class UsersComponent implements OnInit {
   private api = inject(ApiService);
@@ -192,7 +194,7 @@ export class UsersComponent implements OnInit {
   form = this.fb.group({
     username: [''],
     password: [''],
-    email: ['', [Validators.required, Validators.email]],
+    email: ['', [Validators.required, Validators.email, Validators.maxLength(100)]],
     roleId: [2, Validators.required],
     isActive: [true]
   });
@@ -203,8 +205,7 @@ export class UsersComponent implements OnInit {
   }
 
   fi(field: string): boolean {
-    const c = this.form.get(field)!;
-    return c.invalid && (c.dirty || c.touched);
+    return isFieldInvalid(this.form, field);
   }
 
   ngOnInit(): void {
@@ -237,7 +238,7 @@ export class UsersComponent implements OnInit {
     this.form.reset({ roleId: 2, isActive: true });
     const usernameCtrl = this.form.get('username')!;
     const passwordCtrl = this.form.get('password')!;
-    usernameCtrl.setValidators([Validators.required]);
+    usernameCtrl.setValidators([Validators.required, Validators.minLength(3), Validators.maxLength(50)]);
     passwordCtrl.setValidators([Validators.required, Validators.minLength(8)]);
     usernameCtrl.updateValueAndValidity();
     passwordCtrl.updateValueAndValidity();
@@ -302,6 +303,14 @@ export class UsersComponent implements OnInit {
         }
       });
     }
+  }
+
+  activeUsers(): number {
+    return this.users().filter(user => user.isActive).length;
+  }
+
+  adminUsers(): number {
+    return this.users().filter(user => user.roleName === 'Admin').length;
   }
 
 }

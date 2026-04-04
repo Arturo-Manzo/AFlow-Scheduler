@@ -82,6 +82,8 @@ public class TaskQueue : ITaskQueue
         }
     }
 
+    public int QueueDepth => _channel.Reader.Count;
+
     public async Task<WorkerItem> DequeueAsync(CancellationToken ct)
     {
         var item = await _channel.Reader.ReadAsync(ct);

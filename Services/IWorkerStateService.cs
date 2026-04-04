@@ -11,4 +11,10 @@ public interface IWorkerStateService
 {
     /// <summary>Returns true if a force-start execution for this TaskId is currently in progress.</summary>
     bool IsTaskRunning(int taskId);
+
+    /// <summary>Number of worker tasks currently processing an item.</summary>
+    int ActiveWorkerCount { get; }
+
+    /// <summary>Total number of worker tasks configured in the pool.</summary>
+    int TotalWorkerCount { get; }
 }
