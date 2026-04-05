@@ -157,6 +157,23 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 
+    // Resolve Swagger server URLs from Kestrel endpoints to prevent
+    // "URL scheme must be http or https" errors when using Try It Out.
+    var kestrelUrls = builder.Configuration["Kestrel:Endpoints:Http:Url"]
+                   ?? builder.Configuration["Urls"]
+                   ?? "http://localhost:5000";
+    foreach (var url in kestrelUrls.Split(';', StringSplitOptions.RemoveEmptyEntries))
+    {
+        if (Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri))
+        {
+            options.AddServer(new Microsoft.OpenApi.Models.OpenApiServer
+            {
+                Url = $"{uri.Scheme}://{uri.Authority}",
+                Description = $"{uri.Scheme.ToUpperInvariant()} endpoint"
+            });
+        }
+    }
+
     // Configure JWT Bearer security scheme
     options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
@@ -311,16 +328,29 @@ app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 // Enable CORS for Swagger UI and API
 app.UseCors("FrontendCors");
 
-// Enable Swagger in all environments for API documentation
-app.UseSwagger();
-app.UseSwaggerUI(options =>
+// Enable Swagger only in non-production environments
+if (!app.Environment.IsProduction())
 {
-    options.SwaggerEndpoint("/swagger/v1/swagger.json", "AScheduler API v1.0");
-    options.RoutePrefix = string.Empty; // Serve Swagger UI at root
-    options.DocumentTitle = "AScheduler API Documentation";
-});
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "AScheduler API v1.0");
+        options.RoutePrefix = string.Empty; // Serve Swagger UI at root
+        options.DocumentTitle = "AScheduler API Documentation";
+    });
+}
 
-app.UseHttpsRedirection();
+var enableHttpsRedirection = builder.Configuration.GetValue<bool>("HttpsRedirection:Enabled", false);
+SecurityStartupValidator.ValidateHttpsPipelineConsistency(
+    enableHttpsRedirection,
+    allowedOrigins,
+    builder.Environment.IsProduction());
+
+if (enableHttpsRedirection)
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseAuthentication();
 app.UseAuthorization();
 

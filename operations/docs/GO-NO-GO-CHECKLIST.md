@@ -9,6 +9,7 @@
 ## 2) Security and Compliance Gates
 - JWT secret comes from environment or secret store in production.
 - CORS origins are explicit and production-safe.
+- HTTPS pipeline consistency validated (HttpsRedirection vs CORS origin schemes).
 - Department isolation checks validated for sensitive endpoints.
 - No plaintext credentials committed in repository.
 

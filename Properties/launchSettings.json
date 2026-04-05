@@ -4,6 +4,7 @@
     "AScheduler": {
       "commandName": "Project",
       "dotnetRunMessages": true,
+      "applicationUrl": "https://192.168.1.254:5001;http://192.168.1.254:5000",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development"
       }

@@ -78,6 +78,46 @@ public static class SecurityStartupValidator
         return validOrigins;
     }
 
+    /// <summary>
+    /// Validates that the HTTPS redirection setting is consistent with CORS origins.
+    /// Detects when HTTPS redirect is enabled but CORS origins use HTTP, which causes
+    /// silent 307 redirects that break POST requests from the frontend.
+    /// </summary>
+    /// <param name="httpsRedirectionEnabled">Whether HTTPS redirection middleware is enabled.</param>
+    /// <param name="corsOrigins">Normalized CORS origins.</param>
+    /// <param name="isProduction">Whether current environment is production.</param>
+    /// <exception cref="InvalidOperationException">Thrown when configuration is inconsistent.</exception>
+    public static void ValidateHttpsPipelineConsistency(
+        bool httpsRedirectionEnabled,
+        IEnumerable<string> corsOrigins,
+        bool isProduction)
+    {
+        var origins = (corsOrigins ?? Array.Empty<string>()).ToArray();
+
+        if (httpsRedirectionEnabled && origins.Length > 0)
+        {
+            var httpOnlyOrigins = origins
+                .Where(o => Uri.TryCreate(o, UriKind.Absolute, out var uri) && uri.Scheme == "http")
+                .ToArray();
+
+            if (httpOnlyOrigins.Length > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Startup blocked: HttpsRedirection is enabled but CORS origins use HTTP: {string.Join(", ", httpOnlyOrigins)}. " +
+                    "This causes 307 redirects that silently break POST/PUT requests. " +
+                    "Either set HttpsRedirection:Enabled to false, or update CORS origins to use HTTPS.");
+            }
+        }
+
+        if (isProduction && !httpsRedirectionEnabled && origins.Any(o =>
+                Uri.TryCreate(o, UriKind.Absolute, out var uri) && uri.Scheme == "https"))
+        {
+            throw new InvalidOperationException(
+                "Startup blocked: CORS origins use HTTPS but HttpsRedirection is disabled. " +
+                "If the frontend uses HTTPS, enable HttpsRedirection or configure TLS termination at the reverse proxy.");
+        }
+    }
+
     private static string NormalizeOrigin(string origin)
     {
         if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
