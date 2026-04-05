@@ -16,6 +16,11 @@
     <Content Remove="AScheduler.Tests/**" />
     <EmbeddedResource Remove="AScheduler.Tests/**" />
     <None Remove="AScheduler.Tests/**" />
+    <!-- Exclude desktop tools from backend compile glob -->
+    <Compile Remove="operations/tools/**" />
+    <Content Remove="operations/tools/**" />
+    <EmbeddedResource Remove="operations/tools/**" />
+    <None Remove="operations/tools/**" />
   </ItemGroup>
 
   <ItemGroup>

@@ -2,11 +2,26 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { environment } from '../../environments/environment';
 import { ErrorHandlerService } from './error-handler.service';
 
+type RuntimeConfig = {
+  backendUrl?: string;
+};
+
 /** Base URL consumed by authInterceptor-augmented requests. */
-const BASE_URL = environment.apiUrl;
+const FALLBACK_BASE_URL = '/api';
+
+function resolveBaseUrl(): string {
+  const runtimeConfig = globalThis.__ASCHEDULER_RUNTIME_CONFIG__ as RuntimeConfig | undefined;
+  const backendUrl = runtimeConfig?.backendUrl;
+
+  if (!backendUrl) {
+    return FALLBACK_BASE_URL;
+  }
+
+  const sanitized = backendUrl.trim().replace(/\/$/, '');
+  return sanitized.length > 0 ? sanitized : FALLBACK_BASE_URL;
+}
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -16,19 +31,19 @@ export class ApiService {
   // Auth header is injected by authInterceptor — no manual headers needed.
 
   get<T>(path: string): Observable<T> {
-    return this.http.get<T>(`${BASE_URL}/${path}`).pipe(catchError(err => this.handleError(err)));
+    return this.http.get<T>(`${resolveBaseUrl()}/${path}`).pipe(catchError(err => this.handleError(err)));
   }
 
   post<T>(path: string, body: unknown): Observable<T> {
-    return this.http.post<T>(`${BASE_URL}/${path}`, body).pipe(catchError(err => this.handleError(err)));
+    return this.http.post<T>(`${resolveBaseUrl()}/${path}`, body).pipe(catchError(err => this.handleError(err)));
   }
 
   put<T>(path: string, body: unknown): Observable<T> {
-    return this.http.put<T>(`${BASE_URL}/${path}`, body).pipe(catchError(err => this.handleError(err)));
+    return this.http.put<T>(`${resolveBaseUrl()}/${path}`, body).pipe(catchError(err => this.handleError(err)));
   }
 
   delete<T>(path: string): Observable<T> {
-    return this.http.delete<T>(`${BASE_URL}/${path}`).pipe(catchError(err => this.handleError(err)));
+    return this.http.delete<T>(`${resolveBaseUrl()}/${path}`).pipe(catchError(err => this.handleError(err)));
   }
 
   private handleError(error: unknown): Observable<never> {

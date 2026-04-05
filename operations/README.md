@@ -8,6 +8,8 @@ This folder centralizes operational artifacts that were previously scattered acr
   - GO-LIVE-CONTROL-PLAN.md
   - DATABASE-PRODUCTION-OPERATIONS.md
 - scripts/
+  - config/
+    - run-config-wizard.ps1
   - release/
     - smoke-gates.ps1
   - infra/
@@ -24,3 +26,12 @@ This folder centralizes operational artifacts that were previously scattered acr
 ## Notes
 - GitHub Actions workflow remains under .github/workflows by platform requirement.
 - SQL schema and migration scripts remain under Database/ because they are part of application data model versioning.
+
+## Config Wizard
+- Script: `operations/scripts/config/run-config-wizard.ps1`
+- Diagnostic mode (default, no writes):
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File operations/scripts/config/run-config-wizard.ps1`
+- Apply mode (writes files + env vars):
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File operations/scripts/config/run-config-wizard.ps1 -Apply`
+- Optional machine-scope environment variables:
+  - `... -Apply -UseMachineScope`

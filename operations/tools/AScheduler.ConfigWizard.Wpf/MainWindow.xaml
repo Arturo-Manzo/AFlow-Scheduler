@@ -1,0 +1,269 @@
+﻿<Window x:Class="AScheduler.ConfigWizard.Wpf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="AScheduler Precision Wizard"
+        Height="760"
+        Width="1100"
+        MinHeight="700"
+        MinWidth="980"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanMinimize">
+    <Window.Resources>
+        <Style TargetType="TextBox">
+            <Setter Property="Height" Value="34" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="BorderBrush" Value="#CFD6E2" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,0" />
+        </Style>
+        <Style TargetType="PasswordBox">
+            <Setter Property="Height" Value="34" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="BorderBrush" Value="#CFD6E2" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,0" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Background="#EEF1F5">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="260" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Row="0" Grid.Column="0" Background="#E7EBF1" BorderBrush="#D6DCE6" BorderThickness="0,0,1,0">
+            <Grid Margin="16,18,16,16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0">
+                    <TextBlock Text="AScheduler" Foreground="#0D4ED1" FontWeight="Bold" FontSize="20" />
+                    <TextBlock Text="Precision Wizard" Foreground="#243447" FontSize="13" Margin="0,3,0,0" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="1" Margin="0,28,0,0">
+                    <TextBlock Text="SETUP PROGRESS" FontSize="11" FontWeight="Bold" Foreground="#315070" />
+                    <TextBlock x:Name="StepTitleText" Margin="0,3,0,0" Text="Paso 1 de 5" Foreground="#1D2835" FontWeight="SemiBold" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="2" Margin="0,22,0,0">
+                    <Border x:Name="DirectoriesNavBorder" Background="Transparent" CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
+                        <TextBlock x:Name="DirectoriesNavText" Text="DIRECTORIES" Foreground="#334A64" FontWeight="SemiBold" FontSize="12" />
+                    </Border>
+                    <Border x:Name="DatabaseNavBorder" Background="Transparent" CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
+                        <TextBlock x:Name="DatabaseNavText" Text="DATABASE" Foreground="#334A64" FontWeight="SemiBold" FontSize="12" />
+                    </Border>
+                    <Border x:Name="AuthenticationNavBorder" Background="Transparent" CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
+                        <TextBlock x:Name="AuthenticationNavText" Text="AUTHENTICATION" Foreground="#334A64" FontWeight="SemiBold" FontSize="12" />
+                    </Border>
+                    <Border x:Name="FrontendNavBorder" Background="Transparent" CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
+                        <TextBlock x:Name="FrontendNavText" Text="FRONTEND" Foreground="#334A64" FontWeight="SemiBold" FontSize="12" />
+                    </Border>
+                    <Border x:Name="SummaryNavBorder" Background="Transparent" CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
+                        <TextBlock x:Name="SummaryNavText" Text="SUMMARY" Foreground="#334A64" FontWeight="SemiBold" FontSize="12" />
+                    </Border>
+                </StackPanel>
+
+                <Border Grid.Row="3" Background="#E1E4E9" CornerRadius="6" Padding="12" Margin="0,12,0,0">
+                    <StackPanel>
+                        <TextBlock Text="STATUS" Foreground="#304964" FontWeight="Bold" FontSize="11" />
+                        <TextBlock x:Name="SetupStatusTextBlock" Margin="0,6,0,0" Foreground="#223347" TextWrapping="Wrap" Text="Inicializando asistente..." />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="0" Grid.Column="1" Margin="24,20,24,12">
+            <Grid x:Name="WelcomeStepPanel" Visibility="Visible">
+                <StackPanel>
+                    <TextBlock Text="Directories &amp; Scope" FontSize="40" FontWeight="SemiBold" Foreground="#1A2430" />
+                    <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#2F3F52" FontSize="14"
+                               Text="Selecciona los modulos que deseas configurar y define las carpetas release para backend y frontend." />
+
+                    <Border Margin="0,18,0,0" Padding="16" Background="#F4F6FA" BorderBrush="#DDE3EC" BorderThickness="1" CornerRadius="8">
+                        <StackPanel>
+                            <TextBlock Text="Module Selection" Foreground="#23344A" FontWeight="Bold" />
+                            <WrapPanel Margin="0,10,0,0">
+                                <CheckBox x:Name="ConfigureFrontendCheckBox" Content="Frontend" IsChecked="True" Margin="0,0,20,0" />
+                                <CheckBox x:Name="ConfigureBackendCheckBox" Content="Backend" IsChecked="True" Margin="0,0,20,0" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Margin="0,14,0,0" Padding="16" Background="White" BorderBrush="#DDE3EC" BorderThickness="1" CornerRadius="8">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="170" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Backend Folder" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <TextBox Grid.Row="0" Grid.Column="1" x:Name="BackendFolderTextBox" Margin="12,0,0,0" />
+                            <Button Grid.Row="0" Grid.Column="2" Width="120" Height="34" Margin="10,0,0,0" Content="Browse" Click="BrowseBackendFolderButton_Click" />
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,12,0,0" Text="Frontend Folder" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <TextBox Grid.Row="1" Grid.Column="1" x:Name="FrontendFolderTextBox" Margin="12,12,0,0" />
+                            <Button Grid.Row="1" Grid.Column="2" Width="120" Height="34" Margin="10,12,0,0" Content="Browse" Click="BrowseFrontendFolderButton_Click" />
+                        </Grid>
+                    </Border>
+
+                    <Border Margin="0,14,0,0" Padding="14" Background="#FFF6EB" BorderBrush="#F4D2AA" BorderThickness="1" CornerRadius="8">
+                        <TextBlock x:Name="InitialWarningsTextBlock" Foreground="#8D4C00" TextWrapping="Wrap" />
+                    </Border>
+                </StackPanel>
+            </Grid>
+
+            <Grid x:Name="PreflightStepPanel" Visibility="Collapsed">
+                <StackPanel>
+                    <TextBlock Text="Configure SQL Server" FontSize="40" FontWeight="SemiBold" Foreground="#1A2430" />
+                    <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#2F3F52" FontSize="14"
+                               Text="Valida la conexion real usando la connection string seleccionada y revisa runtime/puertos." />
+
+                    <Border Margin="0,18,0,0" Padding="16" Background="White" BorderBrush="#DDE3EC" BorderThickness="1" CornerRadius="8">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="170" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Server Instance" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBox Grid.Row="0" Grid.Column="1" x:Name="SqlServerTextBox" Margin="12,0,0,0" />
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Margin="0,12,0,0" Text="Connection String" FontWeight="SemiBold" VerticalAlignment="Top" />
+                                <TextBox Grid.Row="1" Grid.Column="1" x:Name="ConnectionStringTextBox" Margin="12,12,0,0" Height="78" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" TextChanged="ConnectionStringTextBox_OnTextChanged" />
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Margin="0,12,0,0" Text="Frontend Port" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBox Grid.Row="2" Grid.Column="1" x:Name="FrontendPortTextBox" Margin="12,12,0,0" />
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Margin="0,12,0,0" Text="Backend Port" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBox Grid.Row="3" Grid.Column="1" x:Name="BackendPortTextBox" Margin="12,12,0,0" />
+                            </Grid>
+
+                            <Button x:Name="RunPreflightButton" Width="210" Height="36" Margin="0,16,0,0" HorizontalAlignment="Left" Content="Validate Connection" Click="RunPreflightButton_Click" />
+
+                            <Border x:Name="PreflightStatusBorder" Margin="0,14,0,0" Background="#F0F4FA" BorderBrush="#D7DEEA" BorderThickness="1" CornerRadius="6" Padding="12">
+                                <TextBox x:Name="PreflightResultTextBox" IsReadOnly="True" BorderThickness="0" Background="Transparent" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Height="160" />
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+
+            <Grid x:Name="BackendStepPanel" Visibility="Collapsed">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="0,0,6,0">
+                    <TextBlock Text="Security &amp; Authentication" FontSize="40" FontWeight="SemiBold" Foreground="#1A2430" />
+                    <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#2F3F52" FontSize="14"
+                               Text="Define secret JWT, alcance de variables y validacion de entorno previa a la aplicacion." />
+
+                    <Border Margin="0,18,0,0" Padding="16" Background="White" BorderBrush="#DDE3EC" BorderThickness="1" CornerRadius="8">
+                        <StackPanel>
+                            <TextBlock Text="Authentication Tokens" Foreground="#23344A" FontWeight="Bold" />
+                            <CheckBox x:Name="GenerateJwtSecretCheckBox" Margin="0,12,0,0" IsChecked="True" Content="Auto-generate JWT secret" Checked="GenerateJwtSecretCheckBox_OnChecked" Unchecked="GenerateJwtSecretCheckBox_OnChecked" />
+
+                            <TextBlock Margin="0,10,0,0" Text="Manual JWT secret (minimo 32 caracteres)" />
+                            <PasswordBox x:Name="JwtSecretPasswordBox" IsEnabled="False" PasswordChanged="JwtSecretPasswordBox_OnPasswordChanged" />
+                            <TextBlock x:Name="JwtValidationTextBlock" Margin="0,8,0,0" Foreground="#8D4C00" TextWrapping="Wrap" />
+
+                            <TextBlock Margin="0,16,0,0" Text="Variable scope" FontWeight="SemiBold" />
+                            <StackPanel Margin="0,6,0,0">
+                                <RadioButton x:Name="UseUserScopeRadioButton" Content="User" IsChecked="True" Checked="EnvironmentScope_OnChecked" />
+                                <TextBlock Margin="22,2,0,8" Foreground="#4A5A6C" TextWrapping="Wrap" Text="Variables solo para el usuario actual." />
+                                <RadioButton x:Name="UseMachineScopeRadioButton" Content="System (requires admin)" Checked="EnvironmentScope_OnChecked" />
+                                <TextBlock Margin="22,2,0,0" Foreground="#4A5A6C" TextWrapping="Wrap" Text="Variables compartidas por todo el sistema." />
+                            </StackPanel>
+
+                            <Border Margin="0,14,0,0" Background="#F5F7FB" BorderBrush="#DDE3EC" BorderThickness="1" CornerRadius="6" Padding="10">
+                                <StackPanel>
+                                    <TextBlock Text="Environment Variables" FontWeight="SemiBold" Foreground="#243447" />
+                                    <TextBlock Margin="0,8,0,0" Text="ASPNETCORE_URLS" FontWeight="SemiBold" Foreground="#2C3B4C" />
+                                    <TextBox x:Name="AspNetCoreUrlsTextBox"
+                                             Margin="0,6,0,0"
+                                             TextChanged="AspNetCoreUrlsTextBox_OnTextChanged"
+                                             ToolTip="Ejemplo: http://localhost:5000 o http://0.0.0.0:5000;https://localhost:5001" />
+                                    <TextBlock x:Name="ApiBaseUrlPreviewTextBlock" Margin="0,6,0,0" TextWrapping="Wrap" Foreground="#2C3B4C" />
+
+                                    <TextBlock x:Name="EnvVarNamesTextBlock" Margin="0,6,0,0" TextWrapping="Wrap" Foreground="#2C3B4C" />
+                                    <TextBlock x:Name="EnvVarStatusTextBlock" Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#2C3B4C" />
+
+                                    <TextBlock Margin="0,10,0,0" Text="Sobrescribir variables existentes" FontWeight="SemiBold" Foreground="#2C3B4C" />
+                                    <CheckBox x:Name="OverwriteJwtSecretCheckBox" Margin="0,6,0,0" Content="ASCHEDULER_JWT_SECRET" Checked="EnvironmentOverwriteOption_OnChecked" Unchecked="EnvironmentOverwriteOption_OnChecked" />
+                                    <CheckBox x:Name="OverwriteDotNetEnvironmentCheckBox" Margin="0,4,0,0" Content="DOTNET_ENVIRONMENT" Checked="EnvironmentOverwriteOption_OnChecked" Unchecked="EnvironmentOverwriteOption_OnChecked" />
+                                    <CheckBox x:Name="OverwriteAspNetCoreUrlsCheckBox" Margin="0,4,0,0" Content="ASPNETCORE_URLS" Checked="EnvironmentOverwriteOption_OnChecked" Unchecked="EnvironmentOverwriteOption_OnChecked" />
+
+                                    <Button x:Name="ValidateEnvironmentButton" Margin="0,10,0,0" Width="180" Height="34" HorizontalAlignment="Left" Content="Check Environment" Click="ValidateEnvironmentButton_Click" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+                </ScrollViewer>
+            </Grid>
+
+            <Grid x:Name="FrontendStepPanel" Visibility="Collapsed">
+                <StackPanel>
+                    <TextBlock Text="Frontend Endpoint" FontSize="40" FontWeight="SemiBold" Foreground="#1A2430" />
+                    <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#2F3F52" FontSize="14"
+                               Text="Indica la URL del backend que debe consumir el frontend configurado." />
+
+                    <Border Margin="0,18,0,0" Padding="16" Background="White" BorderBrush="#DDE3EC" BorderThickness="1" CornerRadius="8">
+                        <StackPanel>
+                            <TextBlock Text="Backend URL" FontWeight="SemiBold" />
+                            <TextBox x:Name="BackendUrlTextBox" Margin="0,8,0,0" />
+                            <TextBlock Margin="0,10,0,0" Foreground="#4A5A6C" TextWrapping="Wrap"
+                                       Text="Formato recomendado: https://hostname:puerto/api" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+
+            <Grid x:Name="ReviewStepPanel" Visibility="Collapsed">
+                <StackPanel>
+                    <TextBlock Text="Summary" FontSize="40" FontWeight="SemiBold" Foreground="#1A2430" />
+                    <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Foreground="#2F3F52" FontSize="14"
+                               Text="Revisa los cambios y confirma la aplicacion de configuracion en archivos y entorno." />
+
+                    <Border Margin="0,18,0,0" Padding="14" Background="White" BorderBrush="#DDE3EC" BorderThickness="1" CornerRadius="8">
+                        <StackPanel>
+                            <TextBox x:Name="PreviewSummaryTextBox" IsReadOnly="True" Height="360" BorderBrush="#D6DDE8" Background="#FAFBFD" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
+                            <CheckBox x:Name="ConfirmApplyCheckBox" Margin="0,12,0,0" Content="Confirmo la revision y autorizo aplicar la configuracion" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </Grid>
+
+        <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Background="#F8FAFC" BorderBrush="#D6DCE6" BorderThickness="0,1,0,0" Padding="16,10">
+            <DockPanel>
+                <TextBlock x:Name="StatusTextBlock" VerticalAlignment="Center" Foreground="#2E3C4F" Text="Listo." />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" DockPanel.Dock="Right">
+                    <Button x:Name="BackButton" Width="120" Height="34" Margin="0,0,10,0" Content="Previous" Click="BackButton_Click" />
+                    <Button x:Name="NextButton" Width="120" Height="34" Content="Next" Click="NextButton_Click" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

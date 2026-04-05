@@ -36,6 +36,28 @@ ng build
 
 This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
 
+## Runtime Configuration
+
+Production deployments can override frontend connectivity without rebuilding the app.
+
+1. Edit `public/config.json` before build, or edit `dist/frontend/browser/config.json` after build.
+2. Set `backendUrl` to the backend API base URL.
+3. Keep `port` aligned with the server process when using SSR hosting.
+
+Example:
+
+```json
+{
+	"port": 4000,
+	"backendUrl": "http://localhost:5000/api"
+}
+```
+
+Fallback behavior:
+
+- If `config.json` is missing or invalid, the app uses `/api`.
+- Trailing slash in `backendUrl` is automatically removed.
+
 ## Running unit tests
 
 To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:

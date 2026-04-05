@@ -88,6 +88,16 @@ jobs:
           }
           Compress-Archive -Path "$distPath\*" -DestinationPath .\artifacts\AScheduler-frontend-${{ steps.meta.outputs.tag }}.zip
 
+      - name: Publish config wizard
+        shell: pwsh
+        run: |
+          dotnet publish .\operations\tools\AScheduler.ConfigWizard.Wpf\AScheduler.ConfigWizard.Wpf.csproj --configuration Release /p:Version=${{ steps.meta.outputs.version }} --output .\artifacts\config-wizard
+
+      - name: Package config wizard artifact
+        shell: pwsh
+        run: |
+          Compress-Archive -Path .\artifacts\config-wizard\* -DestinationPath .\artifacts\AScheduler-config-wizard-${{ steps.meta.outputs.tag }}.zip
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
@@ -97,3 +107,4 @@ jobs:
           files: |
             artifacts/AScheduler-backend-${{ steps.meta.outputs.tag }}.zip
             artifacts/AScheduler-frontend-${{ steps.meta.outputs.tag }}.zip
+            artifacts/AScheduler-config-wizard-${{ steps.meta.outputs.tag }}.zip
