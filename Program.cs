@@ -18,7 +18,11 @@ using Serilog.Events;
 using Serilog.Sinks.MSSqlServer;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory
+});
 
 var logConnectionString = builder.Configuration.GetConnectionString("Default")
     ?? throw new InvalidOperationException("Connection string 'Default' not found.");

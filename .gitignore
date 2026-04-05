@@ -37,6 +37,18 @@ Thumbs.db
 *.local
 .agent.md
 
+# AI/editor local tooling
+.claude/
+.vscode/*
+!.vscode/tasks.json
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Keep only if your team really uses them
+# .agents/
+.agents/**/SKILL.md
+.agents/**/skills.md
+
 # Application config / secrets
 appsettings.Development.json
 appsettings.Local.json
