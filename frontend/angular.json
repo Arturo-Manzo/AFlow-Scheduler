@@ -63,13 +63,28 @@
               ],
               "outputHashing": "all"
             },
+            "iis": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.prod.ts"
+                },
+                {
+                  "replace": "src/app/app.routes.server.ts",
+                  "with": "src/app/app.routes.server.iis.ts"
+                }
+              ],
+              "outputHashing": "all",
+              "outputMode": "static",
+              "ssr": false
+            },
             "development": {
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
             }
           },
-          "defaultConfiguration": "production"
+          "defaultConfiguration": "iis"
         },
         "serve": {
           "builder": "@angular/build:dev-server",

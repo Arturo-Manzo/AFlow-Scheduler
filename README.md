@@ -77,7 +77,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\run-config-wizard-backend.
 
 ### Frontend Wizard
 
-Use this to configure frontend runtime `config.json` (including backend API URL).
+Use this to configure frontend runtime `config.json` for IIS static hosting (backend API URL).
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\run-config-wizard-frontend.ps1
@@ -96,3 +96,5 @@ Operational docs and scripts are under:
 
 - Backend bind URL priority is controlled by Kestrel endpoint settings in appsettings.
 - The backend wizard updates Kestrel URL in appsettings (instead of writing `ASPNETCORE_URLS`).
+- Frontend release artifact is IIS-ready static output from `frontend/dist/frontend/browser`.
+- Frontend wizard remains relevant because it updates `config.json` without requiring a rebuild.

@@ -42,13 +42,11 @@ Production deployments can override frontend connectivity without rebuilding the
 
 1. Edit `public/config.json` before build, or edit `dist/frontend/browser/config.json` after build.
 2. Set `backendUrl` to the backend API base URL.
-3. Keep `port` aligned with the server process when using SSR hosting.
 
 Example:
 
 ```json
 {
-	"port": 4000,
 	"backendUrl": "http://localhost:5000/api"
 }
 ```
@@ -57,6 +55,35 @@ Fallback behavior:
 
 - If `config.json` is missing or invalid, the app uses `/api`.
 - Trailing slash in `backendUrl` is automatically removed.
+
+## IIS Hosting (Static SPA)
+
+Use this flow to host Angular frontend directly in IIS without SSR.
+
+1. Build static output (default build):
+
+```bash
+npm run build
+```
+
+Equivalent explicit command:
+
+```bash
+npm run build:iis
+```
+
+2. Publish the contents of `dist/frontend/browser` to your IIS site root.
+3. Ensure URL Rewrite module is installed in IIS.
+4. Keep the generated `web.config` file in the site root so deep links (`/dashboard`, `/boxes/123`, etc.) resolve to `index.html`.
+
+Notes:
+
+- `public/web.config` is copied automatically into build output.
+- If IIS hosts the frontend under a virtual directory (for example `/scheduler/`), build with matching base href:
+
+```bash
+ng build --configuration iis --base-href /scheduler/
+```
 
 ## Running unit tests
 

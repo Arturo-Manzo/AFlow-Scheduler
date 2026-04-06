@@ -2,7 +2,7 @@
 Frontend Configuration Wizard
 
 Purpose:
-- Configure frontend runtime settings independently from backend hosting.
+- Configure frontend runtime settings for IIS static hosting.
 - Allow frontend and backend to run on different servers.
 - Generate or preview frontend config.json values.
 
@@ -41,25 +41,6 @@ function Read-Value {
     }
 
     return $value.Trim()
-}
-
-function Test-PortAvailable {
-    param([int]$Port)
-
-    $listener = $null
-    try {
-        $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $Port)
-        $listener.Start()
-        return $true
-    }
-    catch {
-        return $false
-    }
-    finally {
-        if ($null -ne $listener) {
-            $listener.Stop()
-        }
-    }
 }
 
 function Backup-File {
@@ -122,12 +103,6 @@ if (-not $Apply) {
 }
 
 Write-Step "1) Frontend Configuration"
-$frontendPort = [int](Read-Value -Prompt 'Frontend port' -Default '4000')
-$frontendPortOk = Test-PortAvailable -Port $frontendPort
-if (-not $frontendPortOk) {
-    Write-Host "Warning: frontend port $frontendPort appears to be in use." -ForegroundColor Yellow
-}
-
 $backendUrlDefault = 'http://localhost:5000/api'
 $backendUrlRaw = Read-Value -Prompt 'Backend URL for frontend (can be on another server)' -Default $backendUrlDefault
 $backendUrl = Normalize-BackendApiUrl -Value $backendUrlRaw -Fallback $backendUrlDefault
@@ -136,7 +111,6 @@ if ($backendUrl -ne $backendUrlRaw) {
 }
 
 $frontendConfig = [pscustomobject]@{
-    port = $frontendPort
     backendUrl = $backendUrl
 }
 
@@ -152,6 +126,6 @@ else {
 Write-Step "2) Result"
 Write-Host "Frontend config: $frontendConfigPath" -ForegroundColor Gray
 Write-Host "Backend URL:     $backendUrl" -ForegroundColor Gray
-Write-Host "Frontend port:   $frontendPort" -ForegroundColor Gray
+Write-Host "Hosting target:  IIS static site" -ForegroundColor Gray
 
 Write-Host "`nFrontend Config Wizard finished." -ForegroundColor Green

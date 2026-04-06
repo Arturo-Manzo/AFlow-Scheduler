@@ -3,10 +3,17 @@
 ## 1) Build and Test Gates
 - Backend build in Release mode completed successfully.
 - Backend tests completed successfully.
-- Frontend build completed successfully.
+- Frontend build completed successfully in IIS static mode.
 - Release smoke-gates script completed successfully.
 - Release artifacts include CHECKSUMS.sha256 and values were verified.
 - If signing gate is enabled, backend binaries are Authenticode-signed and timestamped.
+
+## 1.1) Frontend IIS Packaging Gates
+- Frontend artifact was packaged from `frontend/dist/frontend/browser` only.
+- Frontend artifact contains `web.config` in artifact root.
+- Frontend artifact contains `config.json` in artifact root.
+- Frontend artifact includes `run-config-wizard-frontend.ps1`.
+- IIS URL Rewrite module is installed on target host.
 
 ## 2) Security and Compliance Gates
 - JWT secret comes from environment or secret store in production.

@@ -3,7 +3,6 @@ import { appConfig } from './app/app.config';
 import { App } from './app/app';
 
 type FrontendRuntimeConfig = {
-  port?: number;
   backendUrl?: string;
 };
 
@@ -25,7 +24,6 @@ async function loadFrontendRuntimeConfig(): Promise<void> {
 
     globalThis.__CHRONIQ_RUNTIME_CONFIG__ = {
       backendUrl: sanitizedBackendUrl,
-      port: config.port,
     };
   } catch {
     // Ignore runtime config load errors and keep defaults.

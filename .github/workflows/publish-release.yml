@@ -173,9 +173,9 @@ jobs:
       - name: Package frontend artifact
         shell: pwsh
         run: |
-          $distPath = Join-Path $env:GITHUB_WORKSPACE "frontend\dist"
+          $distPath = Join-Path $env:GITHUB_WORKSPACE "frontend\dist\frontend\browser"
           if (-not (Test-Path $distPath)) {
-            throw "Frontend dist folder was not generated: $distPath"
+            throw "Frontend IIS dist folder was not generated: $distPath"
           }
 
           $frontendWizard = Join-Path $env:GITHUB_WORKSPACE "operations\scripts\config\run-config-wizard-frontend.ps1"
