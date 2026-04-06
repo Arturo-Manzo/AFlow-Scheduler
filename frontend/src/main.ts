@@ -23,7 +23,7 @@ async function loadFrontendRuntimeConfig(): Promise<void> {
       return;
     }
 
-    globalThis.__ASCHEDULER_RUNTIME_CONFIG__ = {
+    globalThis.__CHRONIQ_RUNTIME_CONFIG__ = {
       backendUrl: sanitizedBackendUrl,
       port: config.port,
     };
@@ -41,7 +41,7 @@ function sanitizeBackendUrl(backendUrl: string | undefined): string {
   return trimmed.length > 0 ? trimmed.replace(/\/$/, '') : '';
 }
 
-globalThis.__ASCHEDULER_RUNTIME_CONFIG__ = {
+globalThis.__CHRONIQ_RUNTIME_CONFIG__ = {
   backendUrl: FALLBACK_BACKEND_URL,
 };
 

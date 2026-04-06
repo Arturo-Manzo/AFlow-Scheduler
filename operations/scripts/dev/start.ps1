@@ -1,5 +1,5 @@
 ###############################################################################
-# AScheduler - Start Backend + Frontend
+# CHRONIQ - Start Backend + Frontend
 # Usage: .\operations\scripts\dev\start.ps1           -> Starts both backend and frontend
 #        .\operations\scripts\dev\start.ps1 -Backend  -> Starts only the .NET backend
 #        .\operations\scripts\dev\start.ps1 -Frontend -> Starts only the Angular frontend
@@ -20,7 +20,7 @@ if (-not $Backend -and -not $Frontend) {
 
 Write-Host ""
 Write-Host "=============================================" -ForegroundColor Cyan
-Write-Host "  AScheduler - Development Server Launcher"    -ForegroundColor Cyan
+Write-Host "  CHRONIQ - Development Server Launcher"    -ForegroundColor Cyan
 Write-Host "=============================================" -ForegroundColor Cyan
 Write-Host ""
 

@@ -1,10 +1,10 @@
-﻿using System.Data;
+using System.Data;
 using Microsoft.Data.SqlClient;
 using Dapper;
 using Microsoft.Extensions.Configuration;
-using AScheduler.Domain;
+using CHRONIQ.Domain;
 
-namespace AScheduler.Data
+namespace CHRONIQ.Data
 {
     public class ExecutionRepository : IExecutionRepository
     {

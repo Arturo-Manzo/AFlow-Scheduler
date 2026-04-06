@@ -1,4 +1,4 @@
-namespace AScheduler.Domain;
+namespace CHRONIQ.Domain;
 
 /// <summary>
 /// A request to execute a single task in isolation, without a BoxRun context.

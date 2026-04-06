@@ -1,4 +1,4 @@
-namespace AScheduler.Domain;
+namespace CHRONIQ.Domain;
 
 /// <summary>
 /// Runtime SMTP notification settings loaded from persistent storage.
@@ -33,12 +33,12 @@ public class NotificationSmtpSettings
     /// <summary>
     /// Sender email address.
     /// </summary>
-    public string FromAddress { get; set; } = "noreply@ascheduler.local";
+    public string FromAddress { get; set; } = "noreply@CHRONIQ.local";
 
     /// <summary>
     /// Sender display name.
     /// </summary>
-    public string FromDisplayName { get; set; } = "AScheduler Notifications";
+    public string FromDisplayName { get; set; } = "CHRONIQ Notifications";
 
     /// <summary>
     /// Whether SSL/TLS is enabled.

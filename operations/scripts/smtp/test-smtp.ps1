@@ -1,5 +1,5 @@
 ###############################################################################
-# SMTP Connectivity Test - AScheduler
+# SMTP Connectivity Test - CHRONIQ
 # Tests whether the SMTP credentials can authenticate against the server.
 # Usage: .\operations\scripts\smtp\test-smtp.ps1
 ###############################################################################
@@ -20,7 +20,7 @@ if ([string]::IsNullOrWhiteSpace($Password)) {
 
 Write-Host ""
 Write-Host "=================================================" -ForegroundColor Cyan
-Write-Host "  AScheduler - SMTP Authentication Test"         -ForegroundColor Cyan
+Write-Host "  CHRONIQ - SMTP Authentication Test"         -ForegroundColor Cyan
 Write-Host "=================================================" -ForegroundColor Cyan
 Write-Host "  Host    : $Host"
 Write-Host "  Port    : $Port"
@@ -40,8 +40,8 @@ try {
     $msg         = New-Object System.Net.Mail.MailMessage
     $msg.From    = $Username
     $msg.To.Add($To)
-    $msg.Subject = "[AScheduler] SMTP Test - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-    $msg.Body    = "This is a test email from AScheduler SMTP test script."
+    $msg.Subject = "[CHRONIQ] SMTP Test - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+    $msg.Body    = "This is a test email from CHRONIQ SMTP test script."
 
     Write-Host "[1/2] Connecting and authenticating..." -ForegroundColor Yellow
     $smtp.Send($msg)

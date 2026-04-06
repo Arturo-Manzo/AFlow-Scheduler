@@ -1,12 +1,12 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using AScheduler.Data;
-using AScheduler.Domain;
-using AScheduler.Execution;
+using CHRONIQ.Data;
+using CHRONIQ.Domain;
+using CHRONIQ.Execution;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 
-namespace AScheduler.Services;
+namespace CHRONIQ.Services;
 
 /// <summary>
 /// Production implementation of the centralized task execution service.

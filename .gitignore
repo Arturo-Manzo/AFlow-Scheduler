@@ -36,6 +36,10 @@ Thumbs.db
 # Local env / local tooling
 *.local
 .agent.md
+.venv/
+.env
+.env.*
+!.env.example
 
 # AI/editor local tooling
 .claude/

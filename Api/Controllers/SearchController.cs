@@ -1,9 +1,9 @@
-using AScheduler.Api.Dtos;
-using AScheduler.Api.Services;
+using CHRONIQ.Api.Dtos;
+using CHRONIQ.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace AScheduler.Api.Controllers;
+namespace CHRONIQ.Api.Controllers;
 
 /// <summary>
 /// Unified search entry point for locating boxes and tasks across the platform.

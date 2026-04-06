@@ -1,4 +1,4 @@
-namespace AScheduler.Domain
+namespace CHRONIQ.Domain
 {
     /// <summary>
     /// Represents a Task step: an executable unit within a Box.

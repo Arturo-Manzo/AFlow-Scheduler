@@ -2,9 +2,9 @@ using System.Data;
 using Microsoft.Data.SqlClient;
 using Dapper;
 using Microsoft.Extensions.Configuration;
-using AScheduler.Domain;
+using CHRONIQ.Domain;
 
-namespace AScheduler.Data
+namespace CHRONIQ.Data
 {
     public class TaskRepository : ITaskRepository
     {
@@ -139,6 +139,32 @@ namespace AScheduler.Data
             return result.ToList();
         }
 
+        public async Task<Dictionary<int, List<int>>> GetDependenciesForBoxAsync(int boxId)
+        {
+            using var connection = CreateConnection();
+
+            const string taskSql = @"
+                SELECT TaskId
+                FROM Tasks
+                WHERE BoxId = @BoxId AND Enabled = 1";
+
+            var taskIds = (await connection.QueryAsync<int>(taskSql, new { BoxId = boxId }))
+                .ToList();
+
+            return await GetDependenciesBatchInternalAsync(connection, taskIds);
+        }
+
+        public async Task<Dictionary<int, List<int>>> GetDependenciesBatchAsync(IEnumerable<int> taskIds)
+        {
+            using var connection = CreateConnection();
+            var normalizedTaskIds = taskIds
+                .Distinct()
+                .Where(taskId => taskId > 0)
+                .ToList();
+
+            return await GetDependenciesBatchInternalAsync(connection, normalizedTaskIds);
+        }
+
         public async Task ReplaceTaskDependenciesAsync(int taskId, IEnumerable<int> dependencyTaskIds)
         {
             using var connection = new SqlConnection(_connectionString);
@@ -154,6 +180,33 @@ namespace AScheduler.Data
                 await connection.ExecuteAsync("INSERT INTO TaskDependencies (TaskId, DependsOnTaskId) VALUES (@TaskId, @DependsOnTaskId)", distinctIds, transaction);
 
             transaction.Commit();
+        }
+
+        private static async Task<Dictionary<int, List<int>>> GetDependenciesBatchInternalAsync(
+            IDbConnection connection,
+            IReadOnlyCollection<int> taskIds)
+        {
+            if (taskIds.Count == 0)
+                return new Dictionary<int, List<int>>();
+
+            const string dependencySql = @"
+                SELECT TaskId, DependsOnTaskId
+                FROM TaskDependencies
+                WHERE TaskId IN @TaskIds";
+
+            var dependencies = (await connection.QueryAsync<TaskDependencyRow>(
+                dependencySql,
+                new { TaskIds = taskIds }))
+                .ToList();
+
+            var dependenciesByTaskId = taskIds.ToDictionary(taskId => taskId, _ => new List<int>());
+            foreach (var dependency in dependencies)
+            {
+                if (dependenciesByTaskId.TryGetValue(dependency.TaskId, out var dependencyList))
+                    dependencyList.Add(dependency.DependsOnTaskId);
+            }
+
+            return dependenciesByTaskId;
         }
 
         private static TaskDefinition MapToDefinition(TaskDto dto)
@@ -180,6 +233,12 @@ namespace AScheduler.Data
             public int SortOrder { get; set; }
             public bool Enabled { get; set; }
             public DateTime CreatedAtUtc { get; set; }
+        }
+
+        private class TaskDependencyRow
+        {
+            public int TaskId { get; set; }
+            public int DependsOnTaskId { get; set; }
         }
     }
 }

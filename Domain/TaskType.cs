@@ -1,4 +1,4 @@
-namespace AScheduler.Domain
+namespace CHRONIQ.Domain
 {
     /// <summary>
     /// Specifies the type of task and its corresponding executor implementation.

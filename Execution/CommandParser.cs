@@ -1,6 +1,6 @@
 using System;
 
-namespace AScheduler.Execution;
+namespace CHRONIQ.Execution;
 
 /// <summary>
 /// Parses command-line strings to extract executable file names and arguments.

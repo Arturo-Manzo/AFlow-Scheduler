@@ -3,15 +3,15 @@ using Cronos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
-using AScheduler.Api.Dtos;
-using AScheduler.Api.Services;
-using AScheduler.Data;
-using AScheduler.Domain;
-using AScheduler.Queue;
-using AScheduler.Services;
+using CHRONIQ.Api.Dtos;
+using CHRONIQ.Api.Services;
+using CHRONIQ.Data;
+using CHRONIQ.Domain;
+using CHRONIQ.Queue;
+using CHRONIQ.Services;
 using TimeZoneConverter;
 
-namespace AScheduler.Api.Controllers;
+namespace CHRONIQ.Api.Controllers;
 
 /// <summary>
 /// Provides CRUD and operational endpoints for boxes and box runs.
@@ -360,15 +360,17 @@ public class BoxesController : ControllerBase
         if (includeTasks)
         {
             var tasks = await _taskRepository.GetTasksForBoxAsync(box.Id);
+            var dependenciesByTaskId = await _taskRepository.GetDependenciesForBoxAsync(box.Id);
+
             foreach (var t in tasks)
             {
-                var deps = await _taskRepository.GetTaskDependenciesAsync(t.Id);
+                dependenciesByTaskId.TryGetValue(t.Id, out var deps);
                 dto.Tasks.Add(new TaskDto
                 {
                     TaskId = t.Id, BoxId = t.BoxId, Name = t.Name, Description = t.Description,
                     Command = t.Command, TaskType = t.TaskType.ToString(),
                     Enabled = t.Enabled, CreatedAt = t.CreatedAtUtc,
-                    DependencyTaskIds = deps
+                    DependencyTaskIds = deps ?? []
                 });
             }
         }

@@ -1,12 +1,12 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using AScheduler.Data;
-using AScheduler.Services;
+using CHRONIQ.Data;
+using CHRONIQ.Services;
 using Microsoft.Extensions.Configuration;
 using Moq;
 using Xunit;
 
-namespace AScheduler.Tests;
+namespace CHRONIQ.Tests;
 
 public class StaleThresholdProviderTests
 {

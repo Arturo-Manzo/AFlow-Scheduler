@@ -1,4 +1,4 @@
-namespace AScheduler.Domain;
+namespace CHRONIQ.Domain;
 
 /// <summary>
 /// Read model for operational views listing BoxRun executions with box metadata.

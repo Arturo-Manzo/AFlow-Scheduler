@@ -1,11 +1,11 @@
 using System.Data;
-using AScheduler.Domain;
-using AScheduler.Services;
+using CHRONIQ.Domain;
+using CHRONIQ.Services;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
 
-namespace AScheduler.Data;
+namespace CHRONIQ.Data;
 
 /// <summary>
 /// Dapper repository for SMTP notification settings.
@@ -78,8 +78,8 @@ public class NotificationSettingsRepository : INotificationSettingsRepository
                 Port = record.Port,
                 Username = record.Username ?? string.Empty,
                 Password = _secretProtector.Unprotect(record.EncryptedPassword ?? string.Empty),
-                FromAddress = record.FromAddress ?? "noreply@ascheduler.local",
-                FromDisplayName = record.FromDisplayName ?? "AScheduler Notifications",
+                FromAddress = record.FromAddress ?? "noreply@CHRONIQ.local",
+                FromDisplayName = record.FromDisplayName ?? "CHRONIQ Notifications",
                 EnableSsl = record.EnableSsl
             };
         }
@@ -182,7 +182,7 @@ public class NotificationSettingsRepository : INotificationSettingsRepository
             Username = string.IsNullOrWhiteSpace(settings.Username) ? null : settings.Username.Trim(),
             EncryptedPassword = protectedPassword,
             FromAddress = string.IsNullOrWhiteSpace(settings.FromAddress) ? null : settings.FromAddress.Trim(),
-            FromDisplayName = string.IsNullOrWhiteSpace(settings.FromDisplayName) ? "AScheduler Notifications" : settings.FromDisplayName.Trim(),
+            FromDisplayName = string.IsNullOrWhiteSpace(settings.FromDisplayName) ? "CHRONIQ Notifications" : settings.FromDisplayName.Trim(),
             settings.EnableSsl,
             UpdatedByUserId = updatedByUserId
         });

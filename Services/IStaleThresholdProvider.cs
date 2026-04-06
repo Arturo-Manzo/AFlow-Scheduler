@@ -1,4 +1,4 @@
-namespace AScheduler.Services;
+namespace CHRONIQ.Services;
 
 /// <summary>
 /// Provides per-task dynamic stale execution thresholds based on historical average duration.

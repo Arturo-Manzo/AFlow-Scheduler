@@ -2,7 +2,7 @@ using System.Diagnostics;
 using Serilog.Core;
 using Serilog.Events;
 
-namespace AScheduler.Services.Logging;
+namespace CHRONIQ.Services.Logging;
 
 /// <summary>
 /// Enriches log events with error location details extracted from exceptions.

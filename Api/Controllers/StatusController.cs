@@ -1,12 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
-using AScheduler.Api.Dtos;
-using AScheduler.Data;
-using AScheduler.Queue;
-using AScheduler.Services;
+using CHRONIQ.Api.Dtos;
+using CHRONIQ.Data;
+using CHRONIQ.Queue;
+using CHRONIQ.Services;
 
-namespace AScheduler.Api.Controllers;
+namespace CHRONIQ.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]

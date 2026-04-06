@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace AScheduler.Services
+namespace CHRONIQ.Services
 {
     /// <summary>
     /// Configuration options for SMTP-based task failure notifications.
@@ -42,14 +42,14 @@ namespace AScheduler.Services
         /// <summary>
         /// Email address to use as sender (From field).
         /// Should be an address owned or authorized by the SMTP server.
-        /// Default: "noreply@ascheduler.local"
+        /// Default: "noreply@CHRONIQ.local"
         /// </summary>
-        public string FromAddress { get; set; } = "noreply@ascheduler.local";
+        public string FromAddress { get; set; } = "noreply@CHRONIQ.local";
 
         /// <summary>
-        /// Display name for the From field (e.g., "AScheduler Notifications").
+        /// Display name for the From field (e.g., "CHRONIQ Notifications").
         /// </summary>
-        public string FromDisplayName { get; set; } = "AScheduler Notifications";
+        public string FromDisplayName { get; set; } = "CHRONIQ Notifications";
 
         /// <summary>
         /// Whether to use SSL/TLS when connecting to the SMTP server.

@@ -1,10 +1,10 @@
-using AScheduler.Api.Dtos;
-using AScheduler.Data;
-using AScheduler.Services;
+using CHRONIQ.Api.Dtos;
+using CHRONIQ.Data;
+using CHRONIQ.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace AScheduler.Api.Controllers;
+namespace CHRONIQ.Api.Controllers;
 
 [ApiController]
 [Route("api/box-runs")]
@@ -61,6 +61,7 @@ public class BoxRunsController : ControllerBase
             return NotFound(new ApiResponse<object> { Success = false, Message = "BoxRun not found.", ErrorCode = "BOXRUN_NOT_FOUND" });
 
         var tasks = await _taskRepository.GetTasksForBoxAsync(run.BoxId);
+        var dependenciesByTaskId = await _taskRepository.GetDependenciesForBoxAsync(run.BoxId);
         var records = await _executionRepository.GetExecutionsForBoxRunAsync(boxRunId);
 
         var latestByTaskId = records
@@ -70,7 +71,7 @@ public class BoxRunsController : ControllerBase
         var dtos = new List<BoxRunTaskExecutionDto>(tasks.Count);
         foreach (var task in tasks.OrderBy(t => t.Id))
         {
-            var deps = await _taskRepository.GetTaskDependenciesAsync(task.Id);
+            dependenciesByTaskId.TryGetValue(task.Id, out var deps);
             latestByTaskId.TryGetValue(task.Id, out var execution);
 
             var status = execution == null
@@ -95,7 +96,7 @@ public class BoxRunsController : ControllerBase
                     : null,
                 Error = execution?.Error,
                 StackTrace = execution?.StdErr,
-                DependsOn = deps
+                DependsOn = deps ?? []
             });
         }
 

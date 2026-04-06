@@ -1,4 +1,4 @@
-namespace AScheduler.Services;
+namespace CHRONIQ.Services;
 
 /// <summary>
 /// Encrypts and decrypts notification secrets before persistence.

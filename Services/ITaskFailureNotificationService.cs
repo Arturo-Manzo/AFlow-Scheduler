@@ -1,4 +1,4 @@
-namespace AScheduler.Services
+namespace CHRONIQ.Services
 {
     /// <summary>
     /// Service responsible for sending notifications when a task fails within a box.

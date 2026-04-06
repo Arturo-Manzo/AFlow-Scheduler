@@ -1,12 +1,12 @@
-﻿using System.Collections.Concurrent;
-using AScheduler.Data;
-using AScheduler.Domain;
-using AScheduler.Queue;
+using System.Collections.Concurrent;
+using CHRONIQ.Data;
+using CHRONIQ.Domain;
+using CHRONIQ.Queue;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace AScheduler.Services;
+namespace CHRONIQ.Services;
 
 public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
 {
@@ -173,10 +173,11 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
             var completedNonSuccess = new HashSet<int>();
 
             var dependenciesByTaskId = new Dictionary<int, List<TaskDependency>>();
+            var dependencyTaskIdsByTaskId = await _taskRepository.GetDependenciesBatchAsync(taskById.Keys);
             foreach (var taskId in taskById.Keys)
             {
-                var dependencyTaskIds = await _taskRepository.GetTaskDependenciesAsync(taskId);
-                dependenciesByTaskId[taskId] = dependencyTaskIds
+                dependencyTaskIdsByTaskId.TryGetValue(taskId, out var dependencyTaskIds);
+                dependenciesByTaskId[taskId] = (dependencyTaskIds ?? Enumerable.Empty<int>())
                     .Select(depId => new TaskDependency { TaskId = taskId, DependsOnTaskId = depId })
                     .ToList();
             }

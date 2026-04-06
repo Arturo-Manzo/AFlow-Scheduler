@@ -1,4 +1,4 @@
-namespace AScheduler.Domain;
+namespace CHRONIQ.Domain;
 
 /// <summary>
 /// Lightweight projection used to locate tasks across all boxes without loading full box detail.

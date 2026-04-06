@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
-using AScheduler.Data;
+using CHRONIQ.Data;
 
-namespace AScheduler.Services;
+namespace CHRONIQ.Services;
 
 /// <summary>
 /// Computes per-task stale thresholds using formula:

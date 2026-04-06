@@ -1,6 +1,6 @@
 -- ============================================
 -- 001_Reset_Database.sql
--- Full reset for AScheduler schema alignment.
+-- Full reset for CHRONIQ schema alignment.
 -- WARNING: This script drops existing data.
 -- ============================================
 

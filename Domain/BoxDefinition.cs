@@ -1,4 +1,4 @@
-namespace AScheduler.Domain
+namespace CHRONIQ.Domain
 {
     /// <summary>
     /// Represents a Box: a scheduling container that owns the CronExpression

@@ -2,9 +2,9 @@ using System.Data;
 using Microsoft.Data.SqlClient;
 using Dapper;
 using Microsoft.Extensions.Configuration;
-using AScheduler.Domain;
+using CHRONIQ.Domain;
 
-namespace AScheduler.Data
+namespace CHRONIQ.Data
 {
     /// <summary>
     /// Repository implementation for department management using Dapper ORM.

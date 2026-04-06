@@ -1,7 +1,7 @@
 using System.Diagnostics;
-using AScheduler.Domain;
+using CHRONIQ.Domain;
 
-namespace AScheduler.Execution;
+namespace CHRONIQ.Execution;
 
 /// <summary>
 /// Executor for running Python scripts.

@@ -1,6 +1,6 @@
-using AScheduler.Domain;
+using CHRONIQ.Domain;
 
-namespace AScheduler.Execution
+namespace CHRONIQ.Execution
 {
     /// <summary>
     /// Defines the contract for task execution implementations.

@@ -5,8 +5,8 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$BinaryPath,
 
-    [string]$DisplayName = "AScheduler Service",
-    [string]$Description = "AScheduler API + Scheduler Worker",
+    [string]$DisplayName = "CHRONIQ Service",
+    [string]$Description = "CHRONIQ API + Scheduler Worker",
     [string]$StartupType = "auto"
 )
 

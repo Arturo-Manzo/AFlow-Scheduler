@@ -1,16 +1,16 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Threading.Tasks;
-using AScheduler.Api.Controllers;
-using AScheduler.Api.Dtos;
-using AScheduler.Data;
-using AScheduler.Domain;
-using AScheduler.Services;
+using CHRONIQ.Api.Controllers;
+using CHRONIQ.Api.Dtos;
+using CHRONIQ.Data;
+using CHRONIQ.Domain;
+using CHRONIQ.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Moq;
 using Xunit;
 
-namespace AScheduler.Tests;
+namespace CHRONIQ.Tests;
 
 public class ExecutionHistoryControllerTests
 {

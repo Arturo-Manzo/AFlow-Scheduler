@@ -1,4 +1,4 @@
-namespace AScheduler.Domain
+namespace CHRONIQ.Domain
 {
     /// <summary>
     /// Represents a concrete execution instance of a Box, triggered either

@@ -1,6 +1,6 @@
-using AScheduler.Domain;
+using CHRONIQ.Domain;
 
-namespace AScheduler.Queue;
+namespace CHRONIQ.Queue;
 
 /// <summary>
 /// Discriminated union representing a unit of work placed in the worker queue.

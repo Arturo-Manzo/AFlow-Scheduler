@@ -1,8 +1,8 @@
 using System.Diagnostics;
-using AScheduler.Data;
+using CHRONIQ.Data;
 using Microsoft.Extensions.Logging;
 
-namespace AScheduler.Services
+namespace CHRONIQ.Services
 {
     /// <summary>
     /// SMTP-based implementation of task failure notifications.
@@ -96,7 +96,7 @@ namespace AScheduler.Services
                     settings.EnableSsl,
                     MaskEmail(notificationEmail));
 
-                var subject = $"[AScheduler Alert] Task Failed: {taskName} in {boxName}";
+                var subject = $"[CHRONIQ Alert] Task Failed: {taskName} in {boxName}";
                 var bodyText = BuildFailureEmailBody(
                     boxName, taskName, executionId, boxRunId, failureReason,
                     triggerSource, scheduledForUtc, requestedByUsername);
@@ -238,12 +238,12 @@ namespace AScheduler.Services
             {
                 "Action Required:",
                 "----------------",
-                "Please review the execution logs in AScheduler for detailed error information.",
+                "Please review the execution logs in CHRONIQ for detailed error information.",
                 "Determine if this is a temporary issue (retry) or a permanent failure that needs attention.",
                 "",
                 $"Timestamp: {DateTime.UtcNow:O} UTC",
                 "---",
-                "This is an automated message from AScheduler."
+                "This is an automated message from CHRONIQ."
             });
 
             return string.Join(Environment.NewLine, lines);

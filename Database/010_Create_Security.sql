@@ -50,7 +50,7 @@ BEGIN
     VALUES
     (
         'admin',
-        'admin@ascheduler.local',
+        'admin@CHRONIQ.local',
         'AAAAAAAAAAAAAAAAAAAAAAqRy/h50tlEUsVcJQ477QaLEbsT',
         (SELECT RoleId FROM dbo.Roles WHERE RoleName = 'Admin'),
         1,

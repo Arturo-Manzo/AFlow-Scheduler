@@ -1,6 +1,6 @@
-using AScheduler.Api.Dtos;
+using CHRONIQ.Api.Dtos;
 
-namespace AScheduler.Services;
+namespace CHRONIQ.Services;
 
 public interface IBoxRunMetricsService
 {

@@ -1,7 +1,7 @@
-using AScheduler.Domain;
+using CHRONIQ.Domain;
 using Microsoft.Extensions.Logging;
 
-namespace AScheduler.Execution;
+namespace CHRONIQ.Execution;
 
 /// <summary>
 /// Executor for HTTP API requests.

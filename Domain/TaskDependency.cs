@@ -1,4 +1,4 @@
-namespace AScheduler.Domain
+namespace CHRONIQ.Domain
 {
     /// <summary>
     /// Represents a dependency edge in a task graph within a box.

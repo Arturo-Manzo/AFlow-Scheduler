@@ -20,13 +20,13 @@ Expected outcome:
 Backup example:
 
 ```powershell
-.\operations\scripts\database\backup-database.ps1 -Server "(localdb)\MSSQLLocalDB" -Database "ASchedulerDB" -BackupPath "C:\Backups\ASchedulerDB_full.bak"
+.\operations\scripts\database\backup-database.ps1 -Server "(localdb)\MSSQLLocalDB" -Database "CHRONIQDB" -BackupPath "C:\Backups\CHRONIQDB_full.bak"
 ```
 
 Restore example:
 
 ```powershell
-.\operations\scripts\database\restore-database.ps1 -Server "(localdb)\MSSQLLocalDB" -Database "ASchedulerDB" -BackupPath "C:\Backups\ASchedulerDB_full.bak"
+.\operations\scripts\database\restore-database.ps1 -Server "(localdb)\MSSQLLocalDB" -Database "CHRONIQDB" -BackupPath "C:\Backups\CHRONIQDB_full.bak"
 ```
 
 ## 4. Post-Deployment Data Continuity Check

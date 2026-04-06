@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using AScheduler.Api.Dtos;
-using AScheduler.Api.Services;
+using CHRONIQ.Api.Dtos;
+using CHRONIQ.Api.Services;
 
 /// <summary>
 /// Controller for authentication operations.

@@ -247,7 +247,7 @@ $preflightScriptPath = Join-Path $projectRoot "preflight-host-check.ps1"
 
 Set-Location -Path $projectRoot
 
-Write-Host "AScheduler Config Wizard - Backend (CLI)" -ForegroundColor Green
+Write-Host "CHRONIQ Config Wizard - Backend (CLI)" -ForegroundColor Green
 Write-Host "Project root: $projectRoot" -ForegroundColor DarkGray
 if (-not $Apply) {
     Write-Host "Diagnostic mode: no changes will be written (use -Apply to write)." -ForegroundColor Yellow
@@ -315,7 +315,7 @@ else {
     }
 }
 
-$defaultConnectionString = "Server=$DefaultSqlServer;Database=ASchedulerDB;Trusted_Connection=True;TrustServerCertificate=True"
+$defaultConnectionString = "Server=$DefaultSqlServer;Database=CHRONIQDB;Trusted_Connection=True;TrustServerCertificate=True"
 $connectionString = Read-Value -Prompt 'Backend connection string' -Default $defaultConnectionString
 if ([string]::IsNullOrWhiteSpace($connectionString)) {
     throw 'Backend connection string is required.'
@@ -359,23 +359,23 @@ else {
 
 $envScope = if ($UseMachineScope) { [System.EnvironmentVariableTarget]::Machine } else { [System.EnvironmentVariableTarget]::User }
 
-$existingJwtSecret = [Environment]::GetEnvironmentVariable('ASCHEDULER_JWT_SECRET', $envScope)
+$existingJwtSecret = [Environment]::GetEnvironmentVariable('CHRONIQ_JWT_SECRET', $envScope)
 $alternateScope = if ($envScope -eq [System.EnvironmentVariableTarget]::User) { [System.EnvironmentVariableTarget]::Machine } else { [System.EnvironmentVariableTarget]::User }
-$existingJwtSecretAlternate = [Environment]::GetEnvironmentVariable('ASCHEDULER_JWT_SECRET', $alternateScope)
+$existingJwtSecretAlternate = [Environment]::GetEnvironmentVariable('CHRONIQ_JWT_SECRET', $alternateScope)
 $replaceJwtSecret = $true
 if (-not [string]::IsNullOrWhiteSpace($existingJwtSecret)) {
-    $replaceJwtSecret = Read-YesNo -Prompt "ASCHEDULER_JWT_SECRET already exists in scope $envScope. Replace it" -Default $false
+    $replaceJwtSecret = Read-YesNo -Prompt "CHRONIQ_JWT_SECRET already exists in scope $envScope. Replace it" -Default $false
 }
 elseif (-not [string]::IsNullOrWhiteSpace($existingJwtSecretAlternate)) {
-    Write-Host "Note: ASCHEDULER_JWT_SECRET exists in scope $alternateScope (current target scope is $envScope)." -ForegroundColor Yellow
+    Write-Host "Note: CHRONIQ_JWT_SECRET exists in scope $alternateScope (current target scope is $envScope)." -ForegroundColor Yellow
 }
 else {
-    Write-Host "No existing ASCHEDULER_JWT_SECRET found in scope $envScope." -ForegroundColor DarkGray
+    Write-Host "No existing CHRONIQ_JWT_SECRET found in scope $envScope." -ForegroundColor DarkGray
 }
 
 if ($Apply) {
     if ($replaceJwtSecret) {
-        Set-EnvironmentVariableScoped -Name 'ASCHEDULER_JWT_SECRET' -Value $jwtSecret -Scope $envScope
+        Set-EnvironmentVariableScoped -Name 'CHRONIQ_JWT_SECRET' -Value $jwtSecret -Scope $envScope
     }
     Set-EnvironmentVariableScoped -Name 'DOTNET_ENVIRONMENT' -Value 'Production' -Scope $envScope
 
@@ -383,15 +383,15 @@ if ($Apply) {
         Write-Host "Environment variables updated in scope: $envScope" -ForegroundColor Green
     }
     else {
-        Write-Host "Environment variables updated in scope: $envScope (kept existing ASCHEDULER_JWT_SECRET)" -ForegroundColor Green
+        Write-Host "Environment variables updated in scope: $envScope (kept existing CHRONIQ_JWT_SECRET)" -ForegroundColor Green
     }
 }
 else {
     if ($replaceJwtSecret) {
-        Write-Host "Environment variables preview ready (no write): ASCHEDULER_JWT_SECRET, DOTNET_ENVIRONMENT" -ForegroundColor Yellow
+        Write-Host "Environment variables preview ready (no write): CHRONIQ_JWT_SECRET, DOTNET_ENVIRONMENT" -ForegroundColor Yellow
     }
     else {
-        Write-Host "Environment variables preview ready (no write): DOTNET_ENVIRONMENT (existing ASCHEDULER_JWT_SECRET will be kept)" -ForegroundColor Yellow
+        Write-Host "Environment variables preview ready (no write): DOTNET_ENVIRONMENT (existing CHRONIQ_JWT_SECRET will be kept)" -ForegroundColor Yellow
     }
 }
 

@@ -1,6 +1,6 @@
 -- ============================================
 -- 000_Master_Rebuild.sql
--- Master script to rebuild AScheduler DB from scratch.
+-- Master script to rebuild CHRONIQ DB from scratch.
 --
 -- IMPORTANT:
 -- Run with SQLCMD mode enabled (SSMS: Query -> SQLCMD Mode)
@@ -10,7 +10,7 @@
 
 -- Usage:
 -- Push-Location .\Database
--- sqlcmd -S "(localdb)\MSSQLLocalDB" -d ASchedulerDB -E -b -i ".\000_Master_Rebuild.sql"
+-- sqlcmd -S "(localdb)\MSSQLLocalDB" -d CHRONIQDB -E -b -i ".\000_Master_Rebuild.sql"
 -- Pop-Location
 -- ============================================
 
@@ -45,7 +45,7 @@ BEGIN TRY
         THROW 51001, 'Validation failed: default admin user was not created.', 1;
 
     COMMIT TRANSACTION;
-    PRINT 'AScheduler rebuild completed successfully.';
+    PRINT 'CHRONIQ rebuild completed successfully.';
 END TRY
 BEGIN CATCH
     IF XACT_STATE() <> 0

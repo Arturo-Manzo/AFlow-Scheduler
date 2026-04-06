@@ -1,10 +1,10 @@
 export {};
 
 declare global {
-  interface ASchedulerRuntimeConfig {
+  interface CHRONIQRuntimeConfig {
     backendUrl?: string;
     port?: number;
   }
 
-  var __ASCHEDULER_RUNTIME_CONFIG__: ASchedulerRuntimeConfig | undefined;
+  var __CHRONIQ_RUNTIME_CONFIG__: CHRONIQRuntimeConfig | undefined;
 }

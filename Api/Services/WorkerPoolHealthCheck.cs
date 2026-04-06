@@ -1,9 +1,9 @@
-using AScheduler.Data;
-using AScheduler.Queue;
-using AScheduler.Services;
+using CHRONIQ.Data;
+using CHRONIQ.Queue;
+using CHRONIQ.Services;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-namespace AScheduler.Api.Services;
+namespace CHRONIQ.Api.Services;
 
 /// <summary>
 /// Validates worker pool operational readiness for scheduler traffic.

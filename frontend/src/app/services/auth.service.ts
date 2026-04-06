@@ -3,8 +3,8 @@ import { isPlatformBrowser } from '@angular/common';
 import { Router } from '@angular/router';
 import { LoginResponse, UserDto } from '../models/models';
 
-const TOKEN_KEY = 'ascheduler_token';
-const USER_KEY  = 'ascheduler_user';
+const TOKEN_KEY = 'CHRONIQ_token';
+const USER_KEY  = 'CHRONIQ_user';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {

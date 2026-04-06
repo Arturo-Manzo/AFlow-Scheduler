@@ -1,4 +1,4 @@
-namespace AScheduler.Services;
+namespace CHRONIQ.Services;
 
 /// <summary>
 /// Provides read-only access to the worker pool's in-flight execution state.

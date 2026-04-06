@@ -1,4 +1,4 @@
-namespace AScheduler.Domain;
+namespace CHRONIQ.Domain;
 
 /// <summary>
 /// Lightweight projection used to locate boxes from a global search flow.

@@ -2,9 +2,9 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
-using AScheduler.Api.Dtos;
+using CHRONIQ.Api.Dtos;
 
-namespace AScheduler.Api.Services;
+namespace CHRONIQ.Api.Services;
 
 /// <summary>
 /// Service for managing JWT token generation and validation.
@@ -47,8 +47,8 @@ public class JwtTokenService : ITokenService
     public JwtTokenService(IConfiguration configuration)
     {
         (_secretKey, _) = JwtSecretResolver.Resolve(configuration);
-        _issuer = configuration["Jwt:Issuer"] ?? "AScheduler";
-        _audience = configuration["Jwt:Audience"] ?? "ASchedulerAPI";
+        _issuer = configuration["Jwt:Issuer"] ?? "CHRONIQ";
+        _audience = configuration["Jwt:Audience"] ?? "CHRONIQAPI";
         _expirationMinutes = configuration.GetValue<int>("Jwt:ExpirationMinutes", 480);
     }
 

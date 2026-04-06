@@ -2,12 +2,12 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
-using AScheduler.Api.Dtos;
-using AScheduler.Api.Services;
-using AScheduler.Data;
-using AScheduler.Domain;
+using CHRONIQ.Api.Dtos;
+using CHRONIQ.Api.Services;
+using CHRONIQ.Data;
+using CHRONIQ.Domain;
 
-namespace AScheduler.Api.Controllers;
+namespace CHRONIQ.Api.Controllers;
 
 /// <summary>
 /// Controller for department (organizational unit) management.

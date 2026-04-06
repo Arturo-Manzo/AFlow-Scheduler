@@ -1,0 +1,81 @@
+services:
+  # Servicio de base de datos SQL Server
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: CHRONIQ-db
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${SA_PASSWORD}
+      - MSSQL_PID=${MSSQL_PID}
+    ports:
+      - "${SQLSERVER_PORT}:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+      - ./docker/sql-init:/docker/sql-init:ro
+    networks:
+      - CHRONIQ-network
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '${SA_PASSWORD}' -Q 'SELECT 1' -C"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  db-init:
+    image: mcr.microsoft.com/mssql-tools:latest
+    container_name: CHRONIQ-db-init
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      - SA_PASSWORD=${SA_PASSWORD}
+      - SQLSERVER_HOST=sqlserver
+      - SQLSERVER_DB=${SQLSERVER_DB}
+    volumes:
+      - ./Database:/database:ro
+      - ./docker/sql-init:/scripts:ro
+    command: ["/bin/bash", "/scripts/init-db.sh"]
+    restart: "no"
+    networks:
+      - CHRONIQ-network
+
+  # Servicio de la API .NET
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: CHRONIQ-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      - ConnectionStrings__Default=Server=sqlserver,1433;Database=${SQLSERVER_DB};User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+      - Jwt__Secret=${JWT_SECRET}
+      - Cors__AllowedOrigins__0=http://localhost:${FRONTEND_PORT}
+    ports:
+      - "${API_HTTP_PORT}:8080"
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    networks:
+      - CHRONIQ-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: CHRONIQ-frontend
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "${FRONTEND_PORT}:80"
+    networks:
+      - CHRONIQ-network
+    restart: unless-stopped
+
+volumes:
+  sqlserver_data:
+
+networks:
+  CHRONIQ-network:
+    driver: bridge

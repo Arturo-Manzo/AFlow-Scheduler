@@ -1,6 +1,6 @@
-using AScheduler.Domain;
+using CHRONIQ.Domain;
 
-namespace AScheduler.Queue;
+namespace CHRONIQ.Queue;
 
 public interface ITaskQueue
 {

@@ -2,7 +2,7 @@ using System.Net;
 using System.Text.Json;
 using Serilog.Context;
 
-namespace AScheduler.Api.Middleware;
+namespace CHRONIQ.Api.Middleware;
 
 /// <summary>
 /// Captures unhandled exceptions and returns a consistent ProblemDetails response.

@@ -1,10 +1,10 @@
-using AScheduler.Api.Dtos;
-using AScheduler.Data;
+using CHRONIQ.Api.Dtos;
+using CHRONIQ.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
-namespace AScheduler.Api.Controllers;
+namespace CHRONIQ.Api.Controllers;
 
 [ApiController]
 [Route("api/task-executions")]

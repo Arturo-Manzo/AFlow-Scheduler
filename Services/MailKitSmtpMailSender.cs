@@ -1,9 +1,9 @@
-using AScheduler.Domain;
+using CHRONIQ.Domain;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
 
-namespace AScheduler.Services;
+namespace CHRONIQ.Services;
 
 /// <summary>
 /// MailKit-based SMTP sender.

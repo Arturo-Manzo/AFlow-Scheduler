@@ -1,6 +1,6 @@
-using AScheduler.Domain;
+using CHRONIQ.Domain;
 
-namespace AScheduler.Data
+namespace CHRONIQ.Data
 {
     public interface ITaskRepository
     {
@@ -11,6 +11,8 @@ namespace AScheduler.Data
         Task<bool> UpdateAsync(int taskId, string name, string description, string command, string taskType, bool enabled);
         Task<bool> DeleteAsync(int taskId);
         Task<List<int>> GetTaskDependenciesAsync(int taskId);
+        Task<Dictionary<int, List<int>>> GetDependenciesForBoxAsync(int boxId);
+        Task<Dictionary<int, List<int>>> GetDependenciesBatchAsync(IEnumerable<int> taskIds);
         Task ReplaceTaskDependenciesAsync(int taskId, IEnumerable<int> dependencyTaskIds);
     }
 }

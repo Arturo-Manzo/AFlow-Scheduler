@@ -1,15 +1,15 @@
 using System.Diagnostics;
 using System.Net.Mail;
 using System.Security.Claims;
-using AScheduler.Api.Dtos;
-using AScheduler.Api.Services;
-using AScheduler.Data;
-using AScheduler.Domain;
-using AScheduler.Services;
+using CHRONIQ.Api.Dtos;
+using CHRONIQ.Api.Services;
+using CHRONIQ.Data;
+using CHRONIQ.Domain;
+using CHRONIQ.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace AScheduler.Api.Controllers;
+namespace CHRONIQ.Api.Controllers;
 
 /// <summary>
 /// Admin endpoints for SMTP notification settings and live send tests.
@@ -130,7 +130,7 @@ public class NotificationSettingsController : ControllerBase
         var stopwatch = Stopwatch.StartNew();
         try
         {
-            var subject = "[AScheduler] SMTP Test Message";
+            var subject = "[CHRONIQ] SMTP Test Message";
             var body = $"SMTP configuration test completed successfully at {DateTime.UtcNow:O} UTC.";
 
             await _smtpMailSender.SendAsync(

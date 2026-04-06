@@ -12,7 +12,7 @@ type RuntimeConfig = {
 const FALLBACK_BASE_URL = '/api';
 
 function resolveBaseUrl(): string {
-  const runtimeConfig = globalThis.__ASCHEDULER_RUNTIME_CONFIG__ as RuntimeConfig | undefined;
+  const runtimeConfig = globalThis.__CHRONIQ_RUNTIME_CONFIG__ as RuntimeConfig | undefined;
   const backendUrl = runtimeConfig?.backendUrl;
 
   if (!backendUrl) {

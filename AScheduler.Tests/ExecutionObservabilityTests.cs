@@ -2,12 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Threading.Tasks;
-using AScheduler.Data;
+using CHRONIQ.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Xunit;
 
-namespace AScheduler.Tests;
+namespace CHRONIQ.Tests;
 
 [CollectionDefinition("ExecutionObservability", DisableParallelization = true)]
 public class ExecutionObservabilityCollection : ICollectionFixture<ExecutionObservabilityFixture>
@@ -18,7 +18,7 @@ public class ExecutionObservabilityFixture : IAsyncLifetime
 {
     private const string LocalDbServer = "(localdb)\\MSSQLLocalDB";
 
-    public string DatabaseName { get; } = "AScheduler_Test_" + Guid.NewGuid().ToString("N");
+    public string DatabaseName { get; } = "CHRONIQ_Test_" + Guid.NewGuid().ToString("N");
 
     public string ConnectionString =>
         $"Server={LocalDbServer};Database={DatabaseName};Trusted_Connection=True;TrustServerCertificate=True;";

@@ -1,4 +1,4 @@
-namespace AScheduler.Services;
+namespace CHRONIQ.Services;
 
 /// <summary>
 /// Centralized service for executing individual tasks.
@@ -32,7 +32,7 @@ public interface ITaskExecutionService
     /// - Blocked (dependency failure): creates Failed execution immediately
     /// </summary>
     Task<bool> ExecuteTaskAsync(
-        AScheduler.Domain.TaskDefinition task,
+        CHRONIQ.Domain.TaskDefinition task,
         int? boxRunId,
         string triggerSource,
         DateTime? scheduledForUtc,

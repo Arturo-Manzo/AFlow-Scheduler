@@ -1,6 +1,6 @@
-# AFlow Scheduler
+# Chroniq
 
-AFlow Scheduler is a dependency-aware job orchestration platform built with ASP.NET Core and Angular.
+Chroniq is a dependency-aware job orchestration platform built with ASP.NET Core and Angular.
 It automates scheduled and on-demand task pipelines with parallel execution, execution history, RBAC, and operational observability.
 
 ## What You Get
@@ -45,8 +45,20 @@ The release pipeline packages each config wizard with its matching artifact:
 
 - Backend ZIP includes `run-config-wizard-backend.ps1`
 - Frontend ZIP includes `run-config-wizard-frontend.ps1`
+- Release also includes `CHECKSUMS.sha256` for artifact integrity verification
 
 Run each script from its artifact folder.
+
+### Verify Artifact Integrity
+
+Before executing release artifacts, validate SHA256 checksums against `CHECKSUMS.sha256` from the same release.
+
+```powershell
+Get-FileHash -Algorithm SHA256 .\CHRONIQ-backend-vX.Y.Z.zip
+Get-FileHash -Algorithm SHA256 .\CHRONIQ-frontend-vX.Y.Z.zip
+```
+
+Both hashes must match the entries in `CHECKSUMS.sha256`.
 
 ### Backend Wizard
 

@@ -1,8 +1,8 @@
 using Microsoft.Data.SqlClient;
 using System.Data;
-using AScheduler.Api.Dtos;
+using CHRONIQ.Api.Dtos;
 
-namespace AScheduler.Api.Services;
+namespace CHRONIQ.Api.Services;
 
 /// <summary>
 /// Service for managing users in the system.

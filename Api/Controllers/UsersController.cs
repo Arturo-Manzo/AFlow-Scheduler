@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using AScheduler.Api.Dtos;
-using AScheduler.Api.Services;
+using CHRONIQ.Api.Dtos;
+using CHRONIQ.Api.Services;
 using System.Security.Claims;
 
-namespace AScheduler.Api.Controllers;
+namespace CHRONIQ.Api.Controllers;
 
 /// <summary>
 /// Controller for user management operations.

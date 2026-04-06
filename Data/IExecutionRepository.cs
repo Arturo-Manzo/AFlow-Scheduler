@@ -1,6 +1,6 @@
-using AScheduler.Domain;
+using CHRONIQ.Domain;
 
-namespace AScheduler.Data
+namespace CHRONIQ.Data
 {
     public interface IExecutionRepository
     {

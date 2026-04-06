@@ -15,19 +15,19 @@ import { ExecutionHistoryComponent } from './pages/execution-history/execution-h
 import { NotificationSettingsComponent } from './pages/notification-settings/notification-settings.component';
 
 export const routes: Routes = [
-  { path: 'login',     component: LoginComponent,    canActivate: [loginGuard] },
-  { path: 'dashboard', component: DashboardComponent, canActivate: [authGuard] },
-  { path: 'boxes',     component: TasksComponent,    canActivate: [authGuard] },
-  { path: 'boxes/:boxId/task/:taskId', component: TaskDetailComponent, canActivate: [authGuard] },
-  { path: 'boxes/:boxId', component: BoxDetailComponent, canActivate: [authGuard] },
-  { path: 'executions', component: BoxRunListComponent, canActivate: [authGuard] },
-  { path: 'executions/:boxRunId', component: BoxRunDetailComponent, canActivate: [authGuard] },
-  { path: 'departments', component: DepartmentListComponent, canActivate: [authGuard, adminGuard] },
-  { path: 'notification-settings', component: NotificationSettingsComponent, canActivate: [authGuard, adminGuard] },
-  { path: 'history',   component: ExecutionHistoryComponent, canActivate: [authGuard] },
+  { path: 'login',     component: LoginComponent,    canActivate: [loginGuard], title: 'Sign In | Chroniq' },
+  { path: 'dashboard', component: DashboardComponent, canActivate: [authGuard], title: 'Dashboard | Chroniq' },
+  { path: 'boxes',     component: TasksComponent,    canActivate: [authGuard], title: 'Boxes | Chroniq' },
+  { path: 'boxes/:boxId/task/:taskId', component: TaskDetailComponent, canActivate: [authGuard], title: 'Task Detail | Chroniq' },
+  { path: 'boxes/:boxId', component: BoxDetailComponent, canActivate: [authGuard], title: 'Box Detail | Chroniq' },
+  { path: 'executions', component: BoxRunListComponent, canActivate: [authGuard], title: 'Executions | Chroniq' },
+  { path: 'executions/:boxRunId', component: BoxRunDetailComponent, canActivate: [authGuard], title: 'Execution Detail | Chroniq' },
+  { path: 'departments', component: DepartmentListComponent, canActivate: [authGuard, adminGuard], title: 'Departments | Chroniq' },
+  { path: 'notification-settings', component: NotificationSettingsComponent, canActivate: [authGuard, adminGuard], title: 'SMTP Settings | Chroniq' },
+  { path: 'history',   component: ExecutionHistoryComponent, canActivate: [authGuard], title: 'Execution History | Chroniq' },
   { path: 'failed',    redirectTo: 'history', pathMatch: 'full' },
   { path: 'logs',      redirectTo: 'history', pathMatch: 'full' },
-  { path: 'users',     component: UsersComponent,    canActivate: [authGuard, adminGuard] },
-  { path: '',          redirectTo: 'dashboard', pathMatch: 'full' },
+  { path: 'users',     component: UsersComponent,    canActivate: [authGuard, adminGuard], title: 'Users | Chroniq' },
+  { path: '',          redirectTo: 'login', pathMatch: 'full' },
   { path: '**',        redirectTo: 'login' }
 ];

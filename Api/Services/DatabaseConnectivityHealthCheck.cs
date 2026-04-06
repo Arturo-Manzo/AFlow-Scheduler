@@ -2,7 +2,7 @@ using Dapper;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-namespace AScheduler.Api.Services;
+namespace CHRONIQ.Api.Services;
 
 /// <summary>
 /// Validates database connectivity for readiness checks.

@@ -1,10 +1,10 @@
 using System;
 using System.Diagnostics;
-using AScheduler.Domain;
+using CHRONIQ.Domain;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace AScheduler.Execution;
+namespace CHRONIQ.Execution;
 
 /// <summary>
 /// Executor for running standalone executable (.exe) files as scheduled tasks.

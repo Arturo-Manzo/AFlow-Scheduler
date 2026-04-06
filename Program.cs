@@ -5,13 +5,13 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using AScheduler.Api.Middleware;
-using AScheduler.Api.Services;
-using AScheduler.Data;
-using AScheduler.Execution;
-using AScheduler.Queue;
-using AScheduler.Services;
-using AScheduler.Services.Logging;
+using CHRONIQ.Api.Middleware;
+using CHRONIQ.Api.Services;
+using CHRONIQ.Data;
+using CHRONIQ.Execution;
+using CHRONIQ.Queue;
+using CHRONIQ.Services;
+using CHRONIQ.Services.Logging;
 using Serilog;
 using Serilog.Debugging;
 using Serilog.Events;
@@ -36,7 +36,7 @@ builder.Host.UseSerilog((context, _, loggerConfiguration) =>
         .ReadFrom.Configuration(context.Configuration)
         .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
         .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
-        .MinimumLevel.Override("AScheduler", LogEventLevel.Information)
+        .MinimumLevel.Override("CHRONIQ", LogEventLevel.Information)
         .Enrich.FromLogContext()
         .Enrich.With(new ErrorLocationEnricher())
         .WriteTo.File(
@@ -111,8 +111,8 @@ SecurityStartupValidator.ValidateJwtSecretSource(
     usedJwtAppSettingsFallback,
     builder.Environment.IsProduction(),
     JwtSecretResolver.SecretEnvironmentVariableName);
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "AScheduler";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "ASchedulerAPI";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "CHRONIQ";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "CHRONIQAPI";
 
 var key = Encoding.ASCII.GetBytes(jwtSecret);
 
@@ -147,13 +147,13 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
     {
-        Title = "AScheduler API",
+        Title = "CHRONIQ API",
         Version = "v1.0.0",
         Description = "REST API para programación y ejecución de tareas automáticas con autenticación JWT",
         Contact = new Microsoft.OpenApi.Models.OpenApiContact
         {
-            Name = "AScheduler Support",
-            Email = "support@ascheduler.local"
+            Name = "CHRONIQ Support",
+            Email = "support@CHRONIQ.local"
         },
         License = new Microsoft.OpenApi.Models.OpenApiLicense
         {
@@ -223,7 +223,7 @@ builder.Services.AddDataProtection();
 // ============================================
 // Queue Configuration
 // ============================================
-builder.Services.AddSingleton<AScheduler.Queue.ITaskQueue, AScheduler.Queue.TaskQueue>();
+builder.Services.AddSingleton<CHRONIQ.Queue.ITaskQueue, CHRONIQ.Queue.TaskQueue>();
 
 // ============================================
 // Timeout Configuration
@@ -338,9 +338,9 @@ if (!app.Environment.IsProduction())
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "AScheduler API v1.0");
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "CHRONIQ API v1.0");
         options.RoutePrefix = string.Empty; // Serve Swagger UI at root
-        options.DocumentTitle = "AScheduler API Documentation";
+        options.DocumentTitle = "CHRONIQ API Documentation";
     });
 }
 

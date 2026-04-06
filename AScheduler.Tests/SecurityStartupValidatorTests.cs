@@ -1,6 +1,6 @@
-using AScheduler.Api.Services;
+using CHRONIQ.Api.Services;
 
-namespace AScheduler.Tests;
+namespace CHRONIQ.Tests;
 
 public class SecurityStartupValidatorTests
 {

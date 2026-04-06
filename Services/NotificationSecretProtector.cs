@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.DataProtection;
 
-namespace AScheduler.Services;
+namespace CHRONIQ.Services;
 
 /// <summary>
 /// DataProtection-based secret protector for notification credentials.
@@ -12,7 +12,7 @@ public class NotificationSecretProtector : INotificationSecretProtector
     public NotificationSecretProtector(IDataProtectionProvider dataProtectionProvider)
     {
         ArgumentNullException.ThrowIfNull(dataProtectionProvider);
-        _protector = dataProtectionProvider.CreateProtector("AScheduler.NotificationSettings.SmtpPassword.v1");
+        _protector = dataProtectionProvider.CreateProtector("CHRONIQ.NotificationSettings.SmtpPassword.v1");
     }
 
     public string Protect(string plainText)

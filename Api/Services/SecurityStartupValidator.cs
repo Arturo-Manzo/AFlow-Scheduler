@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Hosting;
 
-namespace AScheduler.Api.Services;
+namespace CHRONIQ.Api.Services;
 
 /// <summary>
 /// Validates startup security configuration for environment-specific behavior.

@@ -5,6 +5,8 @@
 - Backend tests completed successfully.
 - Frontend build completed successfully.
 - Release smoke-gates script completed successfully.
+- Release artifacts include CHECKSUMS.sha256 and values were verified.
+- If signing gate is enabled, backend binaries are Authenticode-signed and timestamped.
 
 ## 2) Security and Compliance Gates
 - JWT secret comes from environment or secret store in production.

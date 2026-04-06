@@ -1,1 +1,0 @@
-- [Release gates must build test assemblies](feedback_release-gates-test-build.md) - Avoid `dotnet test --no-build` unless tests were built in same config.

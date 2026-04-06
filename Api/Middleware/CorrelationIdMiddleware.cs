@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using Serilog.Context;
 
-namespace AScheduler.Api.Middleware;
+namespace CHRONIQ.Api.Middleware;
 
 /// <summary>
 /// Pushes correlation and request context properties into Serilog LogContext for each HTTP request.

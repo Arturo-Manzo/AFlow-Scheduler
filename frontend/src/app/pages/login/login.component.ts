@@ -20,7 +20,7 @@ import { isFieldInvalid } from '../../shared/form-utils';
         </div>
 
         <div class="login-logo">
-          <h1>AScheduler Control Panel</h1>
+          <h1>Chroniq Control Panel</h1>
         </div>
         <p class="login-subtitle">Authenticate to access workflow operations, executions, logs and administrative controls.</p>
 

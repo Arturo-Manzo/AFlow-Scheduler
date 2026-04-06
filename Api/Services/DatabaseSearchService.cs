@@ -1,7 +1,7 @@
-using AScheduler.Api.Dtos;
-using AScheduler.Data;
+using CHRONIQ.Api.Dtos;
+using CHRONIQ.Data;
 
-namespace AScheduler.Api.Services;
+namespace CHRONIQ.Api.Services;
 
 /// <summary>
 /// Database-backed implementation of unified search.

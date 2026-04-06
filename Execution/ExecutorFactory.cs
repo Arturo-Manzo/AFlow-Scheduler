@@ -1,6 +1,6 @@
-using AScheduler.Domain;
+using CHRONIQ.Domain;
 
-namespace AScheduler.Execution
+namespace CHRONIQ.Execution
 {
     /// <summary>
     /// Factory for creating appropriate task executors based on task type.

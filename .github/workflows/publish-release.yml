@@ -2,6 +2,7 @@ name: publish-release
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  RELEASE_SIGNING_ENABLED: ${{ vars.RELEASE_SIGNING_ENABLED || 'false' }}
 
 on:
   push:
@@ -74,6 +75,87 @@ jobs:
         run: |
           dotnet publish AScheduler.csproj --configuration Release --no-restore /p:Version=${{ steps.meta.outputs.version }} --output .\artifacts\backend
 
+      - name: Sign backend binaries (best effort)
+        id: signing
+        shell: pwsh
+        env:
+          CODE_SIGNING_CERT_BASE64: ${{ secrets.CODE_SIGNING_CERT_BASE64 }}
+          CODE_SIGNING_CERT_PASSWORD: ${{ secrets.CODE_SIGNING_CERT_PASSWORD }}
+          CODE_SIGNING_TIMESTAMP_URL: ${{ secrets.CODE_SIGNING_TIMESTAMP_URL }}
+        run: |
+          $statusPath = ".\artifacts\SIGNING-STATUS.txt"
+
+          if ("${{ env.RELEASE_SIGNING_ENABLED }}" -ne "true") {
+            "Signing disabled (RELEASE_SIGNING_ENABLED is false)." | Set-Content -Path $statusPath -Encoding ascii
+            "signed=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            return
+          }
+
+          if ((-not $env:CODE_SIGNING_CERT_BASE64) -or (-not $env:CODE_SIGNING_CERT_PASSWORD) -or (-not $env:CODE_SIGNING_TIMESTAMP_URL)) {
+            Write-Warning "Signing requested but one or more signing secrets are missing. Release will continue unsigned."
+            "Signing requested but skipped: missing one or more required secrets (CODE_SIGNING_CERT_BASE64, CODE_SIGNING_CERT_PASSWORD, CODE_SIGNING_TIMESTAMP_URL)." | Set-Content -Path $statusPath -Encoding ascii
+            "signed=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+            return
+          }
+
+          $signtool = (Get-Command signtool.exe -ErrorAction Stop).Source
+          $certPath = Join-Path $env:RUNNER_TEMP "codesign-cert.pfx"
+
+          try {
+            [System.IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:CODE_SIGNING_CERT_BASE64))
+
+            $binariesToSign = Get-ChildItem -Path .\artifacts\backend -Recurse -File | Where-Object {
+              $_.Extension -in @('.exe', '.dll')
+            }
+
+            if ($binariesToSign.Count -eq 0) {
+              Write-Warning "No backend binaries were found to sign. Release will continue unsigned."
+              "Signing requested but skipped: no .exe/.dll files found under artifacts/backend." | Set-Content -Path $statusPath -Encoding ascii
+              "signed=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+              return
+            }
+
+            foreach ($binary in $binariesToSign) {
+              & $signtool sign /fd SHA256 /f $certPath /p $env:CODE_SIGNING_CERT_PASSWORD /tr $env:CODE_SIGNING_TIMESTAMP_URL /td SHA256 $binary.FullName
+              if ($LASTEXITCODE -ne 0) {
+                throw "signtool failed for $($binary.FullName) with exit code $LASTEXITCODE"
+              }
+            }
+
+            "Signed backend binaries successfully." | Set-Content -Path $statusPath -Encoding ascii
+            "signed=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          }
+          catch {
+            Write-Warning "Signing failed: $($_.Exception.Message). Release will continue unsigned."
+            "Signing attempted but failed; release continued unsigned. Error: $($_.Exception.Message)" | Set-Content -Path $statusPath -Encoding ascii
+            "signed=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          }
+          finally {
+            if (Test-Path $certPath) {
+              Remove-Item -Path $certPath -Force
+            }
+          }
+
+      - name: Verify backend signatures (optional)
+        if: ${{ steps.signing.outputs.signed == 'true' }}
+        shell: pwsh
+        run: |
+          $binaries = Get-ChildItem -Path .\artifacts\backend -Recurse -File | Where-Object {
+            $_.Extension -in @('.exe', '.dll')
+          }
+
+          $invalid = @()
+          foreach ($binary in $binaries) {
+            $signature = Get-AuthenticodeSignature -FilePath $binary.FullName
+            if ($signature.Status -ne 'Valid') {
+              $invalid += "$($binary.Name): $($signature.Status)"
+            }
+          }
+
+          if ($invalid.Count -gt 0) {
+            throw "Signature verification failed: $($invalid -join '; ')"
+          }
+
       - name: Attach backend config wizard
         shell: pwsh
         run: |
@@ -86,7 +168,7 @@ jobs:
       - name: Package backend artifact
         shell: pwsh
         run: |
-          Compress-Archive -Path .\artifacts\backend\* -DestinationPath .\artifacts\AScheduler-backend-${{ steps.meta.outputs.tag }}.zip
+          Compress-Archive -Path .\artifacts\backend\* -DestinationPath .\artifacts\CHRONIQ-backend-${{ steps.meta.outputs.tag }}.zip
 
       - name: Package frontend artifact
         shell: pwsh
@@ -102,7 +184,27 @@ jobs:
           }
 
           Copy-Item -Path $frontendWizard -Destination (Join-Path $distPath "run-config-wizard-frontend.ps1") -Force
-          Compress-Archive -Path "$distPath\*" -DestinationPath .\artifacts\AScheduler-frontend-${{ steps.meta.outputs.tag }}.zip
+          Compress-Archive -Path "$distPath\*" -DestinationPath .\artifacts\CHRONIQ-frontend-${{ steps.meta.outputs.tag }}.zip
+
+      - name: Generate release checksums
+        shell: pwsh
+        run: |
+          $backendZip = ".\artifacts\CHRONIQ-backend-${{ steps.meta.outputs.tag }}.zip"
+          $frontendZip = ".\artifacts\CHRONIQ-frontend-${{ steps.meta.outputs.tag }}.zip"
+          $checksumPath = ".\artifacts\CHECKSUMS.sha256"
+
+          if (-not (Test-Path $backendZip)) {
+            throw "Backend artifact not found: $backendZip"
+          }
+
+          if (-not (Test-Path $frontendZip)) {
+            throw "Frontend artifact not found: $frontendZip"
+          }
+
+          @($backendZip, $frontendZip) | ForEach-Object {
+            $hash = (Get-FileHash -Path $_ -Algorithm SHA256).Hash.ToLowerInvariant()
+            "{0}  {1}" -f $hash, (Split-Path $_ -Leaf)
+          } | Set-Content -Path $checksumPath -Encoding ascii
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
@@ -111,5 +213,7 @@ jobs:
           name: ${{ steps.meta.outputs.tag }}
           generate_release_notes: true
           files: |
-            artifacts/AScheduler-backend-${{ steps.meta.outputs.tag }}.zip
-            artifacts/AScheduler-frontend-${{ steps.meta.outputs.tag }}.zip
+            artifacts/CHRONIQ-backend-${{ steps.meta.outputs.tag }}.zip
+            artifacts/CHRONIQ-frontend-${{ steps.meta.outputs.tag }}.zip
+            artifacts/CHECKSUMS.sha256
+            artifacts/SIGNING-STATUS.txt

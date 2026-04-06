@@ -130,7 +130,7 @@ import { NotificationSettingsService } from '../../services/notification-setting
 
               <div class="field">
                 <label for="smtp-from-name">From Display Name</label>
-                <input id="smtp-from-name" formControlName="fromDisplayName" placeholder="AScheduler Notifications" />
+                <input id="smtp-from-name" formControlName="fromDisplayName" placeholder="Chroniq Notifications" />
               </div>
 
               <div class="field field-check smtp-tls-toggle">

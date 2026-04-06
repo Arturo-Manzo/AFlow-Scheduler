@@ -1,0 +1,27 @@
+# Directorios de build
+bin/
+obj/
+
+# Directorios de IDE
+.vs/
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# Logs
+logs/
+*.log
+
+# Frontend build output
+frontend/dist/
+frontend/node_modules/
+
+# Tests
+AScheduler.Tests/bin/
+AScheduler.Tests/obj/
+
+# Otros
+artifacts/

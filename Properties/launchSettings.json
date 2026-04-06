@@ -1,10 +1,10 @@
-﻿{
+{
   "$schema": "https://json.schemastore.org/launchsettings.json",
   "profiles": {
-    "AScheduler": {
+    "CHRONIQ": {
       "commandName": "Project",
       "dotnetRunMessages": true,
-      "applicationUrl": "https://192.168.1.254:5001;http://192.168.1.254:5000",
+      "applicationUrl": "https://localhost:5001;http://localhost:5000",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development"
       }

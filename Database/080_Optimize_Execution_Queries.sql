@@ -6,6 +6,8 @@
 
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
 
 -- Speeds latest/history lookups and common ORDER BY StartedAt DESC patterns.
 IF NOT EXISTS (

@@ -1,4 +1,4 @@
-namespace AScheduler.Data
+namespace CHRONIQ.Data
 {
     internal static class UtcDateTimeMapper
     {

@@ -1,4 +1,4 @@
-namespace AScheduler.Services;
+namespace CHRONIQ.Services;
 
 public interface IExecutionLogger
 {

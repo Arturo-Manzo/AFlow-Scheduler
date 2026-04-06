@@ -1,4 +1,4 @@
-﻿namespace AScheduler.Api.Dtos;
+namespace CHRONIQ.Api.Dtos;
 
 // ============================================
 // Auth DTOs
@@ -331,7 +331,7 @@ public class ExecutionDto
     public string StdOut { get; set; } = "";
     public string StdErr { get; set; } = "";
     public int? DurationSeconds { get; set; }
-    public string TriggerSource { get; set; } = AScheduler.Domain.TriggerSources.Scheduler;
+    public string TriggerSource { get; set; } = CHRONIQ.Domain.TriggerSources.Scheduler;
     public string? Reason { get; set; }
     public int? RequestedByUserId { get; set; }
     public string? RequestedByUsername { get; set; }
@@ -354,7 +354,7 @@ public class BoxRunDto
     public DateTime? StartTime { get; set; }
     public DateTime? EndTime { get; set; }
     public DateTime? ScheduledForUtc { get; set; }
-    public string TriggerSource { get; set; } = AScheduler.Domain.TriggerSources.Scheduler;
+    public string TriggerSource { get; set; } = CHRONIQ.Domain.TriggerSources.Scheduler;
     public int? DurationSeconds { get; set; }
 }
 

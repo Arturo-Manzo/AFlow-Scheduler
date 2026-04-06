@@ -1,12 +1,12 @@
-﻿using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Cronos;
-using AScheduler.Queue;
-using AScheduler.Data;
-using AScheduler.Domain;
+using CHRONIQ.Queue;
+using CHRONIQ.Data;
+using CHRONIQ.Domain;
 using TimeZoneConverter;
 
-namespace AScheduler.Services
+namespace CHRONIQ.Services
 {
     public class SchedulerService : BackgroundService
     {

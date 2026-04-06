@@ -1,4 +1,4 @@
-namespace AScheduler.Api.Services;
+namespace CHRONIQ.Api.Services;
 
 /// <summary>
 /// Resolves JWT secret configuration using environment variable first,
@@ -9,7 +9,7 @@ public static class JwtSecretResolver
     /// <summary>
     /// Environment variable that overrides <c>Jwt:Secret</c> when present.
     /// </summary>
-    public const string SecretEnvironmentVariableName = "ASCHEDULER_JWT_SECRET";
+    public const string SecretEnvironmentVariableName = "CHRONIQ_JWT_SECRET";
 
     /// <summary>
     /// Resolves JWT secret from environment variable, then from configuration fallback.

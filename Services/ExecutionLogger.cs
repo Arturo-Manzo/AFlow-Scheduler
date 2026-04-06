@@ -1,7 +1,7 @@
-using AScheduler.Data;
-using AScheduler.Domain;
+using CHRONIQ.Data;
+using CHRONIQ.Domain;
 
-namespace AScheduler.Services;
+namespace CHRONIQ.Services;
 
 public class ExecutionLogger : IExecutionLogger
 {

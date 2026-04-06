@@ -1,6 +1,6 @@
-using AScheduler.Api.Dtos;
+using CHRONIQ.Api.Dtos;
 
-namespace AScheduler.Api.Services;
+namespace CHRONIQ.Api.Services;
 
 /// <summary>
 /// Provides a single search entry point for boxes and tasks.

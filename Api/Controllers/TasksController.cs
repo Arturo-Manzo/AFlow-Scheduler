@@ -1,14 +1,14 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using AScheduler.Api.Dtos;
-using AScheduler.Api.Services;
-using AScheduler.Data;
-using AScheduler.Domain;
-using AScheduler.Queue;
-using AScheduler.Services;
+using CHRONIQ.Api.Dtos;
+using CHRONIQ.Api.Services;
+using CHRONIQ.Data;
+using CHRONIQ.Domain;
+using CHRONIQ.Queue;
+using CHRONIQ.Services;
 
-namespace AScheduler.Api.Controllers;
+namespace CHRONIQ.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]

@@ -1,8 +1,8 @@
 using System.Threading.Channels;
-using AScheduler.Domain;
+using CHRONIQ.Domain;
 using Microsoft.Extensions.Logging;
 
-namespace AScheduler.Queue;
+namespace CHRONIQ.Queue;
 
 /// <summary>
 /// Unified in-memory queue for both BoxRun requests and TaskForceStart requests.

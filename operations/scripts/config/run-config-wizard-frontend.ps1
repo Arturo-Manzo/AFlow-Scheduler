@@ -115,7 +115,7 @@ $frontendConfigPath = Join-Path $projectRoot "config.json"
 
 Set-Location -Path $projectRoot
 
-Write-Host "AScheduler Config Wizard - Frontend (CLI)" -ForegroundColor Green
+Write-Host "CHRONIQ Config Wizard - Frontend (CLI)" -ForegroundColor Green
 Write-Host "Project root: $projectRoot" -ForegroundColor DarkGray
 if (-not $Apply) {
     Write-Host "Diagnostic mode: no changes will be written (use -Apply to write)." -ForegroundColor Yellow
