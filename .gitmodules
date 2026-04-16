@@ -1,0 +1,3 @@
+[submodule "frontend/projects/ui-design-system"]
+	path = frontend/projects/ui-design-system
+	url = https://github.com/Arturo-Manzo/ui-design-system.git

@@ -4,8 +4,8 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "ng build --configuration iis",
-    "build:iis": "npm run build",
+    "build": "npm run build:iis",
+    "build:iis": "ng build --configuration iis && node -e \"const fs=require('fs');const path='dist/frontend/browser';const csr=path+'/index.csr.html';const html=path+'/index.html';if(fs.existsSync(csr)){fs.copyFileSync(csr,html);console.log('Created index.html from index.csr.html');}else{console.log('index.csr.html not found; skipping index.html copy');}\"",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "serve:ssr:frontend": "node dist/frontend/server/server.mjs"
@@ -18,21 +18,27 @@
     "@angular/core": "^21.2.0",
     "@angular/forms": "^21.2.0",
     "@angular/platform-browser": "^21.2.0",
+    "@angular/platform-browser-dynamic": "^21.2.0",
     "@angular/platform-server": "^21.2.0",
     "@angular/router": "^21.2.0",
     "@angular/ssr": "^21.2.4",
     "express": "^5.1.0",
     "rxjs": "~7.8.0",
-    "tslib": "^2.3.0"
+    "tslib": "^2.3.0",
+    "ui-design-system": "file:./projects/ui-design-system",
+    "zone.js": "~0.15.0"
   },
   "devDependencies": {
     "@angular/build": "^21.2.4",
     "@angular/cli": "^21.2.4",
     "@angular/compiler-cli": "^21.2.0",
+    "@tailwindcss/postcss": "^4.2.2",
     "@types/express": "^5.0.1",
     "@types/node": "^20.17.19",
     "jsdom": "^28.0.0",
+    "postcss": "^8.5.10",
     "prettier": "^3.8.1",
+    "tailwindcss": "^4.2.2",
     "typescript": "~5.9.2",
     "vitest": "^4.0.8"
   }
