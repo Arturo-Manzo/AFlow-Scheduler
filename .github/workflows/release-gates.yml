@@ -47,6 +47,7 @@ jobs:
         working-directory: frontend
         run: |
           npm install
+          npx ng-packagr -p .\projects\ui-design-system\projects\ui-design-system\ng-package.json
           npm run build
 
       - name: Release smoke gates
