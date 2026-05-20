@@ -45,6 +45,14 @@ try {
         Push-Location .\frontend
         try {
             Invoke-GateCommand npm ci
+
+            $designSystemPath = ".\projects\ui-design-system"
+            if (Test-Path (Join-Path $designSystemPath "angular.json")) {
+                Write-Host "[Gate] Building ui-design-system..." -ForegroundColor Cyan
+                $designSystemPackage = Join-Path $designSystemPath "projects\ui-design-system\ng-package.json"
+                Invoke-GateCommand npx ng-packagr -p $designSystemPackage
+            }
+
             Invoke-GateCommand npm run build
         }
         finally {
