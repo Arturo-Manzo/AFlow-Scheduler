@@ -594,6 +594,25 @@ public class TaskExecutionService : ITaskExecutionService
         if (string.IsNullOrWhiteSpace(email))
             return "<empty>";
 
+        var recipients = email
+            .Replace(';', ',')
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .ToList();
+
+        if (recipients.Count > 1)
+        {
+            var firstMasked = MaskSingleEmail(recipients[0]);
+            return $"{firstMasked} (+{recipients.Count - 1} more)";
+        }
+
+        return MaskSingleEmail(recipients.Count == 1 ? recipients[0] : email);
+    }
+
+    private static string MaskSingleEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return "<empty>";
+
         var atIndex = email.IndexOf('@');
         if (atIndex <= 1 || atIndex == email.Length - 1)
             return "***";

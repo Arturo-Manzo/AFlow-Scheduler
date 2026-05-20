@@ -1,0 +1,657 @@
+<section class="flex flex-col gap-8 pb-8">
+  <!-- Header -->
+  <div class="flex flex-col gap-5">
+    <div class="ui-kpi-grid">
+      <div class="ui-kpi-card">
+        <p class="ui-kpi-label">Boxes</p>
+        <p class="ui-kpi-value text-[var(--color-text)]">{{ loading() ? '--' : boxes().length }}</p>
+      </div>
+      <div class="ui-kpi-card">
+        <p class="ui-kpi-label">Active</p>
+        <p class="ui-kpi-value text-[var(--color-accent)]">{{ loading() ? '--' : activeBoxes() }}</p>
+      </div>
+      <div class="ui-kpi-card">
+        <p class="ui-kpi-label">Tasks</p>
+        <p class="ui-kpi-value text-[var(--color-text)]">{{ loading() ? '--' : totalTasks() }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Search Panel -->
+  <article class="ui-card">
+    <header class="flex items-center justify-between border-b border-[var(--ui-border-color)] px-6 py-4">
+      <div>
+        <h2 class="text-sm font-bold uppercase tracking-[0.12em] text-[var(--color-accent)]">Global Search</h2>
+        <p class="text-xs text-[var(--color-muted)] mt-1">Search boxes and tasks from a single entry point, then jump directly to the matching record. Use Ctrl+K or / to focus the search box.</p>
+      </div>
+    </header>
+
+    <div class="p-6 space-y-4">
+      <form [formGroup]="taskSearchForm" class="grid gap-4 md:grid-cols-[1fr_140px_120px_auto] items-end" novalidate>
+        <div class="space-y-1">
+          <label class="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-muted)]" for="task-search-query">Search text</label>
+          <input id="task-search-query" formControlName="query" placeholder="Try task name, command fragment, box name or time zone" class="ui-input rounded-md" [class.border-[var(--ui-danger-border)]]="taskSearchFieldInvalid()" />
+          @if (taskSearchFieldInvalid()) { <span class="text-xs text-[var(--ui-danger-text)]">Enter at least 2 characters.</span> }
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-muted)]" for="task-search-scope">Scope</label>
+          <select id="task-search-scope" formControlName="scope" class="ui-input rounded-md text-sm font-semibold">
+            <option value="all">All</option>
+            <option value="box">Boxes</option>
+            <option value="task">Tasks</option>
+          </select>
+        </div>
+        <div class="space-y-1">
+          <label class="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-muted)]" for="task-search-limit">Limit</label>
+          <select id="task-search-limit" formControlName="limit" class="ui-input rounded-md text-sm font-semibold">
+            <option [value]="10">10</option>
+            <option [value]="25">25</option>
+            <option [value]="50">50</option>
+          </select>
+        </div>
+        <div class="flex gap-2 items-end">
+          <button type="button" appButton="secondary" buttonSize="md" (click)="clearTaskSearch()" [disabled]="taskSearchLoading()">Clear</button>
+        </div>
+      </form>
+
+      @if (taskSearchError()) {
+        <div class="ui-feedback ui-feedback--error">
+          <svg class="ui-feedback__icon" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+          </svg>
+          <span class="text-xs">{{ taskSearchError() }}</span>
+        </div>
+      }
+
+      @if (taskSearchLoading()) {
+        <article class="rounded-xl bg-white px-5 py-10 text-sm text-[var(--color-muted)] shadow-[0_8px_24px_rgba(0,61,121,0.06)]">
+          Searching boxes and tasks...
+        </article>
+      } @else if (!taskSearchPerformed()) {
+        <div class="rounded-lg bg-[var(--color-surface-low)] px-3 py-4 text-xs text-[var(--color-muted)]">
+          Use the scope filter to search only boxes, only tasks, or both.
+        </div>
+      } @else if (taskSearchResults().length === 0) {
+        <div class="rounded-lg bg-[var(--color-surface-low)] px-3 py-4 text-xs text-[var(--color-muted)]">
+          No results matched the current search.
+        </div>
+      } @else {
+        <div class="ui-table-wrap">
+          <table class="ui-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Name</th>
+                <th>Context</th>
+                <th>Details</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (result of taskSearchResults(); track searchTrackBy(result)) {
+                <tr>
+                  <td>
+                    <span [class]="'type-badge ' + (result.resultType === 'task' ? 'type-api' : 'type-exe')">{{ result.resultType }}</span>
+                  </td>
+                  <td>
+                    <strong><span [innerHTML]="result.title | highlight:taskSearchQuery()"></span></strong>
+                    @if (result.description) { <div class="text-xs text-[var(--color-muted)] mt-1" [innerHTML]="result.description | highlight:taskSearchQuery()"></div> }
+                  </td>
+                  <td>
+                    @if (result.resultType === 'task') {
+                      <strong><span [innerHTML]="result.boxName | highlight:taskSearchQuery()"></span></strong>
+                      <div class="text-xs text-[var(--color-muted)] mt-1">Parent box</div>
+                    } @else {
+                      <strong><span [innerHTML]="(result.timeZoneId || '--') | highlight:taskSearchQuery()"></span></strong>
+                      <div class="text-xs text-[var(--color-muted)] mt-1">Time zone</div>
+                    }
+                  </td>
+                  <td>
+                    @if (result.resultType === 'task') {
+                      <div class="flex flex-col gap-1">
+                        <span [class]="'type-badge type-' + result.taskType.toLowerCase()">{{ result.taskType }}</span>
+                        <code class="text-xs bg-[var(--color-surface-low)] border border-[var(--ui-border-color)] rounded px-1 py-0.5 block" [innerHTML]="result.command | highlight:taskSearchQuery()"></code>
+                      </div>
+                    } @else {
+                      <div class="flex flex-col gap-1">
+                        <span>{{ result.activeTaskCount }} active task(s)</span>
+                      </div>
+                    }
+                  </td>
+                  <td>
+                    <div class="flex gap-1 flex-wrap">
+                      <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium" [ngClass]="result.enabled ? 'bg-[var(--ui-success-bg)] text-[var(--ui-success-text)]' : 'bg-[var(--ui-danger-bg)] text-[var(--ui-danger-text)]'">{{ result.enabled ? 'Enabled' : 'Disabled' }}</span>
+                      @if (result.resultType === 'task') {
+                        <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium" [ngClass]="result.boxEnabled ? 'bg-[var(--ui-success-bg)] text-[var(--ui-success-text)]' : 'bg-[var(--ui-danger-bg)] text-[var(--ui-danger-text)]'">{{ result.boxEnabled ? 'Box On' : 'Box Off' }}</span>
+                      }
+                    </div>
+                  </td>
+                  <td>{{ formatUtc(result.createdAt, 'date') }}</td>
+                  <td>
+                    <div class="flex gap-1">
+                      @if (result.resultType === 'task') {
+                        <button appButton="secondary" buttonSize="sm" (click)="openTaskSearchResult(result)">Open Task</button>
+                      }
+                      <button appButton="secondary" buttonSize="sm" (click)="openBoxFromSearch(result)">Open Box</button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  </article>
+</section>
+
+  @if (showBoxForm()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
+      <div class="w-full max-w-2xl space-y-4 rounded-xl bg-white p-5 shadow-2xl" style="max-height:92vh;overflow-y:auto" (click)="$event.stopPropagation()">
+        <!-- Header -->
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold uppercase tracking-[0.12em]">{{ editingBox() ? 'Edit Box' : 'New Box' }}</h3>
+          <button type="button" class="text-[var(--color-accent)] hover:opacity-70 transition-opacity" (click)="closeBoxForm()" aria-label="Close">
+            Cerrar
+          </button>
+        </div>
+
+        <!-- Contenido -->
+        <form [formGroup]="boxForm" (ngSubmit)="saveBox()" novalidate class="space-y-4">
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label class="space-y-1 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)] sm:col-span-2">
+              Name
+              <input id="b-name" formControlName="name" placeholder="Nightly Reports" class="ui-input rounded-md" [class.border-[var(--ui-danger-border)]]="bfi('name')" />
+              @if (bfi('name')) { <span class="text-xs text-[var(--ui-danger-text)]">Name is required.</span> }
+            </label>
+            <label class="space-y-1 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)] sm:col-span-2">
+              Description
+              <input id="b-desc" formControlName="description" placeholder="Optional description" class="ui-input rounded-md" />
+            </label>
+            <label class="space-y-1 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)] sm:col-span-2">
+              Notification Email
+              <input id="b-email" type="text" formControlName="notificationEmail" placeholder="Optional. Comma-separated emails for task failure alerts." class="ui-input rounded-md" [class.border-[var(--ui-danger-border)]]="bfi('notificationEmail')" />
+              @if (bfi('notificationEmail')) { <span class="text-xs text-[var(--ui-danger-text)]">Use valid emails separated by comma (max 10).</span> }
+            </label>
+            <label class="space-y-1 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)]">
+              Department
+              <select id="b-dept" formControlName="departmentId" class="ui-input rounded-md text-sm font-semibold">
+                <option [ngValue]="null">Not assigned</option>
+                @for (department of departments(); track department.departmentId) {
+                  <option [ngValue]="department.departmentId">{{ department.name }}</option>
+                }
+              </select>
+              <span class="text-xs text-[var(--color-muted)]">Department controls governance defaults for this box.</span>
+            </label>
+          </div>
+
+          <section class="rounded-lg border border-[var(--ui-border-color)] p-4 bg-[var(--color-surface)]">
+            <h4 class="text-sm font-bold text-[var(--color-accent)] mb-3">Schedule</h4>
+            <div class="space-y-4">
+              <div>
+                <p class="text-xs font-bold text-[var(--color-muted)] mb-2">Days of the Week</p>
+                <div class="grid grid-cols-7 gap-2">
+                  @for (d of dayOptions; track d.key) {
+                    <label class="flex items-center gap-1 text-xs text-[var(--color-muted)]">
+                      <input type="checkbox" [formControlName]="d.key" /><span>{{ d.label }}</span>
+                    </label>
+                  }
+                </div>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-[var(--color-muted)] mb-2">Frequency</p>
+                <div class="flex flex-col gap-2">
+                  <label class="flex items-center gap-2 text-xs text-[var(--color-muted)]"><input type="radio" formControlName="frequency" value="hourly" /> Every Hour</label>
+                  <label class="flex items-center gap-2 text-xs text-[var(--color-muted)]"><input type="radio" formControlName="frequency" value="every10" /> Every 10 min</label>
+                  <label class="flex items-center gap-2 text-xs text-[var(--color-muted)]"><input type="radio" formControlName="frequency" value="every15" /> Every 15 min</label>
+                  <label class="flex items-center gap-2 text-xs text-[var(--color-muted)]"><input type="radio" formControlName="frequency" value="every30" /> Every 30 min</label>
+                  <label class="flex items-center gap-2 text-xs text-[var(--color-muted)]">
+                    <input type="radio" formControlName="frequency" value="onceDaily" />
+                    <span>Once Daily at:</span>
+                    <input type="time" formControlName="specificTime" class="ui-input rounded-md text-sm" style="max-width:130px" />
+                  </label>
+                </div>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-[var(--color-muted)] mb-2">Time Zone</p>
+                <select formControlName="timeZoneId" class="ui-input rounded-md text-sm font-semibold" [class.border-[var(--ui-danger-border)]]="bfi('timeZoneId')">
+                  @for (tz of availableTimeZones; track tz) {
+                    <option [value]="tz">{{ tz }}</option>
+                  }
+                </select>
+                @if (bfi('timeZoneId')) { <span class="text-xs text-[var(--ui-danger-text)]">Time zone is required.</span> }
+                <span class="text-xs text-[var(--color-muted)]">Detected browser time zone: {{ userTimeZone }}</span>
+              </div>
+              <div class="rounded-lg bg-[var(--ui-info-bg)] border border-[var(--ui-info-text)] p-3">
+                <strong class="text-sm">Preview:</strong>
+                <p class="text-sm mt-1">{{ liveScheduleSummary() }}</p>
+                <p class="text-sm">This schedule will run in: <strong>{{ selectedTimeZoneId() }}</strong></p>
+              </div>
+            </div>
+          </section>
+
+          @if (editingBox()) {
+            <label class="flex items-center gap-2 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)]">
+              <input type="checkbox" formControlName="enabled" id="b-en" />
+              <span for="b-en">Enabled</span>
+            </label>
+          }
+
+          @if (!editingBox()) {
+            <section class="rounded-lg border border-[var(--color-accent)] p-4 bg-[color-mix(in_srgb,var(--color-accent)_5%,white)]">
+              <h4 class="text-sm font-bold text-[var(--color-accent)] mb-1">First Task <span class="text-xs font-normal text-[var(--color-muted)]">(required)</span></h4>
+              <p class="text-xs text-[var(--color-muted)] mb-3">Every box must have at least one task. Configure the first one below.</p>
+              <div class="grid gap-3 sm:grid-cols-2">
+                <label class="space-y-1 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)]">
+                  Task Name
+                  <input id="t-name" formControlName="taskName" placeholder="e.g. Generate Report" class="ui-input rounded-md" [class.border-[var(--ui-danger-border)]]="bfi('taskName')" />
+                  @if (bfi('taskName')) { <span class="text-xs text-[var(--ui-danger-text)]">Task name is required.</span> }
+                </label>
+                <label class="space-y-1 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)]">
+                  Task Description
+                  <input id="t-desc" formControlName="taskDescription" placeholder="Optional" class="ui-input rounded-md" />
+                </label>
+                <label class="space-y-1 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)] sm:col-span-2">
+                  Command
+                  <input id="t-cmd" formControlName="taskCommand" placeholder="C:\scripts\report.exe --daily" class="ui-input rounded-md" [class.border-[var(--ui-danger-border)]]="bfi('taskCommand')" />
+                  @if (bfi('taskCommand')) { <span class="text-xs text-[var(--ui-danger-text)]">Command is required.</span> }
+                </label>
+                <label class="space-y-1 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)]">
+                  Task Type
+                  <select id="t-type" formControlName="taskType" class="ui-input rounded-md text-sm font-semibold">
+                    @for (opt of taskTypeOptions; track opt.value) {
+                      <option [value]="opt.value">{{ opt.label }}</option>
+                    }
+                  </select>
+                </label>
+                <label class="space-y-1 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)]">
+                  Dependencies
+                  <input id="t-deps-init" value="None for first task" disabled class="ui-input rounded-md" />
+                  <span class="text-xs text-[var(--color-muted)]">You can configure dependencies when adding additional tasks in the box detail view.</span>
+                </label>
+              </div>
+            </section>
+          }
+
+          @if (boxFormError()) {
+            <div class="ui-feedback ui-feedback--error">
+              <svg class="ui-feedback__icon" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+              </svg>
+              <span class="text-xs">{{ boxFormError() }}</span>
+            </div>
+          }
+
+          <!-- Footer con botones -->
+          <div class="flex justify-end gap-2">
+            <button type="button" appButton="secondary" buttonSize="md" (click)="closeBoxForm()">Cancel</button>
+            <button type="submit" appButton="primary" buttonSize="md" [disabled]="saving()">
+              {{ saving() ? 'Saving...' : (editingBox() ? 'Save Box' : 'Create Box & Task') }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  @if (boxPendingDelete()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
+      <div class="w-full max-w-md space-y-4 rounded-xl bg-white p-5 shadow-2xl" (click)="$event.stopPropagation()">
+        <!-- Header -->
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold uppercase tracking-[0.12em]">Delete Box</h3>
+          <button type="button" class="text-[var(--color-accent)] hover:opacity-70 transition-opacity" (click)="cancelDelete()" aria-label="Close">
+            Cerrar
+          </button>
+        </div>
+
+        <!-- Contenido -->
+        <div class="space-y-4">
+          <p>You are about to delete <strong>{{ boxPendingDelete()!.name }}</strong>.</p>
+          @if (deleteError()) {
+            <div class="ui-feedback ui-feedback--error">
+              <svg class="ui-feedback__icon" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+              </svg>
+              <span class="text-xs">{{ deleteError() }}</span>
+            </div>
+          }
+        </div>
+
+        <!-- Footer con botones -->
+        <div class="flex justify-end gap-2">
+          <button type="button" appButton="secondary" buttonSize="md" (click)="cancelDelete()">Cancel</button>
+          <button type="button" appButton="danger" buttonSize="md" (click)="confirmDelete()" [disabled]="deleteLoading()">{{ deleteLoading() ? 'Deleting...' : 'Confirm Delete' }}</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (runFormVisible()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
+      <div class="w-full max-w-md space-y-4 rounded-xl bg-white p-5 shadow-2xl" (click)="$event.stopPropagation()">
+        <!-- Header -->
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold uppercase tracking-[0.12em]">Run "{{ runningBox()?.name }}" now</h3>
+          <button type="button" class="text-[var(--color-accent)] hover:opacity-70 transition-opacity" (click)="closeRunForm()" aria-label="Close">
+            Cerrar
+          </button>
+        </div>
+
+        <!-- Contenido -->
+        <form [formGroup]="runFormGroup" (ngSubmit)="confirmRun()" class="space-y-4">
+          <label class="flex items-center gap-2 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)]">
+            <input type="checkbox" formControlName="ignoreDependencies" id="b-idep" />
+            <span for="b-idep">Ignore dependencies</span>
+          </label>
+          <label class="space-y-1 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)]">
+            Reason <span class="text-[var(--ui-danger-text)]">*</span>
+            <input id="b-reason" formControlName="reason" placeholder="Reason for manual execution" class="ui-input rounded-md" [class.border-[var(--ui-danger-border)]]="bfr('reason')" />
+            @if (bfr('reason')) { <span class="text-xs text-[var(--ui-danger-text)]">Reason is required.</span> }
+          </label>
+          @if (runMessage()) {
+            <div class="ui-feedback ui-feedback--success">
+              <svg class="ui-feedback__icon" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+              <span class="text-xs">{{ runMessage() }}</span>
+            </div>
+          }
+          @if (runError()) {
+            <div class="ui-feedback ui-feedback--error">
+              <svg class="ui-feedback__icon" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+              </svg>
+              <span class="text-xs">{{ runError() }}</span>
+            </div>
+          }
+
+          <!-- Footer con botones -->
+          <div class="flex justify-end gap-2">
+            <button type="button" appButton="secondary" buttonSize="md" (click)="closeRunForm()">Close</button>
+            @if (!runMessage()) {
+              <button type="submit" appButton="primary" buttonSize="md">Queue Box</button>
+            }
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- ==================== Box detail modal ==================== -->
+  @if (viewingBox()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
+      <div class="w-full max-w-2xl space-y-4 rounded-xl bg-white p-5 shadow-2xl" style="max-height:92vh;overflow-y:auto" (click)="$event.stopPropagation()">
+        <!-- Header -->
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold uppercase tracking-[0.12em]">{{ viewingBox()!.name }}</h3>
+          <button type="button" class="text-[var(--color-accent)] hover:opacity-70 transition-opacity" (click)="closeDetail()" aria-label="Close">
+            Cerrar
+          </button>
+        </div>
+
+        <!-- Contenido -->
+        <div class="space-y-4">
+          @if (loadingDetail()) {
+            <article class="rounded-xl bg-white px-5 py-10 text-sm text-[var(--color-muted)] shadow-[0_8px_24px_rgba(0,61,121,0.06)]">
+              Loading details...
+            </article>
+          } @else {
+            @if (viewingBox()!.description) {
+              <p class="text-sm leading-6 text-[var(--color-muted)]">{{ viewingBox()!.description }}</p>
+            }
+            <div class="flex flex-wrap gap-4 p-4 bg-[var(--color-surface)] border border-[var(--ui-border-color)] rounded-lg">
+              <div class="flex flex-col gap-1">
+                <span class="text-xs font-bold uppercase tracking-[0.05em] text-[var(--color-muted)]">Schedule</span>
+                <span class="inline-block bg-[var(--color-surface-low)] border border-[var(--ui-border-color)] rounded-full px-2 py-0.5 text-xs">{{ describeCron(viewingBox()!.cronExpression, viewingBox()!.timeZoneId) }}</span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <span class="text-xs font-bold uppercase tracking-[0.05em] text-[var(--color-muted)]">Time Zone</span>
+                <span class="text-sm font-semibold">{{ viewingBox()!.timeZoneId }}</span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <span class="text-xs font-bold uppercase tracking-[0.05em] text-[var(--color-muted)]">Status</span>
+                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium" [ngClass]="viewingBox()!.enabled ? 'bg-[var(--ui-success-bg)] text-[var(--ui-success-text)]' : 'bg-[var(--ui-danger-bg)] text-[var(--ui-danger-text)]'">{{ viewingBox()!.enabled ? 'Active' : 'Disabled' }}</span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <span class="text-xs font-bold uppercase tracking-[0.05em] text-[var(--color-muted)]">Last Run</span>
+                <span class="text-sm font-semibold">{{ viewingBox()!.lastRunUtc ? formatUtcWithBoxContext(viewingBox()!.lastRunUtc, viewingBox()!.timeZoneId, 'short') : 'Never' }}</span>
+              </div>
+              <div class="flex flex-col gap-1">
+                <span class="text-xs font-bold uppercase tracking-[0.05em] text-[var(--color-muted)]">Created</span>
+                <span class="text-sm font-semibold">{{ formatUtc(viewingBox()!.createdAt, 'short') }}</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between">
+              <h4 class="text-sm font-bold text-[var(--color-accent)]">Tasks ({{ viewingBox()!.tasks.length }})</h4>
+              @if (auth.isAdmin) {
+                <button appButton="primary" buttonSize="sm" (click)="openAddTask()">+ Add Task</button>
+              }
+            </div>
+            @if (detailError()) {
+              <div class="ui-feedback ui-feedback--error">
+                <svg class="ui-feedback__icon" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-xs">{{ detailError() }}</span>
+              </div>
+            }
+            @if (viewingBox()!.tasks.length === 0) {
+              <div class="rounded-lg bg-[var(--color-surface-low)] px-3 py-4 text-xs text-[var(--color-muted)]">
+                No tasks configured for this box.
+              </div>
+            } @else {
+              <div class="flex flex-col gap-2">
+                @for (task of viewingBox()!.tasks; track task.taskId) {
+                  <div class="border border-[var(--ui-border-color)] rounded-lg p-4 bg-[var(--color-surface)]">
+                    <div class="flex items-start justify-between gap-2">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <strong>{{ task.name }}</strong>
+                        <span class="text-xs font-bold uppercase tracking-[0.04em] px-1.5 py-0.5 rounded" [ngClass]="'type-' + task.taskType.toLowerCase()">{{ task.taskType }}</span>
+                        <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium" [ngClass]="task.enabled ? 'bg-[var(--ui-success-bg)] text-[var(--ui-success-text)]' : 'bg-[var(--ui-danger-bg)] text-[var(--ui-danger-text)]'">{{ task.enabled ? 'Active' : 'Off' }}</span>
+                      </div>
+                      @if (auth.isAdmin || auth.isOperator) {
+                        <div class="flex gap-1">
+                          @if (auth.isOperator) {
+                            <button appButton="secondary" buttonSize="sm" (click)="openForceStart(task)">Force Start</button>
+                          }
+                          @if (auth.isAdmin) {
+                            <button appButton="secondary" buttonSize="sm" (click)="openEditTask(task)">Edit</button>
+                            <button appButton="danger" buttonSize="sm" (click)="requestDeleteTask(task)">Delete</button>
+                          }
+                        </div>
+                      }
+                    </div>
+                    @if (task.description) {
+                      <div class="text-xs text-[var(--color-muted)] mt-2">{{ task.description }}</div>
+                    }
+                    <div class="flex items-center gap-2 mt-3">
+                      <span class="text-xs font-bold uppercase tracking-[0.04em] text-[var(--color-muted)]">CMD</span>
+                      <code class="text-xs bg-[var(--color-surface-low)] border border-[var(--ui-border-color)] rounded px-1 py-0.5">{{ task.command }}</code>
+                    </div>
+                    @if (task.dependencyTaskIds.length > 0) {
+                      <div class="text-xs text-[var(--color-muted)] mt-2">Depends on: {{ dependencyLabel(task) }}</div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          }
+        </div>
+
+        <!-- Footer con botones -->
+        <div class="flex justify-end gap-2">
+          <button type="button" appButton="secondary" buttonSize="md" (click)="closeDetail()">Close</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ==================== Task form modal ==================== -->
+  @if (showTaskForm()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
+      <div class="w-full max-w-lg space-y-4 rounded-xl bg-white p-5 shadow-2xl" (click)="$event.stopPropagation()">
+        <!-- Header -->
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold uppercase tracking-[0.12em]">{{ editingTask() ? 'Edit Task' : 'Add Task' }}</h3>
+          <button type="button" class="text-[var(--color-accent)] hover:opacity-70 transition-opacity" (click)="closeTaskForm()" aria-label="Close">
+            Cerrar
+          </button>
+        </div>
+
+        <!-- Contenido -->
+        <form [formGroup]="taskForm" (ngSubmit)="saveTask()" novalidate class="space-y-4">
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label class="space-y-1 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)] sm:col-span-2">
+              Name
+              <input id="tf-name" formControlName="name" placeholder="e.g. Generate Report" class="ui-input rounded-md" [class.border-[var(--ui-danger-border)]]="bft('name')" />
+              @if (bft('name')) { <span class="text-xs text-[var(--ui-danger-text)]">Name is required.</span> }
+            </label>
+            <label class="space-y-1 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)] sm:col-span-2">
+              Description
+              <input id="tf-desc" formControlName="description" placeholder="Optional" class="ui-input rounded-md" />
+            </label>
+            <label class="space-y-1 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)] sm:col-span-2">
+              Command
+              <input id="tf-cmd" formControlName="command" placeholder="C:\scripts\task.exe --args" class="ui-input rounded-md" [class.border-[var(--ui-danger-border)]]="bft('command')" />
+              @if (bft('command')) { <span class="text-xs text-[var(--ui-danger-text)]">Command is required.</span> }
+            </label>
+            <label class="space-y-1 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)]">
+              Task Type
+              <select id="tf-type" formControlName="taskType" class="ui-input rounded-md text-sm font-semibold">
+                @for (opt of taskTypeOptions; track opt.value) {
+                  <option [value]="opt.value">{{ opt.label }}</option>
+                }
+              </select>
+            </label>
+            <label class="space-y-1 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)] sm:col-span-2">
+              Dependencies
+              @if (dependencyCandidates().length === 0) {
+                <input id="tf-deps" value="No dependency candidates available" disabled class="ui-input rounded-md" />
+              } @else {
+                <div id="tf-deps" class="border border-[var(--ui-border-color)] rounded-lg p-2 max-h-40 overflow-auto bg-[var(--color-surface)]">
+                  @for (candidate of dependencyCandidates(); track candidate.taskId) {
+                    <label class="flex items-center gap-2 p-1 text-sm text-[var(--color-muted)]">
+                      <input
+                        type="checkbox"
+                        [checked]="isDependencySelected(candidate.taskId)"
+                        (change)="toggleDependency(candidate.taskId, $any($event.target).checked)"
+                        class="w-4 h-4 accent-[var(--color-accent)] cursor-pointer"
+                      />
+                      <span>{{ candidate.name }}</span>
+                    </label>
+                  }
+                </div>
+              }
+              <span class="text-xs text-[var(--color-muted)]">Only active tasks in this box are available.</span>
+            </label>
+          </div>
+          @if (editingTask()) {
+            <label class="flex items-center gap-2 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)]">
+              <input type="checkbox" formControlName="enabled" id="tf-en" />
+              <span for="tf-en">Enabled</span>
+            </label>
+          }
+          @if (taskFormError()) {
+            <div class="ui-feedback ui-feedback--error">
+              <svg class="ui-feedback__icon" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+              </svg>
+              <span class="text-xs">{{ taskFormError() }}</span>
+            </div>
+          }
+
+          <!-- Footer con botones -->
+          <div class="flex justify-end gap-2">
+            <button type="button" appButton="secondary" buttonSize="md" (click)="closeTaskForm()">Cancel</button>
+            <button type="submit" appButton="primary" buttonSize="md" [disabled]="taskSaving()">{{ taskSaving() ? 'Saving...' : 'Save Task' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+  <!-- ==================== Delete task confirmation ==================== -->
+  @if (taskPendingDelete()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
+      <div class="w-full max-w-md space-y-4 rounded-xl bg-white p-5 shadow-2xl" (click)="$event.stopPropagation()">
+        <!-- Header -->
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold uppercase tracking-[0.12em]">Delete Task</h3>
+          <button type="button" class="text-[var(--color-accent)] hover:opacity-70 transition-opacity" (click)="cancelDeleteTask()" aria-label="Close">
+            Cerrar
+          </button>
+        </div>
+
+        <!-- Contenido -->
+        <div class="space-y-4">
+          <p>Delete task <strong>{{ taskPendingDelete()!.name }}</strong>?</p>
+          @if (taskDeleteError()) {
+            <div class="ui-feedback ui-feedback--error">
+              <svg class="ui-feedback__icon" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+              </svg>
+              <span class="text-xs">{{ taskDeleteError() }}</span>
+            </div>
+          }
+        </div>
+
+        <!-- Footer con botones -->
+        <div class="flex justify-end gap-2">
+          <button type="button" appButton="secondary" buttonSize="md" (click)="cancelDeleteTask()">Cancel</button>
+          <button type="button" appButton="danger" buttonSize="md" (click)="confirmDeleteTask()" [disabled]="taskDeleteLoading()">{{ taskDeleteLoading() ? 'Deleting...' : 'Confirm Delete' }}</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ==================== Force Start confirmation ==================== -->
+  @if (forceStartPendingTask()) {
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" style="z-index:1200" role="dialog" aria-modal="true">
+      <div class="w-full max-w-md space-y-4 rounded-xl bg-white p-5 shadow-2xl" (click)="$event.stopPropagation()">
+        <!-- Header -->
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold uppercase tracking-[0.12em]">Force Start Task</h3>
+          <button type="button" class="text-[var(--color-accent)] hover:opacity-70 transition-opacity" (click)="closeForceStart()" aria-label="Close">
+            Cerrar
+          </button>
+        </div>
+
+        <!-- Contenido -->
+        <form [formGroup]="forceStartForm" (ngSubmit)="confirmForceStart()" class="space-y-4">
+          <p>This will execute <strong>{{ forceStartPendingTask()!.name }}</strong> ignoring its dependencies. Continue?</p>
+          <label class="space-y-1 text-xs uppercase tracking-[0.1em] text-[var(--color-muted)]">
+            Reason <span class="text-[var(--ui-danger-text)]">*</span>
+            <input id="fs-reason" formControlName="reason" placeholder="e.g. Manual retry after outage" class="ui-input rounded-md" [class.border-[var(--ui-danger-border)]]="bffs()" />
+            @if (bffs()) { <span class="text-xs text-[var(--ui-danger-text)]">Reason is required.</span> }
+          </label>
+          @if (forceStartMessage()) {
+            <div class="ui-feedback ui-feedback--success">
+              <svg class="ui-feedback__icon" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+              <span class="text-xs">{{ forceStartMessage() }}</span>
+            </div>
+          }
+          @if (forceStartError()) {
+            <div class="ui-feedback ui-feedback--error">
+              <svg class="ui-feedback__icon" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+              </svg>
+              <span class="text-xs">{{ forceStartError() }}</span>
+            </div>
+          }
+
+          <!-- Footer con botones -->
+          <div class="flex justify-end gap-2">
+            <button type="button" appButton="secondary" buttonSize="md" (click)="closeForceStart()">Close</button>
+            @if (!forceStartMessage()) {
+              <button type="submit" appButton="primary" buttonSize="md" [disabled]="forceStartLoading()">{{ forceStartLoading() ? 'Starting...' : 'Force Start' }}</button>
+            }
+          </div>
+        </form>
+      </div>
+    </div>
+  }

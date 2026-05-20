@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using System.Reflection;
 using CHRONIQ.Api.Dtos;
 using CHRONIQ.Data;
 using CHRONIQ.Queue;
@@ -63,6 +64,7 @@ public class StatusController : ControllerBase
         }
 
         var staleExecutions = runningExecutions.Count(record => record.IsStale);
+        var autoRecoveryEnabled = _configuration.GetValue<bool>("WorkerPool:AutoRecoverStaleExecutions", true);
 
         var dto = new SystemStatusDto
         {
@@ -76,6 +78,8 @@ public class StatusController : ControllerBase
             StaleExecutionThresholdMinutes = staleThresholdMinutes,
             QueueDepth = _taskQueue.QueueDepth,
             FailNotificationEnabled = smtpSettings.Enabled,
+            BackendVersion = GetBackendVersion(),
+            AutoRecoveryEnabled = autoRecoveryEnabled,
             StartupRecoveryCompleted = _workerState.StartupRecoveryCompleted,
             LastRecoveryCompletedAtUtc = _workerState.LastRecoveryCompletedAtUtc,
             LastRecoveredExecutionCount = _workerState.LastRecoveredExecutionCount,
@@ -84,6 +88,25 @@ public class StatusController : ControllerBase
         };
 
         return Ok(new ApiResponse<SystemStatusDto> { Success = true, Data = dto });
+    }
+
+    private static string GetBackendVersion()
+    {
+        var entryAssembly = Assembly.GetEntryAssembly();
+        if (entryAssembly == null)
+            return "unknown";
+
+        var informational = entryAssembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion;
+
+        if (!string.IsNullOrWhiteSpace(informational))
+        {
+            var plusIndex = informational.IndexOf('+');
+            return plusIndex > 0 ? informational[..plusIndex] : informational;
+        }
+
+        return entryAssembly.GetName().Version?.ToString() ?? "unknown";
     }
 
     private async Task<bool> CheckDatabaseAsync()

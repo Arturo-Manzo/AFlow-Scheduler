@@ -1,0 +1,90 @@
+<div class="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--color-bg)] px-4 py-12">
+  <div class="ui-auth-layout__background pointer-events-none absolute inset-0"></div>
+
+  <section class="ui-card ui-card--padded relative w-full max-w-md">
+    <header class="mb-8">
+      <p class="text-xs uppercase ui-tracking-tight text-[var(--color-accent)]">Chroniq</p>
+      <h1 class="ui-page__title mt-2">Inicio de sesión</h1>
+      <p class="ui-page__subtitle mt-2">
+        Orquesta tus flujos de trabajo con Chroniq.
+      </p>
+    </header>
+
+    <form class="space-y-5" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <div class="space-y-2">
+        <label for="username" class="ui-form-label text-[var(--color-text)]">Usuario</label>
+        <input
+          id="username"
+          type="text"
+          formControlName="username"
+          autocomplete="username"
+          (focus)="clearPlaceholderOnFocus('username')"
+          (blur)="restorePlaceholderOnBlur('username')"
+          class="ui-input rounded-xl px-4 py-3"
+          [attr.placeholder]="usernamePlaceholder()"
+        />
+        @if (form.controls.username.touched && form.controls.username.invalid) {
+          <div class="ui-feedback ui-feedback--error mt-2">
+            <svg class="ui-feedback__icon" viewBox="0 0 20 20" fill="currentColor">
+              <path
+                fill-rule="evenodd"
+                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                clip-rule="evenodd"
+              />
+            </svg>
+            <span class="text-xs">El usuario es obligatorio.</span>
+          </div>
+        }
+      </div>
+
+      <div class="space-y-2">
+        <label for="password" class="ui-form-label text-[var(--color-text)]">Contraseña</label>
+        <input
+          id="password"
+          type="password"
+          formControlName="password"
+          autocomplete="current-password"
+          (focus)="clearPlaceholderOnFocus('password')"
+          (blur)="restorePlaceholderOnBlur('password')"
+          class="ui-input rounded-xl px-4 py-3"
+          [attr.placeholder]="passwordPlaceholder()"
+        />
+        @if (form.controls.password.touched && form.controls.password.invalid) {
+          <div class="ui-feedback ui-feedback--error mt-2">
+            <svg class="ui-feedback__icon" viewBox="0 0 20 20" fill="currentColor">
+              <path
+                fill-rule="evenodd"
+                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                clip-rule="evenodd"
+              />
+            </svg>
+            <span class="text-xs">La contraseña es obligatoria.</span>
+          </div>
+        }
+      </div>
+
+      @if (errorMessage()) {
+        <div class="ui-feedback ui-feedback--error">
+          <svg class="ui-feedback__icon" viewBox="0 0 20 20" fill="currentColor">
+            <path
+              fill-rule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+              clip-rule="evenodd"
+            />
+          </svg>
+          <span class="text-sm">{{ errorMessage() }}</span>
+        </div>
+      }
+
+      <button
+        type="submit"
+        appButton="primary"
+        buttonSize="md"
+        class="w-full rounded-xl active:scale-[0.99]"
+        [disabled]="isLoading() || form.invalid"
+      >
+        {{ isLoading() ? 'Validando...' : 'Entrar' }}
+      </button>
+    </form>
+  </section>
+</div>

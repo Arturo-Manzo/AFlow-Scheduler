@@ -1,78 +1,13 @@
 import { AfterViewChecked, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TaskExecutionLogDto } from '../../models/models';
+import { ButtonDirective } from 'ui-design-system';
 
 @Component({
   selector: 'app-task-logs-modal',
   standalone: true,
-  imports: [CommonModule],
-  template: `
-    @if (visible) {
-      <div class="modal-overlay" role="dialog" aria-modal="true" (click)="close.emit()">
-        <div class="modal task-logs-modal" (click)="$event.stopPropagation()">
-          <div class="modal-header">
-            <div>
-              <h3 style="margin:0;font-size:1rem">Task Logs</h3>
-              <div class="modal-subtitle">{{ taskName || 'Task execution logs' }}</div>
-            </div>
-            <button type="button" class="modal-close" (click)="close.emit()" aria-label="Close">x</button>
-          </div>
-          <div class="modal-body">
-            <div class="toolbar">
-              <button class="btn btn-sm" type="button" (click)="toggleNewestFirst()">
-                {{ newestFirst ? 'Show oldest first' : 'Show newest first' }}
-              </button>
-            </div>
-
-            <div #logContainer class="logs-container">
-              @if (loading) {
-                <div class="empty-state">Loading logs...</div>
-              } @else if (error) {
-                <div class="alert alert-danger">{{ error }}</div>
-              } @else if (orderedLogs().length === 0) {
-                <div class="empty-state">No logs found for this execution.</div>
-              } @else {
-                <table class="data-table logs-table">
-                  <thead>
-                    <tr>
-                      <th>Timestamp</th>
-                      <th>Level</th>
-                      <th>Message</th>
-                      <th>Details</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (log of orderedLogs(); track log.id) {
-                      <tr>
-                        <td class="timestamp-cell">{{ formatTimestamp(log.timestamp) }}</td>
-                        <td><span [class]="'badge log-level level-' + log.level.toLowerCase()">{{ log.level }}</span></td>
-                        <td>{{ log.message }}</td>
-                        <td>
-                          @if (log.details) {
-                            <button class="btn btn-sm" type="button" (click)="toggleDetails(log.id)">
-                              {{ isExpanded(log.id) ? 'Hide Details' : 'Show Details' }}
-                            </button>
-                            @if (isExpanded(log.id)) {
-                              <pre class="details-block">{{ log.details }}</pre>
-                            }
-                          } @else {
-                            <span class="muted">--</span>
-                          }
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              }
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn" (click)="close.emit()">Close</button>
-          </div>
-        </div>
-      </div>
-    }
-  `,
+  imports: [CommonModule, ButtonDirective],
+  templateUrl: './task-logs-modal.component.html',
   styles: [`
     .task-logs-modal { max-width: 980px; width: 96vw; }
     .modal-subtitle { margin-top:.2rem; color:var(--text-3); font-size:.82rem; }

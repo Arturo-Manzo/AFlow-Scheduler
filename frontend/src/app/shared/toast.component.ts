@@ -4,18 +4,7 @@ import { ErrorHandlerService } from '../services/error-handler.service';
 @Component({
   selector: 'app-toast',
   standalone: true,
-  template: `
-    @if (errorHandler.hasMessages()) {
-      <div class="toast-container">
-        @for (msg of errorHandler.messages(); track msg.id) {
-          <div [class]="'toast toast-' + msg.type" role="alert">
-            <span class="toast-text">{{ msg.text }}</span>
-            <button type="button" class="toast-close" (click)="errorHandler.dismiss(msg.id)" aria-label="Dismiss">&times;</button>
-          </div>
-        }
-      </div>
-    }
-  `,
+  templateUrl: './toast.component.html',
   styles: [`
     .toast-container {
       position: fixed;

@@ -1,176 +1,84 @@
-import { Component, signal, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { CommonModule } from '@angular/common';
+import { ButtonDirective } from 'ui-design-system';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { ApiResponse, LoginResponse } from '../../models/models';
-import { isFieldInvalid } from '../../shared/form-utils';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
-  template: `
-    <div class="login-wrapper">
-      <div class="login-card">
-        <div class="login-head">
-          <div class="login-eyebrow">Architectural Ledger</div>
-          <div class="login-context">Enterprise Scheduler Access</div>
-        </div>
-
-        <div class="login-logo">
-          <h1>Chroniq Control Panel</h1>
-        </div>
-        <p class="login-subtitle">Authenticate to access workflow operations, executions, logs and administrative controls.</p>
-
-        <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
-
-          <div class="field">
-            <label for="username">Username</label>
-            <input
-              id="username"
-              formControlName="username"
-              type="text"
-              placeholder="Enter your username"
-              autocomplete="username"
-              [class.is-invalid]="isInvalid('username')"
-            />
-            @if (isInvalid('username')) {
-              <span class="field-hint">Username is required.</span>
-            }
-          </div>
-
-          <div class="field">
-            <label for="password">Password</label>
-            <input
-              id="password"
-              formControlName="password"
-              type="password"
-              placeholder="••••••••"
-              autocomplete="current-password"
-              [class.is-invalid]="isInvalid('password')"
-            />
-            @if (isInvalid('password')) {
-              @if (form.get('password')!.hasError('required')) {
-                <span class="field-hint">Password is required.</span>
-              } @else if (form.get('password')!.hasError('minlength')) {
-                <span class="field-hint">Password must be at least 6 characters.</span>
-              }
-            }
-          </div>
-
-          @if (error()) {
-            <div class="alert alert-danger" role="alert">{{ error() }}</div>
-          }
-
-          <button
-            type="submit"
-            class="btn btn-primary btn-full btn-lg"
-            [disabled]="loading() || form.invalid"
-          >
-            @if (loading()) {
-              <span class="spinner"></span> Signing in…
-            } @else {
-              Sign in
-            }
-          </button>
-        </form>
-      </div>
-    </div>
-  `,
+  imports: [ReactiveFormsModule, ButtonDirective],
+  templateUrl: './login.component.html',
   styles: [`
-    :host {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--bg-app);
-      padding: 1rem;
+    .ui-auth-layout__background {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--color-accent) 14%, transparent) 36%, transparent),
+                  radial-gradient(circle at 80% 0%, color-mix(in srgb, var(--color-accent) 10%, transparent) 30%, transparent);
     }
-    .login-wrapper {
-      width: 100%;
-      max-width: 420px;
-    }
-    .login-card {
-      background: var(--bg-surface);
-      padding: 0;
-      border-radius: var(--radius-3);
-      box-shadow: var(--shadow-2);
-      border: 1px solid var(--border-strong);
-    }
-    .login-head {
-      padding: .9rem 1.1rem;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg-muted);
-    }
-    .login-eyebrow,
-    .login-context {
-      text-transform: uppercase;
-      letter-spacing: .08em;
-      font-weight: 700;
-    }
-    .login-eyebrow {
-      color: var(--text-1);
-      font-size: .72rem;
-    }
-    .login-context {
-      margin-top: .2rem;
-      font-size: .64rem;
-      color: var(--text-3);
-    }
-    .login-logo {
-      padding: 1.4rem 1.5rem 0;
-      h1 { font-size: 1.25rem; font-weight: 800; color: var(--text-1); margin: 0; }
-    }
-    .login-subtitle {
-      padding: 0 1.5rem;
-      font-size: .875rem;
-      color: var(--text-2);
-      margin: .5rem 0 1.4rem;
-      line-height: 1.5;
-    }
-    form { padding: 0 1.5rem 1.5rem; }
-    button[type="submit"] { margin-top: .5rem; }
   `]
 })
 export class LoginComponent {
-  private fb     = inject(FormBuilder);
-  private api    = inject(ApiService);
-  private auth   = inject(AuthService);
-  private router = inject(Router);
+  private static readonly USERNAME_HINT = 'Tu nombre de usuario';
+  private static readonly PASSWORD_HINT = 'Ingresa tu contraseña';
 
-  form = this.fb.group({
+  private readonly fb = inject(FormBuilder);
+  private readonly api = inject(ApiService);
+  private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+
+  readonly isLoading = signal(false);
+  readonly errorMessage = signal<string | null>(null);
+  readonly usernamePlaceholder = signal(LoginComponent.USERNAME_HINT);
+  readonly passwordPlaceholder = signal(LoginComponent.PASSWORD_HINT);
+
+  readonly form = this.fb.nonNullable.group({
     username: ['', [Validators.required]],
-    password: ['', [Validators.required, Validators.minLength(8)]]
+    password: ['', [Validators.required]],
   });
 
-  loading = signal(false);
-  error   = signal('');
+  clearPlaceholderOnFocus(field: 'username' | 'password'): void {
+    if (field === 'username') {
+      this.usernamePlaceholder.set('');
+      return;
+    }
+    this.passwordPlaceholder.set('');
+  }
 
-  isInvalid(field: string): boolean {
-    return isFieldInvalid(this.form, field);
+  restorePlaceholderOnBlur(field: 'username' | 'password'): void {
+    if (field === 'username' && !this.form.controls.username.value) {
+      this.usernamePlaceholder.set(LoginComponent.USERNAME_HINT);
+      return;
+    }
+    if (field === 'password' && !this.form.controls.password.value) {
+      this.passwordPlaceholder.set(LoginComponent.PASSWORD_HINT);
+    }
   }
 
   submit(): void {
-    this.form.markAllAsTouched();
-    if (this.form.invalid) return;
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
 
-    this.loading.set(true);
-    this.error.set('');
+    this.isLoading.set(true);
+    this.errorMessage.set(null);
 
-    const { username, password } = this.form.value;
-    this.api.post<ApiResponse<LoginResponse>>('auth/login', { username, password })
-      .subscribe({
-        next: resp => {
-          this.auth.storeLogin(resp.data);
-          this.router.navigate(['/dashboard']);
-        },
-        error: () => {
-          this.error.set('Invalid username or password. Please try again.');
-          this.loading.set(false);
-        }
-      });
+    const { username, password } = this.form.getRawValue();
+    this.api.post<ApiResponse<LoginResponse>>('auth/login', { username, password }).subscribe({
+      next: resp => {
+        this.isLoading.set(false);
+        this.auth.storeLogin(resp.data);
+        this.router.navigateByUrl('/dashboard');
+      },
+      error: () => {
+        this.isLoading.set(false);
+        this.errorMessage.set('Credenciales inválidas. Verifica usuario y contraseña.');
+      },
+    });
   }
-}
 
+}

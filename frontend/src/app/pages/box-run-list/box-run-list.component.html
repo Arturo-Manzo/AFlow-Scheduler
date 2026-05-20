@@ -1,0 +1,113 @@
+<div class="view-shell">
+  <section class="flex flex-col gap-8 pb-8">
+    <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <article class="ui-card ui-card--padded">
+      <div class="flex items-center justify-between">
+        <p class="ui-kpi-label">Visible Runs</p>
+        <svg class="h-5 w-5 text-[var(--color-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+        </svg>
+      </div>
+      <p class="ui-kpi-value text-[var(--color-text)]">{{ loading() ? '--' : runs().length }}</p>
+    </article>
+
+    <article class="ui-card ui-card--padded">
+      <div class="flex items-center justify-between">
+        <p class="ui-kpi-label">Running</p>
+        <svg class="h-5 w-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+        </svg>
+      </div>
+      <p class="ui-kpi-value text-[var(--color-accent)]">{{ loading() ? '--' : runningCount() }}</p>
+    </article>
+
+    <article class="ui-card ui-card--padded">
+      <div class="flex items-center justify-between">
+        <p class="ui-kpi-label">Resumable</p>
+        <svg class="h-5 w-5 text-[var(--ui-success-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+      </div>
+      <p class="ui-kpi-value text-[var(--ui-success-text)]">{{ loading() ? '--' : resumableCount() }}</p>
+      </article>
+
+
+    </div>
+  </section>
+
+  <section class="data-panel">
+    <div class="panel-header">
+      <div class="panel-title-wrap">
+        <div class="panel-title">Active BoxRun Queue</div>
+        <div class="panel-subtitle">Resumable failed runs — shows the latest failed job per box, excluding fully completed workflows.</div>
+      </div>
+      <div class="panel-toolbar">
+        <button class="btn" (click)="reload()">Refresh</button>
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="loading-state"><span class="spinner"></span> Loading executions...</div>
+    } @else if (error()) {
+      <div class="panel-body"><div class="alert alert-danger">{{ error() }}</div></div>
+    } @else if (runs().length === 0) {
+      <p class="empty-state">No active executions. All workflows completed successfully.</p>
+    } @else {
+      <div class="ui-table-wrap">
+        <table class="ui-table">
+          <thead>
+            <tr>
+              <th>Box Name</th>
+              <th>Status</th>
+              <th>Trigger</th>
+              <th>Start Time</th>
+              <th>End Time</th>
+              <th>Duration</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (run of runs(); track run.id) {
+              <tr>
+                <td>
+                  <strong>{{ run.boxName }}</strong>
+                  <div class="row-meta">BoxRun #{{ run.id }}</div>
+                </td>
+                <td><app-status-badge [status]="displayStatus(run)" /></td>
+                <td><span class="badge badge-neutral">{{ run.triggerSource }}</span></td>
+                <td>{{ formatTime(run.startTime) }}</td>
+                <td>{{ formatTime(run.endTime) }}</td>
+                <td>{{ run.durationSeconds != null ? run.durationSeconds + 's' : '--' }}</td>
+                <td>
+                  <div class="table-actions">
+                    <a class="btn btn-sm btn-view" [routerLink]="['/executions', run.id]">View Details</a>
+                    <button class="btn btn-sm btn-danger-soft" [disabled]="!canCancelFromList(run) || actionLoading()" (click)="pendingCancelId.set(run.id)">Stop Run</button>
+                    <button class="btn btn-sm btn-primary" [disabled]="!canResumeFromList(run) || actionLoading()" (click)="pendingResumeId.set(run.id)">Resume</button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+  </div>
+
+  <app-confirm-modal
+    [visible]="pendingResumeId() !== null"
+    title="Resume BoxRun"
+    message="Failed tasks will be re-executed. Are you sure you want to resume this workflow?"
+    confirmLabel="Resume"
+    (confirmed)="confirmResume()"
+    (cancelled)="pendingResumeId.set(null)"
+  />
+
+  <app-confirm-modal
+    [visible]="pendingCancelId() !== null"
+    title="Stop Current Run"
+    message="This will stop scheduling remaining tasks for this run. Tasks already running will be allowed to finish. Do you want to continue?"
+    confirmLabel="Stop Run"
+    (confirmed)="confirmCancel()"
+    (cancelled)="pendingCancelId.set(null)"
+  />

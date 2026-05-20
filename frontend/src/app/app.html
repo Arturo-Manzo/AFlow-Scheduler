@@ -1,116 +1,223 @@
 @if (auth.currentUser()) {
-  <aside class="sidebar" role="navigation" aria-label="Main navigation">
-    <div class="sidebar-brand">
-      <div>
-        <div class="brand-title">Chroniq Core</div>
-        <div class="brand-subtitle">Execution Orchestration Hub</div>
+  <div class="h-screen overflow-y-auto bg-[var(--bg-app)] text-[var(--text-1)]">
+    <header class="fixed top-0 z-40 flex h-16 w-full items-center justify-between bg-white/95 px-4 shadow-sm backdrop-blur-md md:px-8">
+      <div class="flex items-center gap-4">
+        <p class="text-lg font-extrabold tracking-tight text-[var(--primary)]">Chroniq Core</p>
+        <p class="text-xs text-[var(--text-3)] hidden md:block">Execution Orchestration Hub</p>
       </div>
-    </div>
 
-    <nav class="sidebar-nav">
-      <a routerLink="/dashboard" routerLinkActive="active" [routerLinkActiveOptions]="{exact: false}">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-        Dashboard
-      </a>
-      <a routerLink="/boxes" routerLinkActive="active">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-        Boxes
-      </a>
-      <a routerLink="/executions" routerLinkActive="active">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
-        Executions
-      </a>
-      <a routerLink="/history" routerLinkActive="active">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        Execution History
-      </a>
-      @if (auth.isAdmin) {
-        <a routerLink="/departments" routerLinkActive="active">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
-          Departments
-        </a>
-      }
-      @if (auth.isAdmin) {
-        <a routerLink="/notification-settings" routerLinkActive="active">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v4"/><path d="M12 17v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="m16.24 16.24 2.83 2.83"/><path d="M3 12h4"/><path d="M17 12h4"/><path d="m4.93 19.07 2.83-2.83"/><path d="m16.24 7.76 2.83-2.83"/><circle cx="12" cy="12" r="3"/></svg>
-          SMTP Settings
-        </a>
-      }
-      @if (auth.isAdmin) {
-        <a routerLink="/users" routerLinkActive="active">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          Users
-        </a>
-      } @else {
-        <a routerLink="/users" routerLinkActive="active">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          Account
-        </a>
-      }
-    </nav>
-
-    <div class="sidebar-footer">
-      <div class="sidebar-user-block">
-        <div class="sidebar-support">Support</div>
-        <div class="sidebar-user">
-          <div class="user-avatar">{{ auth.currentUser()!.username[0].toUpperCase() }}</div>
-          <div class="user-meta">
-            <span class="user-name">{{ auth.currentUser()!.username }}</span>
-            <span class="user-role">{{ auth.currentUser()!.roleName }}</span>
-          </div>
-        </div>
-      </div>
-      <div class="user-menu-shell">
-        <button class="logout-btn" (click)="toggleUserMenu()" title="Account menu">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+      <div class="relative">
+        <button
+          type="button"
+          class="pl-0 text-sm font-semibold text-[var(--primary)] hover:opacity-70 transition-opacity"
+          (click)="toggleUserMenu()"
+        >
+          <span class="hidden text-sm font-semibold md:inline">{{ auth.currentUser()!.username }}</span>
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+          </svg>
         </button>
-
         @if (menuOpen()) {
-          <div class="user-menu-panel">
-            <button type="button" (click)="openChangePassword()">Change Password</button>
-            <button type="button" (click)="logout()">Logout</button>
+          <div class="absolute right-0 top-full mt-2 w-64 rounded-lg bg-white shadow-lg border border-[var(--border)] py-2">
+            <div class="px-4 py-3 border-b border-[var(--border)]">
+              <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--primary-dark)] text-sm font-bold text-white">
+                  {{ auth.currentUser()!.username[0].toUpperCase() }}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-semibold text-[var(--text-1)] truncate">{{ auth.currentUser()!.username }}</p>
+                  <p class="text-xs text-[var(--text-3)] truncate">{{ auth.currentUser()!.roleName }}</p>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="flex w-full items-center gap-3 px-4 py-2 text-sm text-[var(--text-3)] hover:bg-[var(--bg-muted)] hover:text-[var(--primary)]"
+              (click)="openChangePassword()"
+            >
+              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a4 4 0 011 7.93V21a2 2 0 01-2 2H6a2 2 0 01-2-2v-6.07A4 4 0 015 7h10z"></path>
+              </svg>
+              Change Password
+            </button>
+            <div class="border-t border-[var(--border)] my-1"></div>
+            <button
+              type="button"
+              class="flex w-full items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+              (click)="logout()"
+            >
+              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+              </svg>
+              Logout
+            </button>
           </div>
         }
       </div>
-    </div>
-  </aside>
-
-  <div class="workspace-shell">
-    <header class="topbar">
-      <div class="topbar-main">
-        <div class="topbar-title">Chroniq Ledger</div>
-        <div class="topbar-context">Control Panel > {{ currentSection() }}</div>
-      </div>
     </header>
 
-    <main class="main-content" role="main">
-      <div class="content-viewport">
+    <aside
+      class="fixed left-0 top-16 z-30 flex h-[calc(100vh-4rem)] flex-col bg-white shadow-lg transition-all duration-300 md:translate-x-0"
+      [class.w-16]="sidebarCollapsed()"
+      [class.w-64]="!sidebarCollapsed()"
+      [class.px-3]="!sidebarCollapsed()"
+      [class.px-2]="sidebarCollapsed()"
+      [class.py-6]="!sidebarCollapsed()"
+      [class.py-4]="sidebarCollapsed()"
+      [class.-translate-x-full]="menuOpen()"
+    >
+      <div class="flex cursor-pointer items-center gap-2 border-y border-[var(--bg-muted)] py-3 text-xs font-bold uppercase tracking-[0.12em] text-[var(--primary)] hover:opacity-70" [class.justify-center]="sidebarCollapsed()" [class.gap-0]="sidebarCollapsed()" (click)="toggleSidebar()">
+        <svg class="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+        <span [class.hidden]="sidebarCollapsed()">Menú Principal</span>
+      </div>
+      <nav class="mt-2 space-y-1 text-xs font-semibold uppercase tracking-[0.08em]">
+        <a
+          routerLink="/dashboard"
+          routerLinkActive="bg-[var(--primary)] text-white"
+          [routerLinkActiveOptions]="{ exact: false }"
+          class="mx-1 flex items-center gap-3 rounded-lg px-4 py-3 text-[var(--text-3)] transition-colors hover:bg-[var(--bg-muted)] hover:text-[var(--primary)]"
+          [class.justify-center]="sidebarCollapsed()"
+          [class.px-2]="sidebarCollapsed()"
+          title="Dashboard"
+        >
+          <svg class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+          </svg>
+          <span [class.hidden]="sidebarCollapsed()">Dashboard</span>
+        </a>
+        <a
+          routerLink="/boxes"
+          routerLinkActive="bg-[var(--primary)] text-white"
+          class="mx-1 flex items-center gap-3 rounded-lg px-4 py-3 text-[var(--text-3)] transition-colors hover:bg-[var(--bg-muted)] hover:text-[var(--primary)]"
+          [class.justify-center]="sidebarCollapsed()"
+          [class.px-2]="sidebarCollapsed()"
+          title="Boxes"
+        >
+          <svg class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+          </svg>
+          <span [class.hidden]="sidebarCollapsed()">Boxes</span>
+        </a>
+        <a
+          routerLink="/executions"
+          routerLinkActive="bg-[var(--primary)] text-white"
+          class="mx-1 flex items-center gap-3 rounded-lg px-4 py-3 text-[var(--text-3)] transition-colors hover:bg-[var(--bg-muted)] hover:text-[var(--primary)]"
+          [class.justify-center]="sidebarCollapsed()"
+          [class.px-2]="sidebarCollapsed()"
+          title="Executions"
+        >
+          <svg class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+          </svg>
+          <span [class.hidden]="sidebarCollapsed()">Executions</span>
+        </a>
+        <a
+          routerLink="/history"
+          routerLinkActive="bg-[var(--primary)] text-white"
+          class="mx-1 flex items-center gap-3 rounded-lg px-4 py-3 text-[var(--text-3)] transition-colors hover:bg-[var(--bg-muted)] hover:text-[var(--primary)]"
+          [class.justify-center]="sidebarCollapsed()"
+          [class.px-2]="sidebarCollapsed()"
+          title="History"
+        >
+          <svg class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <span [class.hidden]="sidebarCollapsed()">History</span>
+        </a>
+        @if (auth.isAdmin) {
+          <a
+            routerLink="/departments"
+            routerLinkActive="bg-[var(--primary)] text-white"
+            class="mx-1 flex items-center gap-3 rounded-lg px-4 py-3 text-[var(--text-3)] transition-colors hover:bg-[var(--bg-muted)] hover:text-[var(--primary)]"
+            [class.justify-center]="sidebarCollapsed()"
+            [class.px-2]="sidebarCollapsed()"
+            title="Departments"
+          >
+            <svg class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+            </svg>
+            <span [class.hidden]="sidebarCollapsed()">Departments</span>
+          </a>
+        }
+        @if (auth.isAdmin) {
+          <a
+            routerLink="/notification-settings"
+            routerLinkActive="bg-[var(--primary)] text-white"
+            class="mx-1 flex items-center gap-3 rounded-lg px-4 py-3 text-[var(--text-3)] transition-colors hover:bg-[var(--bg-muted)] hover:text-[var(--primary)]"
+            [class.justify-center]="sidebarCollapsed()"
+            [class.px-2]="sidebarCollapsed()"
+            title="Settings"
+          >
+            <svg class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            <span [class.hidden]="sidebarCollapsed()">Settings</span>
+          </a>
+        }
+        @if (auth.isAdmin) {
+          <a
+            routerLink="/users"
+            routerLinkActive="bg-[var(--primary)] text-white"
+            class="mx-1 flex items-center gap-3 rounded-lg px-4 py-3 text-[var(--text-3)] transition-colors hover:bg-[var(--bg-muted)] hover:text-[var(--primary)]"
+            [class.justify-center]="sidebarCollapsed()"
+            [class.px-2]="sidebarCollapsed()"
+            title="Users"
+          >
+            <svg class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+            </svg>
+            <span [class.hidden]="sidebarCollapsed()">Users</span>
+          </a>
+        } @else {
+          <a
+            routerLink="/users"
+            routerLinkActive="bg-[var(--primary)] text-white"
+            class="mx-1 flex items-center gap-3 rounded-lg px-4 py-3 text-[var(--text-3)] transition-colors hover:bg-[var(--bg-muted)] hover:text-[var(--primary)]"
+            [class.justify-center]="sidebarCollapsed()"
+            [class.px-2]="sidebarCollapsed()"
+            title="Account"
+          >
+            <svg class="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span [class.hidden]="sidebarCollapsed()">Account</span>
+          </a>
+        }
+      </nav>
+    </aside>
+
+
+    <main class="px-4 pb-16 pt-20 md:px-8 transition-all duration-300" [class.md:ml-64]="!sidebarCollapsed()" [class.md:ml-16]="sidebarCollapsed()">
+      <div class="mx-auto w-full max-w-[1700px]">
+        <div class="mb-4 flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-bold text-[var(--text-1)]">{{ currentSection() }}</h1>
+          </div>
+        </div>
         <router-outlet />
       </div>
     </main>
 
-    <footer class="statusbar">
-      <div class="statusbar-left">
-        <span [class]="'status-pill ' + (statusService.apiOnline() ? 'status-ok' : 'status-err')">
+    <footer class="fixed bottom-0 left-0 right-0 z-30 bg-white/95 border-t border-[var(--border)] px-4 py-2 backdrop-blur-md md:px-8" [class.md:ml-64]="!sidebarCollapsed()" [class.md:ml-16]="sidebarCollapsed()">
+      <div class="mx-auto flex max-w-[1700px] flex-wrap gap-2 text-xs">
+        <span [class]="'px-2 py-1 rounded-full ' + (statusService.apiOnline() ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')">
           {{ statusService.apiOnline() ? 'System Online' : 'API Offline' }}
         </span>
-        <span class="status-text">{{ statusService.dbConnected() ? 'DB Connected' : 'DB Disconnected' }}</span>
-        <span class="status-text">Fail Notifications: {{ statusService.failNotificationEnabled() ? 'ON' : 'OFF' }}</span>
-        <span class="status-text">{{ statusService.workers() }}</span>
-        <span class="status-text">{{ statusService.runningBoxRuns() }} runs active</span>
-        <span class="status-text">{{ statusService.runningExecutions() }} exec running</span>
-        <span class="status-text">{{ statusService.queueLabel() }}</span>
-        <span [class]="'status-text ' + (statusService.hasStaleExecutions() ? 'status-warn' : 'status-ok-soft')">
+        <span class="px-2 py-1 rounded-full bg-gray-100 text-gray-700">{{ statusService.dbConnected() ? 'DB Connected' : 'DB Disconnected' }}</span>
+        <span class="px-2 py-1 rounded-full bg-gray-100 text-gray-700">{{ statusService.workers() }}</span>
+        <span class="px-2 py-1 rounded-full bg-gray-100 text-gray-700">{{ statusService.runningBoxRuns() }} runs</span>
+        <span class="px-2 py-1 rounded-full bg-gray-100 text-gray-700">{{ statusService.runningExecutions() }} exec</span>
+        <span [class]="'px-2 py-1 rounded-full ' + (statusService.hasStaleExecutions() ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700')">
           {{ statusService.staleLabel() }}
         </span>
-        <span [class]="'status-text ' + (statusService.startupRecoveryCompleted() ? 'status-ok-soft' : 'status-warn')">
+        <span [class]="'px-2 py-1 rounded-full ' + (statusService.startupRecoveryCompleted() ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700')">
           {{ statusService.recoveryLabel() }}
         </span>
-      </div>
-      <div class="statusbar-right">
-        <span>{{ statusService.environment() }}</span>
-        <span>v{{ statusService.appVersion }}</span>
-        <span>{{ statusService.lastSyncLabel() }}</span>
+        <span class="px-2 py-1 rounded-full bg-gray-100 text-gray-700">{{ statusService.environment() }}</span>
       </div>
     </footer>
   </div>

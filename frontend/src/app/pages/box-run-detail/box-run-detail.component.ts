@@ -1,6 +1,7 @@
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ButtonDirective } from 'ui-design-system';
 import { Subscription, interval } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { BoxRunDto, BoxRunStatus, BoxRunMetricsDto, BoxRunTaskExecutionDto, TaskExecutionLogDto } from '../../models/models';
@@ -14,155 +15,8 @@ import { TaskLogsModalComponent } from '../../components/task-logs-modal/task-lo
 @Component({
   selector: 'app-box-run-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, StatusBadgeComponent, TaskTableComponent, ErrorModalComponent, ConfirmModalComponent, TaskLogsModalComponent],
-  template: `
-    <div class="view-shell">
-      <div class="page-header">
-        <div>
-          <a class="back-link" routerLink="/executions">← Back to executions</a>
-          <h1>BoxRun #{{ boxRunId() }}</h1>
-          <div class="page-subtitle">Detailed operational view with task breakdown, logs and aggregate metrics.</div>
-        </div>
-        <div class="page-actions">
-          <button class="btn" (click)="reload()">Refresh</button>
-        </div>
-      </div>
-
-      @if (loading()) {
-        <div class="loading-state"><span class="spinner"></span> Loading BoxRun details...</div>
-      } @else if (error()) {
-        <div class="alert alert-danger">{{ error() }}</div>
-      } @else if (run()) {
-      <div class="meta-grid">
-        <div class="meta-card">
-          <span class="meta-label">BoxRun ID</span>
-          <span class="meta-value">{{ run()!.id }}</span>
-        </div>
-        <div class="meta-card">
-          <span class="meta-label">Status</span>
-          <span class="meta-value"><app-status-badge [status]="displayStatus()" /></span>
-        </div>
-        <div class="meta-card">
-          <span class="meta-label">Trigger</span>
-          <span class="meta-value">{{ run()!.triggerSource }}</span>
-        </div>
-        <div class="meta-card">
-          <span class="meta-label">Scheduled For</span>
-          <span class="meta-value">{{ formatTime(run()!.scheduledForUtc) }}</span>
-        </div>
-        <div class="meta-card">
-          <span class="meta-label">Start Time</span>
-          <span class="meta-value">{{ formatTime(run()!.startTime) }}</span>
-        </div>
-        <div class="meta-card">
-          <span class="meta-label">End Time</span>
-          <span class="meta-value">{{ formatTime(run()!.endTime) }}</span>
-        </div>
-        <div class="meta-card">
-          <span class="meta-label">Duration</span>
-          <span class="meta-value">{{ run()!.durationSeconds != null ? run()!.durationSeconds + 's' : '--' }}</span>
-        </div>
-        <div class="meta-card">
-          <span class="meta-label">Progress</span>
-          <span class="meta-value">{{ completedTasks() }} / {{ tasks().length }}</span>
-        </div>
-      </div>
-
-      @if (metrics()) {
-        <section class="metrics-panel">
-          <div class="metrics-header">
-            <h2 class="section-title" style="margin:0">Execution Metrics</h2>
-            <div class="metrics-rate">{{ metrics()!.successRate | number:'1.0-2' }}%</div>
-          </div>
-
-          <div class="progress-track" aria-label="Execution progress">
-            <div class="progress-segment progress-success" [style.width.%]="successPercent()"></div>
-            <div class="progress-segment progress-failed" [style.width.%]="failedPercent()"></div>
-            <div class="progress-segment progress-pending" [style.width.%]="pendingPercent()"></div>
-          </div>
-
-          <div class="metrics-grid">
-            <div class="metric-card">
-              <span class="metric-label">Total Tasks</span>
-              <strong>{{ metrics()!.totalTasks }}</strong>
-            </div>
-            <div class="metric-card metric-success">
-              <span class="metric-label">Success</span>
-              <strong>{{ metrics()!.successCount }}</strong>
-            </div>
-            <div class="metric-card metric-failed">
-              <span class="metric-label">Failed</span>
-              <strong>{{ metrics()!.failedCount }}</strong>
-            </div>
-            <div class="metric-card metric-pending">
-              <span class="metric-label">Pending</span>
-              <strong>{{ metrics()!.pendingCount }}</strong>
-            </div>
-            <div class="metric-card">
-              <span class="metric-label">Total Duration</span>
-              <strong>{{ formatDurationSeconds(metrics()!.totalDurationSeconds) }}</strong>
-            </div>
-          </div>
-        </section>
-      }
-
-      <section class="actions-bar">
-        <button class="btn btn-danger-soft" [disabled]="!canCancel() || actionLoading()" (click)="showCancelConfirm.set(true)">Stop Run</button>
-        <button class="btn" [disabled]="!canResume() || actionLoading()" (click)="showResumeConfirm.set(true)">Resume</button>
-      </section>
-
-      @if (showStoppingNotice()) {
-        <div class="alert alert-warning">Stop requested. Running tasks may continue until they finish, but no new pending tasks will be scheduled.</div>
-      }
-
-      <section class="data-panel">
-        <div class="panel-header">
-          <div class="panel-title-wrap">
-            <div class="panel-title">Task Executions</div>
-            <div class="panel-subtitle">Latest execution outcome per task within this BoxRun.</div>
-          </div>
-        </div>
-        <div class="panel-body" style="padding:0">
-        <app-task-table [tasks]="tasks()" (viewError)="openError($event)" (viewLogs)="openLogs($event)" />
-        </div>
-      </section>
-      }
-    </div>
-
-    <app-error-modal
-      [visible]="errorTask() !== null"
-      [error]="errorTask()?.error || ''"
-      [stackTrace]="errorTask()?.stackTrace || ''"
-      (close)="closeError()"
-    />
-
-    <app-task-logs-modal
-      [visible]="logTask() !== null"
-      [taskName]="logTask()?.name || ''"
-      [logs]="taskLogs()"
-      [loading]="logsLoading()"
-      [error]="logsError()"
-      (close)="closeLogs()"
-    />
-
-    <app-confirm-modal
-      [visible]="showResumeConfirm()"
-      title="Resume BoxRun"
-      message="Failed tasks will be re-executed. Are you sure you want to resume this workflow?"
-      confirmLabel="Resume"
-      (confirmed)="confirmResume()"
-      (cancelled)="showResumeConfirm.set(false)"
-    />
-
-    <app-confirm-modal
-      [visible]="showCancelConfirm()"
-      title="Stop Current Run"
-      message="This will stop scheduling remaining tasks for this run. Tasks already running will be allowed to finish. Do you want to continue?"
-      confirmLabel="Stop Run"
-      (confirmed)="confirmCancel()"
-      (cancelled)="showCancelConfirm.set(false)"
-    />
-  `,
+  imports: [CommonModule, RouterLink, StatusBadgeComponent, TaskTableComponent, ErrorModalComponent, ConfirmModalComponent, TaskLogsModalComponent, ButtonDirective],
+  templateUrl: './box-run-detail.component.html',
   styles: [`
     .back-link { color: var(--text-2); text-decoration: none; font-size: .85rem; }
     .back-link:hover { text-decoration: underline; }

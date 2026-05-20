@@ -41,10 +41,10 @@ npm run start
 
 ## Configure Release Artifacts
 
-The release pipeline packages each config wizard with its matching artifact:
+The release pipeline ships plug-and-play artifacts. Each ZIP now includes:
 
-- Backend ZIP includes `run-config-wizard-backend.ps1`
-- Frontend ZIP includes `run-config-wizard-frontend.ps1`
+- Matching config wizard (`run-config-wizard-backend.ps1` or `run-config-wizard-frontend.ps1`)
+- Full operations toolkit under `operations/` (`scripts/`, `docs/`, and `operations/README.md`)
 - Release also includes `CHECKSUMS.sha256` for artifact integrity verification
 
 Run each script from its artifact folder.

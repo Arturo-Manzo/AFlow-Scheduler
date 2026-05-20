@@ -1,0 +1,17 @@
+@if (visible) {
+  <div class="modal-overlay" role="dialog" aria-modal="true" (click)="cancelled.emit()">
+    <div class="modal confirm-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 style="margin:0;font-size:1rem">{{ title }}</h3>
+        <button type="button" class="modal-close" (click)="cancelled.emit()" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="confirm-message">{{ message }}</p>
+      </div>
+      <div class="modal-footer">
+        <button appButton="secondary" buttonSize="md" (click)="cancelled.emit()">Cancel</button>
+        <button appButton="danger" buttonSize="md" (click)="confirmed.emit()">{{ confirmLabel }}</button>
+      </div>
+    </div>
+  </div>
+}

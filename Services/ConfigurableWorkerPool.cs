@@ -28,6 +28,8 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
     private readonly ConcurrentDictionary<int, byte> _runningBoxIds = new();
 
     private int _workerCount;
+    private readonly bool _autoRecoverStaleExecutions;
+    private readonly SemaphoreSlim _taskExecutionSlots;
     private List<Task> _workerTasks = new();
     private CancellationTokenSource? _stoppingCts;
     private DateTime? _lastRecoveryCompletedAtUtc;
@@ -61,6 +63,8 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
         _logger = logger;
 
         _workerCount = Math.Max(1, Math.Min(_configuration.GetValue<int>("WorkerPool:WorkerCount", 4), 20));
+        _autoRecoverStaleExecutions = _configuration.GetValue<bool>("WorkerPool:AutoRecoverStaleExecutions", true);
+        _taskExecutionSlots = new SemaphoreSlim(_workerCount, _workerCount);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -71,7 +75,15 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
 
         try
         {
-            await RecoverStaleExecutionsAsync();
+            if (_autoRecoverStaleExecutions)
+            {
+                await RecoverStaleExecutionsAsync();
+            }
+            else
+            {
+                MarkStartupRecoverySkipped();
+            }
+
             _workerTasks = Enumerable.Range(1, _workerCount)
                 .Select(id => ProcessWorkerAsync(id, _stoppingCts.Token))
                 .ToList();
@@ -405,10 +417,18 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
 
     private async Task<(int TaskId, bool Success)> ExecuteTaskAsync(TaskDefinition task, int boxRunId, BoxRunRequest request, CancellationToken ct)
     {
-        // Delegate to centralized execution service (ONLY entry point)
-        var success = await _taskExecutionService.ExecuteTaskAsync(
-            task, boxRunId, request.TriggerSource, request.ScheduledForUtc, request.RequestedByUserId, null, ct);
-        return (task.Id, success);
+        await _taskExecutionSlots.WaitAsync(ct);
+        try
+        {
+            // Delegate to centralized execution service (ONLY entry point)
+            var success = await _taskExecutionService.ExecuteTaskAsync(
+                task, boxRunId, request.TriggerSource, request.ScheduledForUtc, request.RequestedByUserId, null, ct);
+            return (task.Id, success);
+        }
+        finally
+        {
+            _taskExecutionSlots.Release();
+        }
     }
 
     private async Task<List<(int TaskId, bool Success)>> ExecuteReadyTaskBatchAsync(
@@ -488,6 +508,17 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
             _lastRecoveredExecutionCount,
             _lastRecoveredBoxRunCount,
             _lastRecoveryCompletedAtUtc);
+    }
+
+    private void MarkStartupRecoverySkipped()
+    {
+        _lastRecoveredExecutionCount = 0;
+        _lastRecoveredBoxRunCount = 0;
+        _lastRecoveryCompletedAtUtc = DateTime.UtcNow;
+        _startupRecoveryCompleted = true;
+
+        _logger.LogInformation(
+            "Startup recovery was skipped because WorkerPool:AutoRecoverStaleExecutions is disabled.");
     }
 
     private async Task MarkBlockedTasksAsNotExecutedAsync(List<TaskDefinition> blockedTasks, BoxRunRequest request, string failureReason)

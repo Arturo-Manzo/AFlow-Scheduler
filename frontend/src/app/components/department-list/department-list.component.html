@@ -1,0 +1,144 @@
+<div class="view-shell">
+  <div class="view-hero">
+    <div class="view-hero-main">
+      <div class="view-eyebrow">Administration</div>
+      <h1>Departments</h1>
+      <p class="view-description">
+        Manage department units, ownership contact and log retention settings.
+      </p>
+    </div>
+    <div class="view-hero-kpi">
+      <span class="kpi-value">{{ loading() ? '--' : departments().length }}</span>
+      <span class="kpi-label">Departments</span>
+    </div>
+  </div>
+
+  <section class="data-panel">
+    <div class="panel-header">
+      <div class="panel-title-wrap">
+        <div class="panel-title">Department Registry</div>
+        <div class="panel-subtitle">Create and manage departments. The Default department cannot be edited or deleted.</div>
+      </div>
+      <div class="panel-toolbar">
+        <button class="btn btn-primary" (click)="toggleCreateForm()">
+          {{ showCreateForm() ? 'Cancel' : 'New Department' }}
+        </button>
+        <button class="btn" (click)="loadDepartments()">Refresh</button>
+      </div>
+    </div>
+
+    @if (errorMessage()) {
+      <div class="panel-body"><div class="alert alert-danger">{{ errorMessage() }}</div></div>
+    }
+
+    @if (showCreateForm()) {
+      <div class="panel-body create-form-shell">
+        <h4>New Department</h4>
+        <form [formGroup]="createForm" (ngSubmit)="submitCreate()" novalidate>
+          <div class="form-grid">
+            <div class="field">
+              <label for="dept-name">Name <span class="req">*</span></label>
+              <input id="dept-name" formControlName="name" placeholder="e.g. Engineering, Finance" [class.is-invalid]="fi('name')" />
+              @if (fi('name')) { <span class="field-hint">Name is required and must be at least 3 characters.</span> }
+            </div>
+            <div class="field">
+              <label for="dept-contact">Contact Email <span class="req">*</span></label>
+              <input id="dept-contact" type="email" formControlName="contactEmail" placeholder="team-contact@company.com" [class.is-invalid]="fi('contactEmail')" />
+              @if (fi('contactEmail')) { <span class="field-hint">Contact email is required and must be valid.</span> }
+            </div>
+            <div class="field field-full">
+              <label for="dept-desc">Description</label>
+              <input id="dept-desc" formControlName="description" placeholder="Optional description" />
+            </div>
+            <div class="field">
+              <label for="dept-retention">Log Retention (days) <span class="req">*</span></label>
+              <input id="dept-retention" type="number" formControlName="logRetentionDays" min="1" [class.is-invalid]="fi('logRetentionDays')" />
+              @if (fi('logRetentionDays')) { <span class="field-hint">Must be at least 1 day.</span> }
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn" (click)="toggleCreateForm()">Cancel</button>
+            <button type="submit" class="btn btn-primary" [disabled]="saving()">{{ saving() ? 'Creating...' : 'Create Department' }}</button>
+          </div>
+        </form>
+      </div>
+    }
+
+    @if (showEditForm()) {
+      <div class="panel-body create-form-shell">
+        <h4>Edit Department</h4>
+        <form [formGroup]="editForm" (ngSubmit)="submitEdit()" novalidate>
+          <div class="form-grid">
+            <div class="field">
+              <label for="dept-edit-name">Name <span class="req">*</span></label>
+              <input id="dept-edit-name" formControlName="name" placeholder="e.g. Engineering, Finance" [class.is-invalid]="editFieldInvalid('name')" />
+              @if (editFieldInvalid('name')) { <span class="field-hint">Name is required and must be at least 3 characters.</span> }
+            </div>
+            <div class="field">
+              <label for="dept-edit-contact">Contact Email <span class="req">*</span></label>
+              <input id="dept-edit-contact" type="email" formControlName="contactEmail" placeholder="team-contact@company.com" [class.is-invalid]="editFieldInvalid('contactEmail')" />
+              @if (editFieldInvalid('contactEmail')) { <span class="field-hint">Contact email is required and must be valid.</span> }
+            </div>
+            <div class="field field-full">
+              <label for="dept-edit-desc">Description</label>
+              <input id="dept-edit-desc" formControlName="description" placeholder="Optional description" />
+            </div>
+            <div class="field">
+              <label for="dept-edit-retention">Log Retention (days) <span class="req">*</span></label>
+              <input id="dept-edit-retention" type="number" formControlName="logRetentionDays" min="1" [class.is-invalid]="editFieldInvalid('logRetentionDays')" />
+              @if (editFieldInvalid('logRetentionDays')) { <span class="field-hint">Must be at least 1 day.</span> }
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn" (click)="closeEditForm()">Cancel</button>
+            <button type="submit" class="btn btn-primary" [disabled]="saving()">{{ saving() ? 'Saving...' : 'Save Changes' }}</button>
+          </div>
+        </form>
+      </div>
+    }
+
+    @if (loading()) {
+      <div class="loading-state"><span class="spinner"></span> Loading departments...</div>
+    } @else if (departments().length === 0 && !errorMessage()) {
+      <p class="empty-state">No departments configured yet. Create one to get started.</p>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Contact Email</th>
+            <th>Log Retention</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (dept of departments(); track dept.departmentId) {
+            <tr>
+              <td><strong>{{ dept.name }}</strong></td>
+              <td class="desc-cell">{{ dept.description || '-' }}</td>
+              <td>{{ dept.contactEmail }}</td>
+              <td>{{ dept.logRetentionDays }}d</td>
+              <td>{{ dept.createdAt | date:'mediumDate' }}</td>
+              <td class="table-actions">
+                <button
+                  class="btn btn-sm"
+                  (click)="openEditForm(dept)"
+                  [disabled]="dept.name === 'Default'"
+                  [title]="dept.name === 'Default' ? 'Cannot edit the Default department' : 'Edit'"
+                >Edit</button>
+                <button
+                  class="btn btn-sm btn-danger"
+                  (click)="deleteDepartment(dept)"
+                  [disabled]="dept.name === 'Default'"
+                  [title]="dept.name === 'Default' ? 'Cannot delete the Default department' : 'Delete'"
+                >Delete</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+</div>

@@ -1,0 +1,171 @@
+<section class="flex flex-col gap-8 pb-8">
+  <!-- Header -->
+  <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+    <div class="flex-1">
+      <p class="text-sm leading-6 text-[var(--color-muted)]">
+        All timestamps are normalized to {{ userTimeZone }} for this session.
+      </p>
+    </div>
+  </div>
+
+  <!-- KPI Grid -->
+  <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+    <article class="ui-card ui-card--padded">
+      <div class="flex items-center justify-between">
+        <p class="ui-kpi-label">Registered Boxes</p>
+        <svg class="h-5 w-5 text-[var(--color-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+        </svg>
+      </div>
+      <p class="ui-kpi-value text-[var(--color-text)]">{{ loadingBoxes() ? '--' : boxes().length }}</p>
+    </article>
+    <article class="ui-card ui-card--padded">
+      <div class="flex items-center justify-between">
+        <p class="ui-kpi-label">Running Now</p>
+        <svg class="h-5 w-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+        </svg>
+      </div>
+      <p class="ui-kpi-value text-[var(--color-accent)]">{{ loadingLogs() ? '--' : runningCount() }}</p>
+    </article>
+    <article class="ui-card ui-card--padded">
+      <div class="flex items-center justify-between">
+        <p class="ui-kpi-label">Succeeded Today</p>
+        <svg class="h-5 w-5 text-[var(--ui-success-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+      </div>
+      <p class="ui-kpi-value text-[var(--ui-success-text)]">{{ loadingLogs() ? '--' : successToday() }}</p>
+    </article>
+    <article class="ui-card ui-card--padded">
+      <div class="flex items-center justify-between">
+        <p class="ui-kpi-label">Failed Today</p>
+        <svg class="h-5 w-5 text-[var(--ui-danger-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+        </svg>
+      </div>
+      <p class="ui-kpi-value text-[var(--ui-danger-text)]">{{ loadingLogs() ? '--' : failedToday() }}</p>
+    </article>
+  </div>
+
+  <!-- Recent Executions Panel -->
+  <article class="ui-card">
+    <header class="flex items-center justify-between border-b border-[var(--ui-border-color)] px-6 py-4">
+      <div>
+        <h2 class="text-sm font-bold uppercase tracking-[0.12em] text-[var(--color-accent)]">Recent Task Executions</h2>
+        <p class="text-xs text-[var(--color-muted)] mt-1">Latest execution records available for inspection from the dashboard.</p>
+      </div>
+      <span class="text-xs text-[var(--color-muted)]">{{ logs().length }} rows</span>
+    </header>
+
+    @if (loadingLogs()) {
+      <article class="rounded-xl bg-white px-5 py-10 text-sm text-[var(--color-muted)] shadow-[0_8px_24px_rgba(0,61,121,0.06)]">
+        Loading logs...
+      </article>
+    } @else if (logsError()) {
+      <div class="ui-feedback ui-feedback--error m-4">
+        <svg class="ui-feedback__icon" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+        </svg>
+        <span class="text-xs">{{ logsError() }}</span>
+      </div>
+    } @else if (logs().length === 0) {
+      <div class="rounded-lg bg-[var(--color-surface-low)] px-3 py-4 text-xs text-[var(--color-muted)]">
+        No executions recorded yet.
+      </div>
+    } @else {
+      <div class="ui-table-wrap">
+        <table class="ui-table">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Box</th>
+              <th>Trigger</th>
+              <th>Status</th>
+              <th>Started</th>
+              <th>Duration</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (log of logs(); track log.executionId) {
+              <tr
+                (click)="select(log)"
+                [class.bg-[var(--color-surface-low)]]="selected()?.executionId === log.executionId"
+                style="cursor:pointer"
+              >
+                <td><strong>{{ log.taskName }}</strong></td>
+                <td>{{ log.boxName || '--' }}</td>
+                <td><span class="inline-flex items-center rounded-full bg-[var(--color-surface-low)] px-2 py-0.5 text-xs font-medium text-[var(--color-muted)]">{{ log.triggerSource }}</span></td>
+                <td><app-status-badge [status]="log.status" /></td>
+                <td>{{ formatExecutionTime(log.startedAt, log.boxTimeZoneId, 'short') }}</td>
+                <td>{{ log.durationSeconds != null ? log.durationSeconds + 's' : '--' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </article>
+</section>
+
+@if (selected()) {
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+    <div class="w-full max-w-xl space-y-4 rounded-xl bg-white p-5 shadow-2xl">
+      <!-- Header -->
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-semibold uppercase tracking-[0.12em]">{{ selected()!.taskName }}</h3>
+          <p class="text-xs text-[var(--color-muted)] mt-1">{{ selected()!.boxName || '--' }}</p>
+        </div>
+        <button type="button" class="text-[var(--color-accent)] hover:opacity-70 transition-opacity" (click)="selected.set(null)">
+          Cerrar
+        </button>
+      </div>
+
+      <!-- Contenido -->
+      <div class="space-y-4">
+        <dl class="space-y-3 text-xs">
+          <div>
+            <dt class="text-sm font-bold text-[var(--color-accent)]">Status</dt>
+            <dd class="mt-1 text-sm font-semibold"><app-status-badge [status]="selected()!.status" /></dd>
+          </div>
+          <div>
+            <dt class="text-sm font-bold text-[var(--color-accent)]">Trigger</dt>
+            <dd class="mt-1 text-sm font-semibold">{{ selected()!.triggerSource }}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-bold text-[var(--color-accent)]">Started</dt>
+            <dd class="mt-1 text-sm font-semibold">{{ formatExecutionTime(selected()!.startedAt, selected()!.boxTimeZoneId, 'medium') }}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-bold text-[var(--color-accent)]">Ended</dt>
+            <dd class="mt-1 text-sm font-semibold">{{ selected()!.endedAt ? formatExecutionTime(selected()!.endedAt, selected()!.boxTimeZoneId, 'medium') : '--' }}</dd>
+          </div>
+          <div>
+            <dt class="text-sm font-bold text-[var(--color-accent)]">Duration</dt>
+            <dd class="mt-1 text-sm font-semibold">{{ selected()!.durationSeconds != null ? selected()!.durationSeconds + 's' : '--' }}</dd>
+          </div>
+          @if (displayRequestedBy(selected()!)) {
+            <div>
+              <dt class="text-sm font-bold text-[var(--color-accent)]">Requested By</dt>
+              <dd class="mt-1 text-sm font-semibold">{{ displayRequestedBy(selected()!) }}</dd>
+            </div>
+          }
+          @if (selected()!.reason) {
+            <div class="sm:col-span-2">
+              <dt class="text-sm font-bold text-[var(--color-accent)]">Reason</dt>
+              <dd class="mt-1 text-sm font-semibold">{{ selected()!.reason }}</dd>
+            </div>
+          }
+        </dl>
+      </div>
+
+      <!-- Footer con botones -->
+      <div class="flex justify-end gap-2">
+        <button type="button" appButton="secondary" buttonSize="md" (click)="selected.set(null)">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+}

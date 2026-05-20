@@ -7,6 +7,21 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
 
+function Invoke-GateCommand {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$Arguments
+    )
+
+    & $FilePath @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "Command failed with exit code ${LASTEXITCODE}: $FilePath $($Arguments -join ' ')"
+    }
+}
+
 Push-Location $root
 try {
     Write-Host "[Gate] Building backend..." -ForegroundColor Cyan
@@ -14,7 +29,7 @@ try {
     if ($BuildVersion) {
         $buildArgs += "/p:Version=$BuildVersion"
     }
-    & dotnet @buildArgs
+    Invoke-GateCommand dotnet @buildArgs
 
     if (-not $SkipBackendTests) {
         Write-Host "[Gate] Running backend tests..." -ForegroundColor Cyan
@@ -22,15 +37,15 @@ try {
         if ($BuildVersion) {
             $testArgs += "/p:Version=$BuildVersion"
         }
-        & dotnet @testArgs
+        Invoke-GateCommand dotnet @testArgs
     }
 
     if (-not $SkipFrontend) {
         Write-Host "[Gate] Building frontend..." -ForegroundColor Cyan
         Push-Location .\frontend
         try {
-            npm ci
-            npm run build
+            Invoke-GateCommand npm ci
+            Invoke-GateCommand npm run build
         }
         finally {
             Pop-Location

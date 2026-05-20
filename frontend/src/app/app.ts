@@ -1,4 +1,4 @@
-import { Component, HostListener, effect, inject, signal } from '@angular/core';
+import { Component, HostListener, HostBinding, effect, inject, signal, Inject } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -8,27 +8,34 @@ import { StatusService } from './services/status.service';
 import { ApiResponse, ChangePasswordRequest } from './models/models';
 import { Router } from '@angular/router';
 import { ToastComponent } from './shared/toast.component';
+import { ThemeService } from 'ui-design-system';
+import { ButtonDirective } from 'ui-design-system';
+import { PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, CommonModule, ReactiveFormsModule, ToastComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, CommonModule, ReactiveFormsModule, ToastComponent, ButtonDirective],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })
 export class App {
+  @HostBinding('class.authenticated')
+  get isAuthenticated(): boolean {
+    return !!this.auth.currentUser();
+  }
+
   public auth = inject(AuthService);
   private api = inject(ApiService);
   public statusService = inject(StatusService);
   private fb = inject(FormBuilder);
   private router = inject(Router);
+  private themeService = inject(ThemeService);
 
-  menuOpen = signal(false);
-  showChangePassword = signal(false);
-  passwordSaving = signal(false);
-  passwordError = signal('');
-  passwordSuccess = signal('');
-
-  constructor() {
+  constructor(@Inject(PLATFORM_ID) private readonly platformId: object) {
+    if (isPlatformBrowser(this.platformId)) {
+      this.themeService.init();
+    }
     effect(() => {
       if (this.auth.currentUser()) {
         this.statusService.startPolling();
@@ -37,6 +44,13 @@ export class App {
       }
     });
   }
+
+  menuOpen = signal(false);
+  sidebarCollapsed = signal(false);
+  showChangePassword = signal(false);
+  passwordSaving = signal(false);
+  passwordError = signal('');
+  passwordSuccess = signal('');
 
   passwordForm = this.fb.group({
     currentPassword: ['', Validators.required],
@@ -55,6 +69,10 @@ export class App {
 
   toggleUserMenu(): void {
     this.menuOpen.update((value) => !value);
+  }
+
+  toggleSidebar(): void {
+    this.sidebarCollapsed.update((value) => !value);
   }
 
   openChangePassword(): void {

@@ -11,6 +11,8 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "experimentalDecorators": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
     "importHelpers": true,
     "target": "ES2022",
     "module": "preserve",
@@ -18,7 +20,9 @@
     "paths": {
       "@shared/*": ["src/app/shared/*"],
       "@services/*": ["src/app/services/*"],
-      "@models/*": ["src/app/models/*"]
+      "@models/*": ["src/app/models/*"],
+      "ui-design-system": ["./projects/ui-design-system/dist/ui-design-system"],
+      "ui-design-system/*": ["./projects/ui-design-system/dist/ui-design-system/*"]
     }
   },
   "angularCompilerOptions": {

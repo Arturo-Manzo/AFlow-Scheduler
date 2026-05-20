@@ -83,38 +83,88 @@ namespace CHRONIQ.Services
                 return false;
             }
 
-            try
+            var recipients = notificationEmail
+                .Replace(';', ',')
+                .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (recipients.Count == 0)
             {
-                _logger.LogInformation(
-                    "Attempting SMTP send. BoxId={BoxId}, TaskId={TaskId}, ExecutionId={ExecutionId}, TriggerSource={TriggerSource}, Host={Host}, Port={Port}, EnableSsl={EnableSsl}, To={ToEmail}",
+                _logger.LogWarning(
+                    "SMTP notification skipped because no valid recipients were parsed. BoxId={BoxId}, TaskId={TaskId}, ExecutionId={ExecutionId}",
                     boxId,
                     taskId,
-                    executionId,
-                    triggerSource,
-                    settings.Host,
-                    settings.Port,
-                    settings.EnableSsl,
-                    MaskEmail(notificationEmail));
+                    executionId);
+                return false;
+            }
 
+            try
+            {
                 var subject = $"[CHRONIQ Alert] Task Failed: {taskName} in {boxName}";
                 var bodyText = BuildFailureEmailBody(
                     boxName, taskName, executionId, boxRunId, failureReason,
                     triggerSource, scheduledForUtc, requestedByUsername);
 
-                await _smtpMailSender.SendAsync(settings, notificationEmail, subject, bodyText, cancellationToken);
+                var sentCount = 0;
+                var failedCount = 0;
+
+                foreach (var recipient in recipients)
+                {
+                    try
+                    {
+                        _logger.LogInformation(
+                            "Attempting SMTP send. BoxId={BoxId}, TaskId={TaskId}, ExecutionId={ExecutionId}, TriggerSource={TriggerSource}, Host={Host}, Port={Port}, EnableSsl={EnableSsl}, To={ToEmail}",
+                            boxId,
+                            taskId,
+                            executionId,
+                            triggerSource,
+                            settings.Host,
+                            settings.Port,
+                            settings.EnableSsl,
+                            MaskEmail(recipient));
+
+                        await _smtpMailSender.SendAsync(settings, recipient, subject, bodyText, cancellationToken);
+                        sentCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        failedCount++;
+                        _logger.LogError(
+                            ex,
+                            "SMTP send failed for one recipient. BoxId={BoxId}, TaskId={TaskId}, ExecutionId={ExecutionId}, To={ToEmail}",
+                            boxId,
+                            taskId,
+                            executionId,
+                            MaskEmail(recipient));
+                    }
+                }
 
                 stopwatch.Stop();
 
-                _logger.LogInformation(
-                    "SMTP notification sent successfully. BoxId={BoxId}, TaskId={TaskId}, TaskName={TaskName}, ExecutionId={ExecutionId}, To={ToEmail}, ElapsedMs={ElapsedMs}",
+                if (sentCount > 0 && failedCount == 0)
+                {
+                    _logger.LogInformation(
+                        "SMTP notification sent successfully to all recipients. BoxId={BoxId}, TaskId={TaskId}, TaskName={TaskName}, ExecutionId={ExecutionId}, RecipientCount={RecipientCount}, ElapsedMs={ElapsedMs}",
+                        boxId,
+                        taskId,
+                        taskName,
+                        executionId,
+                        sentCount,
+                        stopwatch.ElapsedMilliseconds);
+                    return true;
+                }
+
+                _logger.LogWarning(
+                    "SMTP notification finished with partial delivery. BoxId={BoxId}, TaskId={TaskId}, ExecutionId={ExecutionId}, SentCount={SentCount}, FailedCount={FailedCount}, ElapsedMs={ElapsedMs}",
                     boxId,
                     taskId,
-                    taskName,
                     executionId,
-                    MaskEmail(notificationEmail),
+                    sentCount,
+                    failedCount,
                     stopwatch.ElapsedMilliseconds);
 
-                return true;
+                return sentCount > 0;
             }
             catch (MailKit.Security.AuthenticationException ex)
             {

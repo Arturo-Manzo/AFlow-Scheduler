@@ -25,6 +25,7 @@ public class BoxesController : ControllerBase
 
     private readonly IBoxRepository _boxRepository;
     private readonly ITaskRepository _taskRepository;
+    private readonly IExecutionRepository _executionRepository;
     private readonly ITaskQueue _taskQueue;
     private readonly IAuditLogService _auditLog;
     private readonly IWorkerStateService _workerState;
@@ -42,6 +43,7 @@ public class BoxesController : ControllerBase
     public BoxesController(
         IBoxRepository boxRepository,
         ITaskRepository taskRepository,
+        IExecutionRepository executionRepository,
         ITaskQueue taskQueue,
         IAuditLogService auditLog,
         IWorkerStateService workerState,
@@ -49,12 +51,14 @@ public class BoxesController : ControllerBase
     {
         ArgumentNullException.ThrowIfNull(boxRepository);
         ArgumentNullException.ThrowIfNull(taskRepository);
+        ArgumentNullException.ThrowIfNull(executionRepository);
         ArgumentNullException.ThrowIfNull(taskQueue);
         ArgumentNullException.ThrowIfNull(auditLog);
         ArgumentNullException.ThrowIfNull(workerState);
         ArgumentNullException.ThrowIfNull(logger);
         _boxRepository = boxRepository;
         _taskRepository = taskRepository;
+        _executionRepository = executionRepository;
         _taskQueue = taskQueue;
         _auditLog = auditLog;
         _workerState = workerState;
@@ -361,15 +365,20 @@ public class BoxesController : ControllerBase
         {
             var tasks = await _taskRepository.GetTasksForBoxAsync(box.Id);
             var dependenciesByTaskId = await _taskRepository.GetDependenciesForBoxAsync(box.Id);
+            var latestExecutionByTaskId = await _executionRepository.GetLastExecutionSummaryByBoxAsync(box.Id);
 
             foreach (var t in tasks)
             {
                 dependenciesByTaskId.TryGetValue(t.Id, out var deps);
+                latestExecutionByTaskId.TryGetValue(t.Id, out var latestExecution);
+
                 dto.Tasks.Add(new TaskDto
                 {
                     TaskId = t.Id, BoxId = t.BoxId, Name = t.Name, Description = t.Description,
                     Command = t.Command, TaskType = t.TaskType.ToString(),
                     Enabled = t.Enabled, CreatedAt = t.CreatedAtUtc,
+                    LastExecutionStatus = latestExecution?.Status,
+                    LastExecutionAtUtc = latestExecution?.EndedAt ?? latestExecution?.StartedAt,
                     DependencyTaskIds = deps ?? []
                 });
             }
@@ -382,17 +391,39 @@ public class BoxesController : ControllerBase
         error = "";
         if (string.IsNullOrWhiteSpace(email))
             return true; // Email is optional
-        
-        try
-        {
-            var addr = new System.Net.Mail.MailAddress(email);
-            return addr.Address == email;
-        }
-        catch
+
+        var recipients = email
+            .Replace(';', ',')
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (recipients.Count == 0)
         {
             error = "Notification email format is invalid.";
             return false;
         }
+
+        if (recipients.Count > 10)
+        {
+            error = "A maximum of 10 notification emails is allowed.";
+            return false;
+        }
+
+        foreach (var recipient in recipients)
+        {
+            try
+            {
+                _ = new System.Net.Mail.MailAddress(recipient);
+            }
+            catch
+            {
+                error = "One or more notification emails are invalid. Use comma-separated emails.";
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static bool TryValidateSchedule(string cronExpression, string timeZoneId, out string error)

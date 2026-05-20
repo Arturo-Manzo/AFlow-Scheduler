@@ -116,6 +116,8 @@ export interface TaskDto {
   taskType: string;
   enabled: boolean;
   createdAt: string;
+  lastExecutionStatus?: string;
+  lastExecutionAtUtc?: string;
   dependencyTaskIds: number[];
 }
 
@@ -188,6 +190,26 @@ export interface ExecutionDto {
 }
 
 export interface RunningExecutionDto extends ExecutionDto {}
+
+export interface SystemStatus {
+  apiOnline: boolean;
+  dbConnected: boolean;
+  activeWorkers: number;
+  totalWorkers: number;
+  runningBoxRuns: number;
+  runningExecutions: number;
+  staleExecutions: number;
+  staleExecutionThresholdMinutes: number;
+  queueDepth: number;
+  failNotificationEnabled: boolean;
+  backendVersion: string;
+  autoRecoveryEnabled: boolean;
+  startupRecoveryCompleted: boolean;
+  lastRecoveryCompletedAtUtc?: string;
+  lastRecoveredExecutionCount: number;
+  lastRecoveredBoxRunCount: number;
+  environment: string;
+}
 
 export type BoxRunStatus = 'Pending' | 'Running' | 'Stopping' | 'Completed' | 'Partial' | 'Failed' | 'Cancelled';
 

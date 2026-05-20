@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ButtonDirective } from 'ui-design-system';
 import { forkJoin } from 'rxjs';
 import { catchError, of } from 'rxjs';
 import {
@@ -22,17 +23,21 @@ import { formatUtcInTimeZone } from '../../shared/timezone-utils';
 @Component({
   selector: 'app-task-detail',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, StatusBadgeComponent],
+  imports: [CommonModule, RouterLink, ReactiveFormsModule, StatusBadgeComponent, ButtonDirective],
   template: `
     <div class="view-shell">
       <div class="page-header">
         <div>
           <a class="back-link" [routerLink]="['/boxes', boxId()]">← Back to {{ box()?.name || ('Box #' + boxId()) }}</a>
           <h1>{{ task()?.name || ('Task #' + taskId()) }}</h1>
-          <div class="page-subtitle">Individual task view with execution history, KPIs, and management actions.</div>
+          <div class="page-subtitle">Individual task view with execution history, KPIs and management actions.</div>
         </div>
         <div class="page-actions">
           <button class="btn" (click)="reload()">Refresh</button>
+          @if (auth.isAdmin && task()) {
+            <button class="btn" (click)="openEditTask()">Edit</button>
+            <button class="btn btn-danger" (click)="requestDelete()">Delete</button>
+          }
           @if ((auth.isAdmin || auth.isOperator) && task()) {
             <button class="btn btn-primary btn-run" (click)="openForceStart()">Force Start</button>
           }
@@ -44,64 +49,55 @@ import { formatUtcInTimeZone } from '../../shared/timezone-utils';
       } @else if (error()) {
         <div class="alert alert-danger">{{ error() }}</div>
       } @else if (task()) {
-        <div class="view-hero compact-hero">
-          <div class="view-hero-main">
-            <div class="view-eyebrow">Task Definition</div>
-            <h2>
-              {{ task()!.name }}
-              <span [class]="'type-badge type-' + task()!.taskType.toLowerCase()">{{ task()!.taskType }}</span>
-              <span [class]="'badge ' + (task()!.enabled ? 'badge-success' : 'badge-danger')">
-                {{ task()!.enabled ? 'Enabled' : 'Disabled' }}
-              </span>
-            </h2>
-            <p class="view-description">{{ task()!.description || 'No description configured for this task.' }}</p>
-          </div>
-          <div class="view-hero-kpi">
-            <span class="kpi-value">{{ totalExecutions() }}</span>
-            <span class="kpi-label">Total Runs</span>
-          </div>
-          <div class="view-hero-kpi">
-            <span class="kpi-value">{{ successRate() }}%</span>
-            <span class="kpi-label">Success Rate</span>
-          </div>
-          <div class="view-hero-kpi">
-            <span class="kpi-value">{{ avgDurationLabel() }}</span>
-            <span class="kpi-label">Avg Duration</span>
-          </div>
+        <div class="metrics-grid">
+          <article class="ui-card ui-card--padded metric-card">
+            <p class="metric-card-label">Total Runs</p>
+            <p class="metric-card-value">{{ totalExecutions() }}</p>
+          </article>
+          <article class="ui-card ui-card--padded metric-card">
+            <p class="metric-card-label">Success Rate</p>
+            <p class="metric-card-value">{{ successRate() }}%</p>
+          </article>
+          <article class="ui-card ui-card--padded metric-card">
+            <p class="metric-card-label">Avg Duration</p>
+            <p class="metric-card-value">{{ avgDurationLabel() }}</p>
+          </article>
         </div>
 
-        <div class="meta-grid">
-          <div class="meta-card">
-            <span class="meta-label">Type</span>
-            <span class="meta-value">
-              <span [class]="'type-badge type-' + task()!.taskType.toLowerCase()">{{ task()!.taskType }}</span>
-            </span>
-          </div>
-          <div class="meta-card">
-            <span class="meta-label">Command</span>
-            <span class="meta-value"><code class="inline-code">{{ task()!.command }}</code></span>
-          </div>
-          <div class="meta-card">
-            <span class="meta-label">Status</span>
-            <span class="meta-value">
-              <span [class]="'badge ' + (task()!.enabled ? 'badge-success' : 'badge-danger')">
-                {{ task()!.enabled ? 'Enabled' : 'Disabled' }}
-              </span>
-            </span>
-          </div>
-          <div class="meta-card">
-            <span class="meta-label">Created</span>
-            <span class="meta-value">{{ formatDate(task()!.createdAt) }}</span>
-          </div>
-          <div class="meta-card">
-            <span class="meta-label">Dependencies</span>
-            <span class="meta-value">{{ dependencyLabel() }}</span>
-          </div>
-          <div class="meta-card">
-            <span class="meta-label">Box</span>
-            <span class="meta-value">
-              <a [routerLink]="['/boxes', boxId()]" class="back-link">{{ box()?.name || ('Box #' + boxId()) }}</a>
-            </span>
+        <div class="box-details-panel ui-card ui-card--padded">
+          <div class="box-details-table-wrap">
+            <table class="ui-table box-details-table">
+              <tbody>
+                <tr>
+                  <th>Type</th>
+                  <td>{{ task()!.taskType }}</td>
+                </tr>
+                <tr>
+                  <th>Status</th>
+                  <td><span [class]="'badge ' + (task()!.enabled ? 'badge-success' : 'badge-danger')">{{ task()!.enabled ? 'Active' : 'Disabled' }}</span></td>
+                </tr>
+                <tr>
+                  <th>Dependencies</th>
+                  <td>{{ dependencyLabel() }}</td>
+                </tr>
+                <tr>
+                  <th>Command</th>
+                  <td>{{ task()!.command }}</td>
+                </tr>
+                <tr>
+                  <th>Created</th>
+                  <td>{{ formatDate(task()!.createdAt) }}</td>
+                </tr>
+                <tr>
+                  <th>Last Run</th>
+                  <td>{{ executions().length ? formatDate(executions()[0].startedAt) : 'Never' }}</td>
+                </tr>
+                <tr>
+                  <th>Box</th>
+                  <td><a [routerLink]="['/boxes', boxId()]" class="back-link">{{ box()?.name || ('Box #' + boxId()) }}</a></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -109,56 +105,45 @@ import { formatUtcInTimeZone } from '../../shared/timezone-utils';
           <div class="panel-header">
             <div class="panel-title-wrap">
               <div class="panel-title">Recent Executions</div>
-              <div class="panel-subtitle">Latest executions of this task, from any trigger source.</div>
+              <div class="panel-subtitle">Showing only the 10 most recent executions for this task, from any trigger source.</div>
             </div>
           </div>
 
-          @if (executions().length === 0) {
+          @if (recentExecutions().length === 0) {
             <div class="empty-state"><p>No execution history found for this task.</p></div>
           } @else {
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Status</th>
-                  <th>Trigger</th>
-                  <th>Started At</th>
-                  <th>Duration</th>
-                  <th>Exit Code</th>
-                  <th>Reason</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (exec of executions(); track exec.executionId) {
-                  <tr>
-                    <td>{{ exec.executionId }}</td>
-                    <td><app-status-badge [status]="$any(exec.status)" /></td>
-                    <td>{{ exec.triggerSource }}</td>
-                    <td>{{ formatDate(exec.startedAt) }}</td>
-                    <td>{{ formatDuration(exec.durationSeconds) }}</td>
-                    <td>{{ exec.exitCode ?? '--' }}</td>
-                    <td>{{ exec.reason || '--' }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          }
-        </section>
-
-        @if (auth.isAdmin && task()) {
-          <section class="data-panel">
-            <div class="panel-header">
-              <div class="panel-title-wrap">
-                <div class="panel-title">Administration</div>
-                <div class="panel-subtitle">Edit or remove this task. These actions require Admin role.</div>
-              </div>
-              <div class="panel-toolbar">
-                <button class="btn" (click)="openEditTask()">Edit</button>
-                <button class="btn btn-danger" (click)="requestDelete()">Delete</button>
+            <div class="panel-body">
+              <div class="ui-table-wrap">
+                <table class="ui-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Status</th>
+                      <th>Trigger</th>
+                      <th>Started At</th>
+                      <th>Duration</th>
+                      <th>Exit Code</th>
+                      <th>Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (exec of recentExecutions(); track exec.executionId) {
+                      <tr>
+                        <td>{{ exec.executionId }}</td>
+                        <td><app-status-badge [status]="$any(exec.status)" /></td>
+                        <td>{{ exec.triggerSource }}</td>
+                        <td>{{ formatDate(exec.startedAt) }}</td>
+                        <td>{{ formatDuration(exec.durationSeconds) }}</td>
+                        <td>{{ exec.exitCode ?? '--' }}</td>
+                        <td>{{ exec.reason || '--' }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
               </div>
             </div>
-          </section>
-        }
+          }
+        </section>
       }
     </div>
 
@@ -265,15 +250,27 @@ import { formatUtcInTimeZone } from '../../shared/timezone-utils';
     .back-link { color: var(--text-2); text-decoration: none; font-size: .85rem; }
     .back-link:hover { text-decoration: underline; }
     .page-subtitle { margin-top: .35rem; }
-    .compact-hero { margin-bottom: 1rem; }
-    .inline-code { font-size:.78rem; background:var(--bg-muted); border:1px solid var(--border); border-radius:4px; padding:.18rem .42rem; word-break:break-all; }
-    .type-badge { font-size:.68rem; font-weight:700; text-transform:uppercase; padding:.15rem .4rem; border-radius:3px; letter-spacing:.04em; }
-    .type-exe { background:#e8f4fd; color:#1565c0; }
-    .type-bat { background:#fdf3e8; color:#c17a00; }
-    .type-python { background:#e8f5e9; color:#2e7d32; }
-    .type-api { background:#f3e8fd; color:#6a1b9a; }
+    .inline-code { font-size: .78rem; background: var(--bg-muted); border: 1px solid var(--border); border-radius: 4px; padding: .18rem .42rem; word-break: break-all; display: inline-block; }
+    .type-badge { font-size: .68rem; font-weight: 700; text-transform: uppercase; padding: .15rem .4rem; border-radius: 3px; letter-spacing: .04em; }
+    .type-exe { background: #e8f4fd; color: #1565c0; }
+    .type-bat { background: #fdf3e8; color: #c17a00; }
+    .type-python { background: #e8f5e9; color: #2e7d32; }
+    .type-api { background: #f3e8fd; color: #6a1b9a; }
+    .metrics-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .85rem; margin-bottom: 1rem; }
+    .metric-card-label { margin: 0; font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+    .metric-card-value { margin: .5rem 0 0; font-size: 2rem; font-weight: 700; color: var(--text-1); }
+    .box-details-panel { margin-bottom: 1.25rem; }
+    .box-details-table-wrap { overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-2); }
+    .box-details-table { width: 100%; border-collapse: collapse; }
+    .box-details-table th, .box-details-table td { padding: .85rem 1rem; }
+    .box-details-table th { width: 32%; text-align: left; vertical-align: top; font-weight: 700; color: var(--text-3); background: var(--bg-muted); }
+    .box-details-table td { color: var(--text-1); }
+    .box-details-table tr + tr td { border-top: 1px solid var(--border); }
+    @media (max-width: 1100px) {
+      .metrics-grid { grid-template-columns: 1fr; }
+    }
     @media (max-width: 720px) {
-      .page-header { flex-direction:column; gap:.75rem; }
+      .page-header { flex-direction: column; gap: .75rem; }
     }
   `]
 })
@@ -329,6 +326,7 @@ export class TaskDetailComponent implements OnInit {
   });
 
   readonly totalExecutions = computed(() => this.executions().length);
+  readonly recentExecutions = computed(() => this.executions().slice(0, 10));
 
   readonly successRate = computed(() => {
     const all = this.executions();
@@ -380,7 +378,7 @@ export class TaskDetailComponent implements OnInit {
         const sorted = [...executions].sort(
           (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
         );
-        this.executions.set(sorted.slice(0, 50));
+        this.executions.set(sorted);
         this.loading.set(false);
       },
       error: () => {

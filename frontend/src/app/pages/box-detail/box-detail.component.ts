@@ -33,7 +33,7 @@ import { isFieldInvalid } from '../../shared/form-utils';
         <div>
           <a class="back-link" routerLink="/boxes">← Back to boxes</a>
           <h1>{{ box()?.name || ('Box #' + boxId()) }}</h1>
-          <div class="page-subtitle">Dedicated box view with schedule outlook, recent execution state and full task composition.</div>
+          <div class="page-subtitle">{{ box()?.description || 'No description configured for this box.' }}</div>
         </div>
         <div class="page-actions">
           <button class="btn" (click)="reload()">Refresh</button>
@@ -190,146 +190,76 @@ import { isFieldInvalid } from '../../shared/form-utils';
       } @else if (error()) {
         <div class="alert alert-danger">{{ error() }}</div>
       } @else if (box()) {
-        <div class="view-hero compact-hero">
-          <div class="view-hero-main">
-            <div class="view-eyebrow">Workflow Definition</div>
-            <h2>{{ box()!.name }}</h2>
-            <p class="view-description">{{ box()!.description || 'No description configured for this box.' }}</p>
-          </div>
-          <div class="view-hero-kpi">
-            <span class="kpi-value">{{ box()!.tasks.length }}</span>
-            <span class="kpi-label">Tasks</span>
-          </div>
-          <div class="view-hero-kpi">
-            <span class="kpi-value">{{ activeTaskCount() }}</span>
-            <span class="kpi-label">Active</span>
-          </div>
-          <div class="view-hero-kpi">
-            <span class="kpi-value">{{ recentRuns().length }}</span>
-            <span class="kpi-label">Recent Runs</span>
-          </div>
+        <div class="metrics-grid">
+          <article class="ui-card ui-card--padded metric-card">
+            <p class="metric-card-label">Tasks</p>
+            <p class="metric-card-value">{{ box()!.tasks.length }}</p>
+          </article>
+          <article class="ui-card ui-card--padded metric-card">
+            <p class="metric-card-label">Active</p>
+            <p class="metric-card-value">{{ activeTaskCount() }}</p>
+          </article>
+          <article class="ui-card ui-card--padded metric-card">
+            <p class="metric-card-label">Recent Runs</p>
+            <p class="metric-card-value">{{ recentRuns().length }}</p>
+          </article>
         </div>
 
-        <div class="meta-grid">
-          <div class="meta-card">
-            <span class="meta-label">Status</span>
-            <span class="meta-value">
-              <span [class]="'badge ' + (box()!.enabled ? 'badge-success' : 'badge-danger')">{{ box()!.enabled ? 'Active' : 'Disabled' }}</span>
-            </span>
-          </div>
-          <div class="meta-card">
-            <span class="meta-label">Schedule</span>
-            <span class="meta-value">{{ describeCron(box()!.cronExpression, box()!.timeZoneId) }}</span>
-          </div>
-          <div class="meta-card">
-            <span class="meta-label">Time Zone</span>
-            <span class="meta-value">{{ box()!.timeZoneId }}</span>
-          </div>
-          <div class="meta-card">
-            <span class="meta-label">Last Run</span>
-            <span class="meta-value">{{ box()!.lastRunUtc ? formatUtcWithBoxContext(box()!.lastRunUtc, box()!.timeZoneId, 'short') : 'Never' }}</span>
-          </div>
-          <div class="meta-card">
-            <span class="meta-label">Next Run</span>
-            <span class="meta-value">{{ nextRunLabel() }}</span>
-          </div>
-          <div class="meta-card">
-            <span class="meta-label">Starts In</span>
-            <span class="meta-value">{{ nextRunCountdownLabel() }}</span>
-          </div>
-          <div class="meta-card">
-            <span class="meta-label">Last Execution Status</span>
-            <span class="meta-value">
-              @if (latestRun()) {
-                <app-status-badge [status]="displayRunStatus(latestRun()!)" />
-              } @else {
-                <span>--</span>
-              }
-            </span>
-          </div>
-          <div class="meta-card">
-            <span class="meta-label">Created</span>
-            <span class="meta-value">{{ formatUtc(box()!.createdAt, 'short') }}</span>
-          </div>
-          <div class="meta-card">
-            <span class="meta-label">Failure Alert Email</span>
-            <span class="meta-value">{{ box()!.notificationEmail || 'Not configured' }}</span>
-          </div>
-          <div class="meta-card">
-            <span class="meta-label">Department</span>
-            <span class="meta-value">{{ box()!.departmentName || 'Not assigned' }}</span>
-          </div>
-        </div>
+        <div class="box-details-panel ui-card ui-card--padded">
 
-        <section class="data-panel">
-          <div class="panel-header">
-            <div class="panel-title-wrap">
-              <div class="panel-title">Execution Outlook</div>
-              <div class="panel-subtitle">Near-term schedule and health signal based on the latest completed or active runs.</div>
-            </div>
-          </div>
-          <div class="panel-body overview-grid">
-            <div class="overview-card">
-              <span class="overview-label">Upcoming Window</span>
-              <strong>{{ nextRunLabel() }}</strong>
-              <p>{{ nextRunCountdownLabel() === '--' ? 'No upcoming run could be calculated from the current schedule.' : 'Expected according to the current cron expression and box time zone.' }}</p>
-            </div>
-            <div class="overview-card">
-              <span class="overview-label">Latest Result</span>
-              <strong>{{ latestRun() ? displayRunStatus(latestRun()!) : 'No runs yet' }}</strong>
-              <p>{{ latestRun() ? latestRunSummary(latestRun()!) : 'This box does not have recent execution history yet.' }}</p>
-            </div>
-            <div class="overview-card">
-              <span class="overview-label">Recent Health</span>
-              <strong>{{ failedRecentRuns() }} failure(s) in last {{ recentRuns().length }}</strong>
-              <p>{{ failedRecentRuns() === 0 ? 'Recent runs are stable.' : 'Review recent execution entries below to inspect failed or partial runs.' }}</p>
-            </div>
-          </div>
-        </section>
-
-        <section class="data-panel">
-          <div class="panel-header">
-            <div class="panel-title-wrap">
-              <div class="panel-title">Recent Executions</div>
-              <div class="panel-subtitle">Latest BoxRuns for this box with status, trigger and timing context.</div>
-            </div>
-          </div>
-
-          @if (recentRuns().length === 0) {
-            <div class="empty-state"><p>No recent executions found for this box.</p></div>
-          } @else {
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Run</th>
-                  <th>Status</th>
-                  <th>Trigger</th>
-                  <th>Scheduled</th>
-                  <th>Started</th>
-                  <th>Duration</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
+          <div class="box-details-table-wrap">
+            <table class="ui-table box-details-table">
               <tbody>
-                @for (run of recentRuns(); track run.id) {
-                  <tr>
-                    <td>#{{ run.id }}</td>
-                    <td><app-status-badge [status]="displayRunStatus(run)" /></td>
-                    <td>{{ run.triggerSource }}</td>
-                    <td>{{ formatUtcWithBoxContext(run.scheduledForUtc, box()!.timeZoneId, 'short') }}</td>
-                    <td>{{ formatUtcWithBoxContext(run.startTime, box()!.timeZoneId, 'short') }}</td>
-                    <td>{{ formatDurationSeconds(run.durationSeconds) }}</td>
-                      <td>
-                        <div class="table-actions">
-                          <a class="btn btn-sm btn-view" [routerLink]="['/executions', run.id]">View Run</a>
-                        </div>
-                    </td>
-                  </tr>
-                }
+                <tr>
+                  <th>Status</th>
+                  <td><span [class]="'badge ' + (box()!.enabled ? 'badge-success' : 'badge-danger')">{{ box()!.enabled ? 'Active' : 'Disabled' }}</span></td>
+                </tr>
+                <tr>
+                  <th>Schedule</th>
+                  <td>{{ describeCron(box()!.cronExpression, box()!.timeZoneId) }}</td>
+                </tr>
+                <tr>
+                  <th>Time Zone</th>
+                  <td>{{ box()!.timeZoneId }}</td>
+                </tr>
+                <tr>
+                  <th>Last Run</th>
+                  <td>{{ box()!.lastRunUtc ? formatUtcWithBoxContext(box()!.lastRunUtc, box()!.timeZoneId, 'short') : 'Never' }}</td>
+                </tr>
+                <tr>
+                  <th>Next Run</th>
+                  <td>{{ nextRunLabel() }}</td>
+                </tr>
+                <tr>
+                  <th>Starts In</th>
+                  <td>{{ nextRunCountdownLabel() }}</td>
+                </tr>
+                <tr>
+                  <th>Last Execution Status</th>
+                  <td>
+                    @if (latestRun()) {
+                      <app-status-badge [status]="displayRunStatus(latestRun()!)" />
+                    } @else {
+                      <span>--</span>
+                    }
+                  </td>
+                </tr>
+                <tr>
+                  <th>Created</th>
+                  <td>{{ formatUtc(box()!.createdAt, 'short') }}</td>
+                </tr>
+                <tr>
+                  <th>Failure Alert Email</th>
+                  <td>{{ box()!.notificationEmail || 'Not configured' }}</td>
+                </tr>
+                <tr>
+                  <th>Department</th>
+                  <td>{{ box()!.departmentName || 'Not assigned' }}</td>
+                </tr>
               </tbody>
             </table>
-          }
-        </section>
+          </div>
+        </div>
 
         <section class="data-panel">
           <div class="panel-header">
@@ -347,45 +277,103 @@ import { isFieldInvalid } from '../../shared/form-utils';
           @if (box()!.tasks.length === 0) {
             <div class="empty-state"><p>No tasks configured for this box.</p></div>
           } @else {
-            <div class="task-list panel-body">
-              @for (task of box()!.tasks; track task.taskId) {
-                <div class="task-card">
-                  <div class="task-card-head">
-                    <div class="task-card-title">
-                      <strong>{{ task.name }}</strong>
-                      <span [class]="'type-badge type-' + task.taskType.toLowerCase()">{{ task.taskType }}</span>
-                      <span [class]="'badge ' + (task.enabled ? 'badge-success' : 'badge-danger')">{{ task.enabled ? 'Active' : 'Off' }}</span>
-                    </div>
-                    <div class="task-card-actions">
-                      <a class="btn btn-sm btn-view" [routerLink]="['/boxes', boxId(), 'task', task.taskId]">View</a>
-                      @if (auth.isOperator) {
-                        <button class="btn btn-sm btn-run" (click)="openForceStart(task)">Force Start</button>
-                      }
-                      @if (auth.isAdmin) {
-                        <button class="btn btn-sm" (click)="openEditTask(task)">Edit</button>
-                        <button class="btn btn-sm btn-danger" (click)="requestDeleteTask(task)">Delete</button>
-                      }
-                    </div>
-                  </div>
-                  @if (task.description) {
-                    <div class="task-card-desc">{{ task.description }}</div>
-                  }
-                  <div class="task-card-grid">
-                    <div>
-                      <span class="detail-label">Command</span>
-                      <code>{{ task.command }}</code>
-                    </div>
-                    <div>
-                      <span class="detail-label">Created</span>
-                      <div>{{ formatUtc(task.createdAt, 'short') }}</div>
-                    </div>
-                    <div>
-                      <span class="detail-label">Dependencies</span>
-                      <div>{{ dependencyLabel(task) }}</div>
-                    </div>
-                  </div>
-                </div>
-              }
+            <div class="panel-body">
+              <div class="ui-table-wrap">
+                <table class="ui-table">
+                  <thead>
+                    <tr>
+                      <th>Task</th>
+                      <th>Type</th>
+                      <th>Status</th>
+                      <th>Last Execution</th>
+                      <th>Created</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (task of box()!.tasks; track task.taskId) {
+                      <tr>
+                        <td>
+                          <strong>{{ task.name }}</strong>
+                          @if (task.description) { <div class="hint-muted">{{ task.description }}</div> }
+                        </td>
+                        <td>{{ task.taskType }}</td>
+                        <td><span [class]="'badge ' + (task.enabled ? 'badge-success' : 'badge-danger')">{{ task.enabled ? 'Active' : 'Off' }}</span></td>
+                        <td>
+                          @if (task.lastExecutionStatus) {
+                            <app-status-badge [status]="task.lastExecutionStatus" />
+                            <span class="hint-muted"> {{ task.lastExecutionAtUtc ? formatUtc(task.lastExecutionAtUtc, 'short') : '' }}</span>
+                          } @else {
+                            <span class="hint-muted">No history</span>
+                          }
+                        </td>
+                        <td>{{ formatUtc(task.createdAt, 'short') }}</td>
+                        <td>
+                          <div class="table-actions">
+                            <a class="btn btn-sm btn-view" [routerLink]="['/boxes', boxId(), 'task', task.taskId]">View</a>
+                            @if (auth.isOperator) {
+                              <button class="btn btn-sm btn-run" (click)="openForceStart(task)">Force Start</button>
+                            }
+                            @if (auth.isAdmin) {
+                              <button class="btn btn-sm" (click)="openEditTask(task)">Edit</button>
+                              <button class="btn btn-sm btn-danger" (click)="requestDeleteTask(task)">Delete</button>
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+        </section>
+
+        <section class="data-panel">
+          <div class="panel-header">
+            <div class="panel-title-wrap">
+              <div class="panel-title">Recent Executions</div>
+              <div class="panel-subtitle">Latest BoxRuns for this box with status, trigger and timing context.</div>
+            </div>
+          </div>
+
+          @if (recentRuns().length === 0) {
+            <div class="empty-state"><p>No recent executions found for this box.</p></div>
+          } @else {
+            <div class="panel-body">
+              <p class="hint-muted">Showing latest {{ recentRuns().length }} runs (most recent first).</p>
+              <div class="ui-table-wrap">
+                <table class="ui-table">
+                  <thead>
+                    <tr>
+                      <th>Run</th>
+                      <th>Status</th>
+                      <th>Trigger</th>
+                      <th>Scheduled</th>
+                      <th>Started</th>
+                      <th>Duration</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (run of recentRuns(); track run.id) {
+                      <tr>
+                        <td>#{{ run.id }}</td>
+                        <td><app-status-badge [status]="displayRunStatus(run)" /></td>
+                        <td>{{ run.triggerSource }}</td>
+                        <td>{{ formatUtcWithBoxContext(run.scheduledForUtc, box()!.timeZoneId, 'short') }}</td>
+                        <td>{{ formatUtcWithBoxContext(run.startTime, box()!.timeZoneId, 'short') }}</td>
+                        <td>{{ formatDurationSeconds(run.durationSeconds) }}</td>
+                        <td>
+                          <div class="table-actions">
+                            <a class="btn btn-sm btn-view" [routerLink]="['/executions', run.id]">View Run</a>
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
             </div>
           }
         </section>
@@ -540,9 +528,23 @@ import { isFieldInvalid } from '../../shared/form-utils';
     .summary-box { margin-top:.85rem;background:color-mix(in srgb,var(--info-bg) 70%,white);border:1px solid color-mix(in srgb,var(--info) 20%,white);border-radius:var(--radius-2);padding:.75rem .85rem;color:var(--text-2) }
     .summary-box p { margin:.35rem 0 0;font-size:.86rem }
     .hint-muted { color:var(--text-3); }
+    .box-details-panel { margin-bottom:1.25rem; }
+    .box-details-header { display:flex; flex-direction:column; gap:.75rem; margin-bottom:1rem; }
+    .box-details-table-wrap { overflow:hidden; border:1px solid var(--border); border-radius:var(--radius-2); }
+    .box-details-table { width:100%; border-collapse:collapse; }
+    .box-details-table th, .box-details-table td { padding:.85rem 1rem; }
+    .box-details-table th { width:32%; text-align:left; vertical-align:top; font-weight:700; color:var(--text-3); background:var(--bg-muted); }
+    .box-details-table td { color:var(--text-1); }
+    .box-details-table tr + tr td { border-top:1px solid var(--border); }
+
+    .metrics-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:.85rem; margin-bottom:1rem; }
+    .metric-card-label { margin:0; font-size:.75rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-3); }
+    .metric-card-value { margin:.5rem 0 0; font-size:2rem; font-weight:700; color:var(--text-1); }
+
     @media (max-width: 1100px) {
       .overview-grid { grid-template-columns:1fr; }
       .task-card-grid { grid-template-columns:1fr; }
+      .metrics-grid { grid-template-columns:1fr; }
     }
     @media (max-width: 720px) {
       .task-card-head { flex-direction:column; }
@@ -682,7 +684,7 @@ export class BoxDetailComponent implements OnInit {
 
     forkJoin({
       box: this.boxesService.getById(id),
-      runs: this.executionService.getBoxRuns(6, id)
+      runs: this.executionService.getBoxRuns(10, id)
     }).subscribe({
       next: ({ box, runs }) => {
         this.resetNextRunCache();

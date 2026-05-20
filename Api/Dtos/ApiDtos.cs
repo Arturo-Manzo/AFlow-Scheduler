@@ -247,6 +247,8 @@ public class TaskDto
     public string TaskType { get; set; } = "";
     public bool Enabled { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? LastExecutionStatus { get; set; }
+    public DateTime? LastExecutionAtUtc { get; set; }
     public List<int> DependencyTaskIds { get; set; } = new();
 }
 
@@ -421,6 +423,8 @@ public class SystemStatusDto
     public int StaleExecutionThresholdMinutes { get; set; }
     public int QueueDepth { get; set; }
     public bool FailNotificationEnabled { get; set; }
+    public string BackendVersion { get; set; } = "";
+    public bool AutoRecoveryEnabled { get; set; }
     public bool StartupRecoveryCompleted { get; set; }
     public DateTime? LastRecoveryCompletedAtUtc { get; set; }
     public int LastRecoveredExecutionCount { get; set; }

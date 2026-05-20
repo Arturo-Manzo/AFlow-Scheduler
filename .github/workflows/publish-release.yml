@@ -165,6 +165,21 @@ jobs:
           }
           Copy-Item -Path $backendWizard -Destination .\artifacts\backend\run-config-wizard-backend.ps1 -Force
 
+      - name: Attach operations toolkit to backend artifact
+        shell: pwsh
+        run: |
+          $operationsRoot = Join-Path $env:GITHUB_WORKSPACE "operations"
+          if (-not (Test-Path $operationsRoot)) {
+            throw "Operations folder not found: $operationsRoot"
+          }
+
+          $backendOperationsPath = ".\artifacts\backend\operations"
+          New-Item -ItemType Directory -Path $backendOperationsPath -Force | Out-Null
+
+          Copy-Item -Path (Join-Path $operationsRoot "README.md") -Destination (Join-Path $backendOperationsPath "README.md") -Force
+          Copy-Item -Path (Join-Path $operationsRoot "docs") -Destination (Join-Path $backendOperationsPath "docs") -Recurse -Force
+          Copy-Item -Path (Join-Path $operationsRoot "scripts") -Destination (Join-Path $backendOperationsPath "scripts") -Recurse -Force
+
       - name: Package backend artifact
         shell: pwsh
         run: |
@@ -182,6 +197,18 @@ jobs:
           if (-not (Test-Path $frontendWizard)) {
             throw "Frontend config wizard not found: $frontendWizard"
           }
+
+          $operationsRoot = Join-Path $env:GITHUB_WORKSPACE "operations"
+          if (-not (Test-Path $operationsRoot)) {
+            throw "Operations folder not found: $operationsRoot"
+          }
+
+          $frontendOperationsPath = Join-Path $distPath "operations"
+          New-Item -ItemType Directory -Path $frontendOperationsPath -Force | Out-Null
+
+          Copy-Item -Path (Join-Path $operationsRoot "README.md") -Destination (Join-Path $frontendOperationsPath "README.md") -Force
+          Copy-Item -Path (Join-Path $operationsRoot "docs") -Destination (Join-Path $frontendOperationsPath "docs") -Recurse -Force
+          Copy-Item -Path (Join-Path $operationsRoot "scripts") -Destination (Join-Path $frontendOperationsPath "scripts") -Recurse -Force
 
           Copy-Item -Path $frontendWizard -Destination (Join-Path $distPath "run-config-wizard-frontend.ps1") -Force
           Compress-Archive -Path "$distPath\*" -DestinationPath .\artifacts\CHRONIQ-frontend-${{ steps.meta.outputs.tag }}.zip

@@ -1,26 +1,8 @@
 import { Injectable, inject, signal, computed, OnDestroy } from '@angular/core';
 import { ApiService } from './api.service';
-import { ApiResponse } from '../models/models';
+import { ApiResponse, SystemStatus } from '../models/models';
+import packageJson from '../../../package.json';
 
-export interface SystemStatus {
-  apiOnline: boolean;
-  dbConnected: boolean;
-  activeWorkers: number;
-  totalWorkers: number;
-  runningBoxRuns: number;
-  runningExecutions: number;
-  staleExecutions: number;
-  staleExecutionThresholdMinutes: number;
-  queueDepth: number;
-  failNotificationEnabled: boolean;
-  startupRecoveryCompleted: boolean;
-  lastRecoveryCompletedAtUtc?: string;
-  lastRecoveredExecutionCount: number;
-  lastRecoveredBoxRunCount: number;
-  environment: string;
-}
-
-const APP_VERSION = '0.0.0';
 const POLL_INTERVAL_MS = 30_000;
 
 @Injectable({ providedIn: 'root' })
@@ -33,7 +15,8 @@ export class StatusService implements OnDestroy {
 
   readonly status = this._status.asReadonly();
   readonly lastSyncAt = this._lastSyncAt.asReadonly();
-  readonly appVersion = APP_VERSION;
+  readonly frontendVersion = packageJson.version ?? 'unknown';
+  readonly backendVersion = computed(() => this._status()?.backendVersion ?? 'unknown');
 
   readonly apiOnline = computed(() => this._status()?.apiOnline ?? false);
   readonly dbConnected = computed(() => this._status()?.dbConnected ?? false);
@@ -60,6 +43,7 @@ export class StatusService implements OnDestroy {
   readonly recoveryLabel = computed(() => {
     const s = this._status();
     if (!s) return 'Recovery: --';
+    if (!s.autoRecoveryEnabled) return 'Recovery: Disabled';
     if (!s.startupRecoveryCompleted) return 'Recovery: Pending';
 
     const completedAt = s.lastRecoveryCompletedAtUtc
@@ -115,6 +99,8 @@ export class StatusService implements OnDestroy {
           staleExecutionThresholdMinutes: 0,
           queueDepth: 0,
           failNotificationEnabled: false,
+          backendVersion: 'unknown',
+          autoRecoveryEnabled: true,
           startupRecoveryCompleted: false,
           lastRecoveryCompletedAtUtc: undefined,
           lastRecoveredExecutionCount: 0,

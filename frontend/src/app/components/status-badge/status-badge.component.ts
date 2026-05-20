@@ -6,7 +6,7 @@ import { BoxRunStatus, TaskExecutionStatus } from '../../models/models';
   selector: 'app-status-badge',
   standalone: true,
   imports: [CommonModule],
-  template: `<span [class]="'badge status-badge ' + cssClass">{{ status }}</span>`,
+  templateUrl: './status-badge.component.html',
   styles: [`
     .status-badge {
       font-weight: 700;

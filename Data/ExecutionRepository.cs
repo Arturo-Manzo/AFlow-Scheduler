@@ -262,6 +262,32 @@ namespace CHRONIQ.Data
             return record == null ? null : NormalizeRecord(record);
         }
 
+        public async Task<Dictionary<int, TaskLastExecutionSummary>> GetLastExecutionSummaryByBoxAsync(int boxId)
+        {
+            using var connection = CreateConnection();
+            const string sql = @"
+                WITH LastExecutionByTask AS (
+                    SELECT
+                        t.TaskId,
+                        te.Status,
+                        te.StartedAt,
+                        te.EndedAt,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY t.TaskId
+                            ORDER BY te.StartedAt DESC, te.ExecutionId DESC
+                        ) AS rn
+                    FROM Tasks t
+                    INNER JOIN TaskExecutions te ON te.TaskId = t.TaskId
+                    WHERE t.BoxId = @BoxId
+                )
+                SELECT TaskId, Status, StartedAt, EndedAt
+                FROM LastExecutionByTask
+                WHERE rn = 1";
+
+            var rows = await connection.QueryAsync<TaskLastExecutionSummary>(sql, new { BoxId = boxId });
+            return rows.ToDictionary(row => row.TaskId, row => row);
+        }
+
         public async Task<List<ExecutionRecord>> GetLatestExecutionsAsync(int limit = 20)
         {
             if (limit <= 0) limit = 20;
@@ -473,6 +499,14 @@ namespace CHRONIQ.Data
                 EndedAt.HasValue
                     ? EndedAt.Value - StartedAt
                     : null;
+        }
+
+        public class TaskLastExecutionSummary
+        {
+            public int TaskId { get; set; }
+            public string Status { get; set; } = "";
+            public DateTime StartedAt { get; set; }
+            public DateTime? EndedAt { get; set; }
         }
 
         private static ExecutionRecord NormalizeRecord(ExecutionRecord record)
