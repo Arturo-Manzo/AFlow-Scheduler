@@ -50,7 +50,8 @@ try {
             if (Test-Path (Join-Path $designSystemPath "angular.json")) {
                 Write-Host "[Gate] Building ui-design-system..." -ForegroundColor Cyan
                 $designSystemPackage = Join-Path $designSystemPath "projects\ui-design-system\ng-package.json"
-                Invoke-GateCommand npx ng-packagr -p $designSystemPackage
+                $designSystemArgs = @("ng-packagr", "-p", $designSystemPackage)
+                Invoke-GateCommand npx @designSystemArgs
             }
 
             Invoke-GateCommand npm run build
