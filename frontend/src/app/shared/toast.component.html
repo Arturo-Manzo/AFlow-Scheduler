@@ -2,8 +2,8 @@
   <div class="toast-container">
     @for (msg of errorHandler.messages(); track msg.id) {
       <div [class]="'toast toast-' + msg.type" role="alert">
-        <span class="toast-text">{{ msg.text }}</span>
-        <button type="button" class="toast-close" (click)="errorHandler.dismiss(msg.id)" aria-label="Dismiss">&times;</button>
+        <span class="toast-text">{{ msg.text | translate }}</span>
+        <button type="button" class="toast-close" (click)="errorHandler.dismiss(msg.id)" [attr.aria-label]="'Dismiss' | translate">&times;</button>
       </div>
     }
   </div>

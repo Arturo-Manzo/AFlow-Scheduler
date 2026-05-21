@@ -1,11 +1,12 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ButtonDirective } from 'ui-design-system';
+import { TranslatePipe } from '../../shared/translate.pipe';
 
 @Component({
   selector: 'app-confirm-modal',
   standalone: true,
-  imports: [CommonModule, ButtonDirective],
+  imports: [CommonModule, ButtonDirective, TranslatePipe],
   templateUrl: './confirm-modal.component.html',
   styles: [`
     .confirm-modal { max-width: 440px; width: 95vw; }

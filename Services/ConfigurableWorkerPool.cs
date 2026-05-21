@@ -77,7 +77,18 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
         {
             if (_autoRecoverStaleExecutions)
             {
-                await RecoverStaleExecutionsAsync();
+                try
+                {
+                    await RecoverStaleExecutionsAsync();
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    MarkStartupRecoveryDeferred(ex);
+                }
             }
             else
             {
@@ -519,6 +530,18 @@ public class ConfigurableWorkerPool : BackgroundService, IWorkerStateService
 
         _logger.LogInformation(
             "Startup recovery was skipped because WorkerPool:AutoRecoverStaleExecutions is disabled.");
+    }
+
+    private void MarkStartupRecoveryDeferred(Exception exception)
+    {
+        _lastRecoveredExecutionCount = 0;
+        _lastRecoveredBoxRunCount = 0;
+        _lastRecoveryCompletedAtUtc = null;
+        _startupRecoveryCompleted = false;
+
+        _logger.LogError(
+            exception,
+            "Startup recovery failed. The worker pool will remain alive; recovery can complete after the database is reachable and the service is restarted.");
     }
 
     private async Task MarkBlockedTasksAsNotExecutedAsync(List<TaskDefinition> blockedTasks, BoxRunRequest request, string failureReason)

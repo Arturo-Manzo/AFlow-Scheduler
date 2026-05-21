@@ -1,140 +1,27 @@
-<div class="view-shell">
-  <div class="view-hero smtp-hero">
-    <div class="view-hero-main smtp-hero-main">
-      <div class="view-eyebrow">Admin Delivery Control</div>
-      <h1>SMTP Notification Settings</h1>
-      <p class="view-description">
-        Configure the mail relay used for task failure alerts, preserve credentials safely, and send a real validation email before relying on notifications in production.
-      </p>
+<section class="flex flex-col gap-6 pb-8">
+  <article class="ui-card ui-card--padded smtp-summary">
+    <div class="smtp-summary-main">
+      <h2 class="text-sm font-bold uppercase tracking-[0.12em] text-[var(--color-accent)]">{{ 'SMTP Notifications' | translate }}</h2>
+      <p class="mt-1 text-xs text-[var(--color-muted)]">{{ 'Failure alert delivery for scheduled tasks.' | translate }}</p>
     </div>
-    <div class="view-hero-kpi smtp-kpi">
-      <span class="kpi-value">{{ loading() ? '--' : (settingsLoaded() ? (smtpForm.value.enabled ? 'ON' : 'OFF') : '--') }}</span>
-      <span class="kpi-label">Relay State</span>
+    <div class="smtp-summary-actions">
+      <button class="btn btn-primary" type="button" (click)="openConfig()" [disabled]="loading()">{{ 'Config' | translate }}</button>
     </div>
-    <div class="view-hero-kpi smtp-kpi">
-      <span class="kpi-value">{{ loading() ? '--' : (savedSettings()?.hasPassword ? 'YES' : 'NO') }}</span>
-      <span class="kpi-label">Stored Secret</span>
-    </div>
-    <div class="view-hero-kpi smtp-kpi">
-      <span class="kpi-value">{{ loading() ? '--' : smtpForm.value.port }}</span>
-      <span class="kpi-label">SMTP Port</span>
-    </div>
-  </div>
-
-  <div class="meta-grid smtp-meta-grid">
-    <div class="meta-card smtp-accent-card">
-      <span class="meta-label">Effective Host</span>
-      <span class="meta-value">{{ savedSettings()?.host || 'Not configured' }}</span>
-    </div>
-    <div class="meta-card smtp-accent-card">
-      <span class="meta-label">Sender</span>
-      <span class="meta-value">{{ savedSettings()?.fromAddress || 'Not configured' }}</span>
-    </div>
-    <div class="meta-card smtp-accent-card">
-      <span class="meta-label">Transport Security</span>
-      <span class="meta-value">{{ savedSettings()?.enableSsl ? 'TLS/SSL enabled' : 'Plain connection' }}</span>
-    </div>
-  </div>
+  </article>
 
   <section class="data-panel smtp-panel">
-    <div class="panel-header smtp-panel-header">
+    <div class="panel-header">
       <div class="panel-title-wrap">
-        <div class="panel-title">Relay Configuration</div>
-        <div class="panel-subtitle">Only Administrators can edit these settings. Save changes before sending a test email.</div>
-      </div>
-      <div class="panel-toolbar">
-        <button class="btn" (click)="reload()" [disabled]="loading() || saving() || testing()">Reload</button>
-        <button class="btn btn-primary" (click)="saveSettings()" [disabled]="loading() || saving()">{{ saving() ? 'Saving...' : 'Save Settings' }}</button>
-      </div>
-    </div>
-
-    @if (loading()) {
-      <div class="loading-state"><span class="spinner"></span> Loading SMTP settings...</div>
-    } @else {
-      <div class="panel-body smtp-panel-body">
-        @if (loadError()) {
-          <div class="alert alert-danger">{{ loadError() }}</div>
-        }
-
-        @if (saveMessage()) {
-          <div class="alert alert-success">{{ saveMessage() }}</div>
-        }
-
-        @if (saveError()) {
-          <div class="alert alert-danger">{{ saveError() }}</div>
-        }
-
-        @if (savedSettings()?.hasPassword) {
-          <div class="credential-note">
-            <strong>Stored credential detected.</strong>
-            Leave the password field blank to preserve the current secret, or enter a new one to rotate it.
-          </div>
-        }
-
-        <form [formGroup]="smtpForm" novalidate class="smtp-form-grid">
-          <div class="field field-check smtp-state-toggle">
-            <input id="smtp-enabled" type="checkbox" formControlName="enabled" />
-            <label for="smtp-enabled">Enable SMTP failure notifications</label>
-          </div>
-
-          <div class="field">
-            <label for="smtp-host">Host</label>
-            <input id="smtp-host" formControlName="host" placeholder="smtp-mail.outlook.com" [class.is-invalid]="configFieldInvalid('host')" />
-            @if (configFieldInvalid('host')) {
-              <span class="field-hint">Host is required when notifications are enabled.</span>
-            }
-          </div>
-
-          <div class="field">
-            <label for="smtp-port">Port</label>
-            <input id="smtp-port" type="number" formControlName="port" min="1" max="65535" [class.is-invalid]="configFieldInvalid('port')" />
-            @if (configFieldInvalid('port')) {
-              <span class="field-hint">Port must be between 1 and 65535.</span>
-            }
-          </div>
-
-          <div class="field">
-            <label for="smtp-username">Username</label>
-            <input id="smtp-username" formControlName="username" placeholder="mailer@company.com" />
-          </div>
-
-          <div class="field">
-            <label for="smtp-password">Password</label>
-            <input id="smtp-password" type="password" formControlName="password" placeholder="Leave blank to keep current password" />
-            <span class="field-hint smtp-subhint">The password is never returned by the API after save.</span>
-          </div>
-
-          <div class="field">
-            <label for="smtp-from-address">From Address</label>
-            <input id="smtp-from-address" type="email" formControlName="fromAddress" placeholder="noreply@company.com" [class.is-invalid]="configFieldInvalid('fromAddress')" />
-            @if (configFieldInvalid('fromAddress')) {
-              <span class="field-hint">A valid sender address is required when notifications are enabled.</span>
-            }
-          </div>
-
-          <div class="field">
-            <label for="smtp-from-name">From Display Name</label>
-            <input id="smtp-from-name" formControlName="fromDisplayName" placeholder="Chroniq Notifications" />
-          </div>
-
-          <div class="field field-check smtp-tls-toggle">
-            <input id="smtp-ssl" type="checkbox" formControlName="enableSsl" />
-            <label for="smtp-ssl">Use TLS / SSL</label>
-          </div>
-        </form>
-      </div>
-    }
-  </section>
-
-  <section class="data-panel smtp-panel">
-    <div class="panel-header smtp-panel-header">
-      <div class="panel-title-wrap">
-        <div class="panel-title">Live Test</div>
-        <div class="panel-subtitle">This sends a real email using the currently saved settings stored in the backend.</div>
+        <div class="panel-title">{{ 'Test Email' | translate }}</div>
+        <div class="panel-subtitle">{{ 'Uses the saved backend configuration.' | translate }}</div>
       </div>
     </div>
 
     <div class="panel-body smtp-test-shell">
+      @if (loadError()) {
+        <div class="alert alert-danger">{{ loadError() }}</div>
+      }
+
       @if (getTestWarning()) {
         <div class="alert alert-warning">{{ getTestWarning() }}</div>
       }
@@ -149,10 +36,10 @@
 
       <form [formGroup]="testForm" (ngSubmit)="sendTestEmail()" novalidate class="smtp-test-form">
         <div class="field smtp-test-field">
-          <label for="smtp-test-email">Test Recipient Email</label>
-          <input id="smtp-test-email" type="email" formControlName="testRecipientEmail" placeholder="admin@company.com" [class.is-invalid]="testFieldInvalid()" />
+          <label for="smtp-test-email-main">{{ 'Recipient' | translate }}</label>
+          <input id="smtp-test-email-main" type="email" formControlName="testRecipientEmail" placeholder="admin@company.com" [class.is-invalid]="testFieldInvalid()" />
           @if (testFieldInvalid()) {
-            <span class="field-hint">Enter a valid email address for the test send.</span>
+            <span class="field-hint">{{ 'Enter a valid email address for the test send.' | translate }}</span>
           }
         </div>
         <div class="smtp-test-actions">
@@ -161,4 +48,138 @@
       </form>
     </div>
   </section>
-</div>
+</section>
+
+@if (configOpen()) {
+  <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="SMTP notification configuration">
+    <div class="modal smtp-config-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-header-main">
+          <h3>{{ 'SMTP Notifications' | translate }}</h3>
+          <p class="panel-subtitle">{{ 'Connection, authentication and sender identity.' | translate }}</p>
+        </div>
+        <button type="button" class="modal-close" (click)="closeConfig()" [attr.aria-label]="'Close' | translate">x</button>
+      </div>
+
+      <div class="modal-body smtp-modal-body">
+        @if (loading()) {
+          <div class="loading-state"><span class="spinner"></span> {{ 'Loading SMTP settings...' | translate }}</div>
+        } @else {
+          @if (loadError()) {
+            <div class="alert alert-danger">{{ loadError() }}</div>
+          }
+
+          @if (saveMessage()) {
+            <div class="alert alert-success">{{ saveMessage() }}</div>
+          }
+
+          @if (saveError()) {
+            <div class="alert alert-danger">{{ saveError() }}</div>
+          }
+
+          <form [formGroup]="smtpForm" novalidate class="smtp-form-grid">
+            <div class="field field-check smtp-state-toggle">
+              <input id="smtp-enabled" type="checkbox" formControlName="enabled" />
+              <label for="smtp-enabled">{{ 'Enable SMTP failure notifications' | translate }}</label>
+            </div>
+
+            <div class="smtp-form-section smtp-form-section--first">
+              <div class="smtp-section-title">{{ 'Delivery' | translate }}</div>
+            </div>
+
+            <div class="field">
+              <label for="smtp-host">{{ 'Host' | translate }}</label>
+              <input id="smtp-host" formControlName="host" placeholder="smtp-mail.outlook.com" [class.is-invalid]="configFieldInvalid('host')" />
+              @if (configFieldInvalid('host')) {
+                <span class="field-hint">{{ 'Host is required when notifications are enabled.' | translate }}</span>
+              }
+            </div>
+
+            <div class="field">
+              <label for="smtp-port">{{ 'Port' | translate }}</label>
+              <input id="smtp-port" type="number" formControlName="port" min="1" max="65535" [class.is-invalid]="configFieldInvalid('port')" />
+              @if (configFieldInvalid('port')) {
+                <span class="field-hint">{{ 'Port must be between 1 and 65535.' | translate }}</span>
+              }
+            </div>
+
+            <div class="field field-check smtp-tls-toggle">
+              <input id="smtp-ssl" type="checkbox" formControlName="enableSsl" />
+              <label for="smtp-ssl">{{ 'Use TLS / SSL' | translate }}</label>
+            </div>
+
+            <div class="smtp-form-section">
+              <div class="smtp-section-title">{{ 'Authentication' | translate }}</div>
+            </div>
+
+            <div class="field">
+              <label for="smtp-username">{{ 'Username' | translate }}</label>
+              <input id="smtp-username" formControlName="username" placeholder="mailer@company.com" />
+            </div>
+
+            <div class="field">
+              <label for="smtp-password">{{ 'Password' | translate }}</label>
+              <input id="smtp-password" type="password" formControlName="password" [placeholder]="savedSettings()?.hasPassword ? 'Leave blank to keep saved password' : 'SMTP password'" />
+              @if (savedSettings()?.hasPassword) {
+                <span class="field-hint smtp-subhint">{{ 'Leave blank to keep the saved password.' | translate }}</span>
+              }
+            </div>
+
+            <div class="smtp-form-section">
+              <div class="smtp-section-title">{{ 'Sender' | translate }}</div>
+            </div>
+
+            <div class="field">
+              <label for="smtp-from-address">{{ 'From Address' | translate }}</label>
+              <input id="smtp-from-address" type="email" formControlName="fromAddress" placeholder="noreply@company.com" [class.is-invalid]="configFieldInvalid('fromAddress')" />
+              @if (configFieldInvalid('fromAddress')) {
+                <span class="field-hint">{{ 'A valid sender address is required when notifications are enabled.' | translate }}</span>
+              }
+            </div>
+
+            <div class="field">
+              <label for="smtp-from-name">{{ 'From Display Name' | translate }}</label>
+              <input id="smtp-from-name" formControlName="fromDisplayName" placeholder="Chroniq Notifications" />
+            </div>
+          </form>
+
+          <section class="smtp-modal-test">
+            <div class="smtp-section-title">{{ 'Test Email' | translate }}</div>
+            <div class="smtp-test-shell">
+              @if (getTestWarning()) {
+                <div class="alert alert-warning">{{ getTestWarning() }}</div>
+              }
+
+              @if (testMessage()) {
+                <div class="alert alert-success">{{ testMessage() }}</div>
+              }
+
+              @if (testError()) {
+                <div class="alert alert-danger">{{ testError() }}</div>
+              }
+
+              <form [formGroup]="testForm" (ngSubmit)="sendTestEmail()" novalidate class="smtp-test-form">
+                <div class="field smtp-test-field">
+                  <label for="smtp-test-email-modal">{{ 'Recipient' | translate }}</label>
+                  <input id="smtp-test-email-modal" type="email" formControlName="testRecipientEmail" placeholder="admin@company.com" [class.is-invalid]="testFieldInvalid()" />
+                  @if (testFieldInvalid()) {
+                    <span class="field-hint">{{ 'Enter a valid email address for the test send.' | translate }}</span>
+                  }
+                </div>
+                <div class="smtp-test-actions">
+                  <button class="btn btn-primary" type="submit" [disabled]="testing() || !canSendTest()">{{ testing() ? 'Sending...' : 'Send Test Email' }}</button>
+                </div>
+              </form>
+            </div>
+          </section>
+        }
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn" (click)="reload()" [disabled]="loading() || saving() || testing()">{{ 'Reload' | translate }}</button>
+        <button type="button" class="btn" (click)="closeConfig()">{{ 'Close' | translate }}</button>
+        <button type="button" class="btn btn-primary" (click)="saveSettings()" [disabled]="loading() || saving()">{{ saving() ? 'Saving...' : 'Save' }}</button>
+      </div>
+    </div>
+  </div>
+}

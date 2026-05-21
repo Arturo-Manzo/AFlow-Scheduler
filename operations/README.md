@@ -48,3 +48,11 @@ This folder centralizes operational artifacts that were previously scattered acr
   - `powershell -NoProfile -ExecutionPolicy Bypass -File operations/scripts/config/run-config-wizard-frontend.ps1 -Apply`
 - Optional machine-scope environment variables (backend):
   - `...run-config-wizard-backend.ps1 -Apply -UseMachineScope`
+
+## Windows Service
+- Install or update the backend service from an elevated PowerShell session:
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File operations/scripts/infra/install-windows-service.ps1 -ServiceName CHRONIQ -BinaryPath .\AScheduler.exe`
+  - Add `-Force` to update an existing service definition after deploying a new binary.
+- Default startup is delayed automatic, with restart-on-failure configured for crashes.
+- If scheduled tasks access UNC shares, run the service under a domain account that has direct permissions:
+  - `...install-windows-service.ps1 -ServiceName CHRONIQ -BinaryPath .\AScheduler.exe -Username "DOMAIN\svc-chroniq" -Password "..." -Force`

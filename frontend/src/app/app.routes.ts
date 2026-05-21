@@ -11,8 +11,8 @@ import { UsersComponent }    from './pages/users/users.component';
 import { BoxRunListComponent } from './pages/box-run-list/box-run-list.component';
 import { BoxRunDetailComponent } from './pages/box-run-detail/box-run-detail.component';
 import { DepartmentListComponent } from './components/department-list/department-list.component';
-import { ExecutionHistoryComponent } from './pages/execution-history/execution-history.component';
 import { NotificationSettingsComponent } from './pages/notification-settings/notification-settings.component';
+import { HealthAdminComponent } from './pages/health-admin/health-admin.component';
 
 export const routes: Routes = [
   { path: 'login',     component: LoginComponent,    canActivate: [loginGuard], title: 'Sign In | Chroniq' },
@@ -22,11 +22,9 @@ export const routes: Routes = [
   { path: 'boxes/:boxId', component: BoxDetailComponent, canActivate: [authGuard], title: 'Box Detail | Chroniq' },
   { path: 'executions', component: BoxRunListComponent, canActivate: [authGuard], title: 'Executions | Chroniq' },
   { path: 'executions/:boxRunId', component: BoxRunDetailComponent, canActivate: [authGuard], title: 'Execution Detail | Chroniq' },
+  { path: 'health', component: HealthAdminComponent, canActivate: [authGuard, adminGuard], title: 'Health | Chroniq' },
   { path: 'departments', component: DepartmentListComponent, canActivate: [authGuard, adminGuard], title: 'Departments | Chroniq' },
   { path: 'notification-settings', component: NotificationSettingsComponent, canActivate: [authGuard, adminGuard], title: 'SMTP Settings | Chroniq' },
-  { path: 'history',   component: ExecutionHistoryComponent, canActivate: [authGuard], title: 'Execution History | Chroniq' },
-  { path: 'failed',    redirectTo: 'history', pathMatch: 'full' },
-  { path: 'logs',      redirectTo: 'history', pathMatch: 'full' },
   { path: 'users',     component: UsersComponent,    canActivate: [authGuard, adminGuard], title: 'Users | Chroniq' },
   { path: '',          redirectTo: 'login', pathMatch: 'full' },
   { path: '**',        redirectTo: 'login' }

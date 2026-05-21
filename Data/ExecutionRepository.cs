@@ -371,6 +371,33 @@ namespace CHRONIQ.Data
             return result.Select(NormalizeRecord).ToList();
         }
 
+        public async Task<int> GetFailedExecutionCountAsync(DateTime fromUtc, DateTime? toUtc = null, int? departmentId = null, string[]? status = null)
+        {
+            using var connection = CreateConnection();
+            var allowedStatuses = (status is { Length: > 0 })
+                ? status
+                : new[] { "Failed", "Aborted", "NotExecuted", "Skipped" };
+
+            var sql = $@"
+                SELECT COUNT(1)
+                FROM TaskExecutions te
+                INNER JOIN Tasks t ON te.TaskId = t.TaskId
+                INNER JOIN Boxes b ON t.BoxId = b.BoxId
+                WHERE te.Status IN ({string.Join(", ", allowedStatuses.Select((_, i) => $"@Status{i}"))})
+                  AND te.StartedAt >= @FromUtc
+                  AND (@ToUtc IS NULL OR te.StartedAt <= @ToUtc)
+                  AND (@DepartmentId IS NULL OR b.DepartmentId = @DepartmentId OR b.DepartmentId IS NULL)";
+
+            var parameters = new DynamicParameters();
+            parameters.Add("FromUtc", fromUtc);
+            parameters.Add("ToUtc", toUtc);
+            parameters.Add("DepartmentId", departmentId);
+            for (var i = 0; i < allowedStatuses.Length; i++)
+                parameters.Add($"Status{i}", allowedStatuses[i]);
+
+            return await connection.ExecuteScalarAsync<int>(sql, parameters);
+        }
+
         public async Task<Dictionary<int, string>> GetTaskStatusMapForBoxRunAsync(int boxRunId)        {
             using var connection = CreateConnection();
             const string sql = @"

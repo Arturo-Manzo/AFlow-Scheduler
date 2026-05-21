@@ -13,13 +13,44 @@ import {
 } from '../../models/models';
 import { detectUserTimeZone, formatUtcInTimeZone } from '../../shared/timezone-utils';
 import { isFieldInvalid } from '../../shared/form-utils';
+import { TranslatePipe } from '../../shared/translate.pipe';
 
 @Component({
   selector: 'app-users',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ButtonDirective],
+  imports: [CommonModule, ReactiveFormsModule, ButtonDirective, TranslatePipe],
   templateUrl: './users.component.html',
-  styleUrl: './users.component.scss'
+  styles: [`
+    .user-modal-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .user-modal-label {
+      color: var(--color-muted);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      line-height: 1rem;
+      text-transform: uppercase;
+    }
+
+    .user-modal-error {
+      color: var(--ui-danger-text);
+      font-size: 0.75rem;
+      line-height: 1rem;
+      min-height: 1rem;
+    }
+
+    .user-modal-check {
+      align-items: center;
+      color: var(--color-muted);
+      display: flex;
+      gap: 0.5rem;
+      min-height: 2.5rem;
+    }
+  `]
 })
 export class UsersComponent implements OnInit {
   private api = inject(ApiService);

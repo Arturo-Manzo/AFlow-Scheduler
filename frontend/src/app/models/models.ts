@@ -211,6 +211,51 @@ export interface SystemStatus {
   environment: string;
 }
 
+export interface ReadinessCheckDto {
+  name: string;
+  status: string;
+  description: string;
+  durationMs: number;
+}
+
+export interface ApplicationLogDto {
+  id: number;
+  logFileName: string;
+  timestamp: string;
+  level: string;
+  message: string;
+  errorFile?: string;
+  errorMethod?: string;
+  errorLine?: number;
+  exceptionType?: string;
+  source?: string;
+  correlationId?: string;
+  userId?: number;
+  requestPath?: string;
+  statusCode?: number;
+  createdAt: string;
+}
+
+export interface HealthSummaryDto {
+  appErrors: number;
+  appWarnings: number;
+  failedExecutions: number;
+  staleExecutions: number;
+  queueDepth: number;
+  dbConnected: boolean;
+}
+
+export interface HealthDashboardDto {
+  status: SystemStatus;
+  readiness: ReadinessCheckDto[];
+  applicationErrors: ApplicationLogDto[];
+  failedExecutions: ExecutionDto[];
+  summary: HealthSummaryDto;
+  windowHours: number;
+  limit: number;
+  generatedAtUtc: string;
+}
+
 export type BoxRunStatus = 'Pending' | 'Running' | 'Stopping' | 'Completed' | 'Partial' | 'Failed' | 'Cancelled';
 
 export type TaskExecutionStatus = 'Pending' | 'Running' | 'Success' | 'Failed' | 'Skipped';

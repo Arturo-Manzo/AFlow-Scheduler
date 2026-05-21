@@ -19,48 +19,64 @@ import { BoxesService } from '../../services/boxes.service';
 import { ExecutionService } from '../../services/execution.service';
 import { TasksService } from '../../services/tasks.service';
 import { formatUtcInTimeZone } from '../../shared/timezone-utils';
+import { TranslatePipe } from '../../shared/translate.pipe';
 
 @Component({
   selector: 'app-task-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, ReactiveFormsModule, StatusBadgeComponent, ButtonDirective],
+  imports: [CommonModule, RouterLink, ReactiveFormsModule, StatusBadgeComponent, ButtonDirective, TranslatePipe],
   template: `
     <div class="view-shell">
       <div class="page-header">
         <div>
-          <a class="back-link" [routerLink]="['/boxes', boxId()]">← Back to {{ box()?.name || ('Box #' + boxId()) }}</a>
+          <a class="back-link" [routerLink]="['/boxes', boxId()]">← {{ 'Back to {name}' | translate:{ name: box()?.name || ('Box #' + boxId()) } }}</a>
           <h1>{{ task()?.name || ('Task #' + taskId()) }}</h1>
-          <div class="page-subtitle">Individual task view with execution history, KPIs and management actions.</div>
+          <div class="page-subtitle">{{ 'Individual task view with execution history, KPIs and management actions.' | translate }}</div>
         </div>
         <div class="page-actions">
-          <button class="btn" (click)="reload()">Refresh</button>
+          <button class="btn" (click)="reload()">{{ 'Refresh' | translate }}</button>
           @if (auth.isAdmin && task()) {
-            <button class="btn" (click)="openEditTask()">Edit</button>
-            <button class="btn btn-danger" (click)="requestDelete()">Delete</button>
+            <button class="btn" (click)="openEditTask()">{{ 'Edit' | translate }}</button>
+            <button class="btn btn-danger" (click)="requestDelete()">{{ 'Delete' | translate }}</button>
           }
           @if ((auth.isAdmin || auth.isOperator) && task()) {
-            <button class="btn btn-primary btn-run" (click)="openForceStart()">Force Start</button>
+            <button class="btn btn-primary btn-run" (click)="openForceStart()">{{ 'Force Start' | translate }}</button>
           }
         </div>
       </div>
 
       @if (loading()) {
-        <div class="loading-state"><span class="spinner"></span> Loading task details...</div>
+        <div class="loading-state"><span class="spinner"></span> {{ 'Loading task details...' | translate }}</div>
       } @else if (error()) {
         <div class="alert alert-danger">{{ error() }}</div>
       } @else if (task()) {
-        <div class="metrics-grid">
-          <article class="ui-card ui-card--padded metric-card">
-            <p class="metric-card-label">Total Runs</p>
-            <p class="metric-card-value">{{ totalExecutions() }}</p>
+        <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <article class="ui-card ui-card--padded">
+            <div class="flex items-center justify-between">
+              <p class="ui-kpi-label">Total Runs</p>
+              <svg class="h-5 w-5 text-[var(--color-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+              </svg>
+            </div>
+            <p class="ui-kpi-value text-[var(--color-text)]">{{ totalExecutions() }}</p>
           </article>
-          <article class="ui-card ui-card--padded metric-card">
-            <p class="metric-card-label">Success Rate</p>
-            <p class="metric-card-value">{{ successRate() }}%</p>
+          <article class="ui-card ui-card--padded">
+            <div class="flex items-center justify-between">
+              <p class="ui-kpi-label">Success Rate</p>
+              <svg class="h-5 w-5 text-[var(--ui-success-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <p class="ui-kpi-value text-[var(--ui-success-text)]">{{ successRate() }}%</p>
           </article>
-          <article class="ui-card ui-card--padded metric-card">
-            <p class="metric-card-label">Avg Duration</p>
-            <p class="metric-card-value">{{ avgDurationLabel() }}</p>
+          <article class="ui-card ui-card--padded">
+            <div class="flex items-center justify-between">
+              <p class="ui-kpi-label">{{ 'Avg Duration' | translate }}</p>
+              <svg class="h-5 w-5 text-[var(--color-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <p class="ui-kpi-value text-[var(--color-text)]">{{ avgDurationLabel() }}</p>
           </article>
         </div>
 
@@ -118,12 +134,12 @@ import { formatUtcInTimeZone } from '../../shared/timezone-utils';
                   <thead>
                     <tr>
                       <th>#</th>
-                      <th>Status</th>
-                      <th>Trigger</th>
-                      <th>Started At</th>
-                      <th>Duration</th>
+                      <th>{{ 'Status' | translate }}</th>
+                      <th>{{ 'Trigger' | translate }}</th>
+                      <th>{{ 'Started At' | translate }}</th>
+                      <th>{{ 'Duration' | translate }}</th>
                       <th>Exit Code</th>
-                      <th>Reason</th>
+                      <th>{{ 'Reason' | translate }}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -151,8 +167,8 @@ import { formatUtcInTimeZone } from '../../shared/timezone-utils';
       <div class="modal-overlay modal-overlay-top" role="dialog" aria-modal="true">
         <div class="modal" (click)="$event.stopPropagation()" style="max-width:560px;width:95vw">
           <div class="modal-header">
-            <h3>Edit Task</h3>
-            <button type="button" class="modal-close" (click)="closeEditForm()" aria-label="Close">x</button>
+            <h3>{{ 'Edit Task' | translate }}</h3>
+            <button type="button" class="modal-close" (click)="closeEditForm()" [attr.aria-label]="'Close' | translate">x</button>
           </div>
           <form [formGroup]="editForm" (ngSubmit)="saveEdit()" novalidate>
             <div class="modal-body">
@@ -185,8 +201,8 @@ import { formatUtcInTimeZone } from '../../shared/timezone-utils';
               @if (editFormError()) { <div class="alert alert-danger" style="margin-top:.75rem">{{ editFormError() }}</div> }
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn" (click)="closeEditForm()">Cancel</button>
-              <button type="submit" class="btn btn-primary" [disabled]="editSaving()">{{ editSaving() ? 'Saving...' : 'Save Task' }}</button>
+              <button type="button" class="btn" (click)="closeEditForm()">{{ 'Cancel' | translate }}</button>
+              <button type="submit" class="btn btn-primary" [disabled]="editSaving()">{{ editSaving() ? ('Saving...' | translate) : ('Save Task' | translate) }}</button>
             </div>
           </form>
         </div>
@@ -197,17 +213,17 @@ import { formatUtcInTimeZone } from '../../shared/timezone-utils';
       <div class="modal-overlay modal-overlay-top" role="dialog" aria-modal="true">
         <div class="modal" (click)="$event.stopPropagation()">
           <div class="modal-header">
-            <h3>Delete Task</h3>
-            <button type="button" class="modal-close" (click)="cancelDelete()" aria-label="Close">x</button>
+            <h3>{{ 'Delete Task' | translate }}</h3>
+            <button type="button" class="modal-close" (click)="cancelDelete()" [attr.aria-label]="'Close' | translate">x</button>
           </div>
           <div class="modal-body">
-            <p>Delete task <strong>{{ task()!.name }}</strong>? This action cannot be undone.</p>
+            <p>{{ 'Delete task {name}?' | translate:{ name: task()!.name } }} {{ 'This action cannot be undone.' | translate }}</p>
             @if (deleteError()) { <div class="alert alert-danger">{{ deleteError() }}</div> }
           </div>
           <div class="modal-footer">
-            <button class="btn" (click)="cancelDelete()">Cancel</button>
+            <button class="btn" (click)="cancelDelete()">{{ 'Cancel' | translate }}</button>
             <button class="btn btn-danger" (click)="confirmDelete()" [disabled]="deleteLoading()">
-              {{ deleteLoading() ? 'Deleting...' : 'Confirm Delete' }}
+              {{ deleteLoading() ? ('Deleting...' | translate) : ('Confirm Delete' | translate) }}
             </button>
           </div>
         </div>
@@ -218,26 +234,26 @@ import { formatUtcInTimeZone } from '../../shared/timezone-utils';
       <div class="modal-overlay" style="z-index:1200" role="dialog" aria-modal="true">
         <div class="modal" (click)="$event.stopPropagation()" style="max-width:440px;width:95vw">
           <div class="modal-header">
-            <h3>Force Start Task</h3>
-            <button type="button" class="modal-close" (click)="closeForceStart()" aria-label="Close">x</button>
+            <h3>{{ 'Force Start Task' | translate }}</h3>
+            <button type="button" class="modal-close" (click)="closeForceStart()" [attr.aria-label]="'Close' | translate">x</button>
           </div>
           <form [formGroup]="forceStartForm" (ngSubmit)="confirmForceStart()">
             <div class="modal-body">
               <p>This will execute <strong>{{ task()!.name }}</strong> ignoring its dependencies. Continue?</p>
               <div class="field" style="margin-top:.75rem">
-                <label for="fs-reason">Reason <span style="color:var(--danger)">*</span></label>
+                <label for="fs-reason">{{ 'Reason' | translate }} <span style="color:var(--danger)">*</span></label>
                 <input id="fs-reason" formControlName="reason" placeholder="e.g. Manual retry after outage"
                        [class.is-invalid]="forceStartFieldInvalid()" />
-                @if (forceStartFieldInvalid()) { <span class="field-hint">Reason is required.</span> }
+                @if (forceStartFieldInvalid()) { <span class="field-hint">{{ 'Reason is required.' | translate }}</span> }
               </div>
               @if (forceStartMessage()) { <div class="alert alert-success">{{ forceStartMessage() }}</div> }
               @if (forceStartError()) { <div class="alert alert-danger">{{ forceStartError() }}</div> }
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn" (click)="closeForceStart()">Close</button>
+              <button type="button" class="btn" (click)="closeForceStart()">{{ 'Close' | translate }}</button>
               @if (!forceStartMessage()) {
                 <button type="submit" class="btn btn-primary" [disabled]="forceStartLoading()">
-                  {{ forceStartLoading() ? 'Starting...' : 'Force Start' }}
+                  {{ forceStartLoading() ? ('Starting...' | translate) : ('Force Start' | translate) }}
                 </button>
               }
             </div>
@@ -256,9 +272,6 @@ import { formatUtcInTimeZone } from '../../shared/timezone-utils';
     .type-bat { background: #fdf3e8; color: #c17a00; }
     .type-python { background: #e8f5e9; color: #2e7d32; }
     .type-api { background: #f3e8fd; color: #6a1b9a; }
-    .metrics-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .85rem; margin-bottom: 1rem; }
-    .metric-card-label { margin: 0; font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
-    .metric-card-value { margin: .5rem 0 0; font-size: 2rem; font-weight: 700; color: var(--text-1); }
     .box-details-panel { margin-bottom: 1.25rem; }
     .box-details-table-wrap { overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-2); }
     .box-details-table { width: 100%; border-collapse: collapse; }

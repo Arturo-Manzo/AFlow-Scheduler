@@ -2,11 +2,12 @@ import { AfterViewChecked, Component, ElementRef, EventEmitter, Input, Output, V
 import { CommonModule } from '@angular/common';
 import { TaskExecutionLogDto } from '../../models/models';
 import { ButtonDirective } from 'ui-design-system';
+import { TranslatePipe } from '../../shared/translate.pipe';
 
 @Component({
   selector: 'app-task-logs-modal',
   standalone: true,
-  imports: [CommonModule, ButtonDirective],
+  imports: [CommonModule, ButtonDirective, TranslatePipe],
   templateUrl: './task-logs-modal.component.html',
   styles: [`
     .task-logs-modal { max-width: 980px; width: 96vw; }

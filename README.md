@@ -75,6 +75,16 @@ Optional machine scope for environment variables:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\run-config-wizard-backend.ps1 -Apply -UseMachineScope
 ```
 
+### Backend Windows Service
+
+Install the published backend as a Windows Service from an elevated PowerShell session:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\operations\scripts\infra\install-windows-service.ps1 -ServiceName CHRONIQ -BinaryPath .\AScheduler.exe
+```
+
+Use `-Force` to update an existing service after deploying a new release. The script sets delayed automatic startup and configures Windows to restart the service after crashes.
+
 ### Frontend Wizard
 
 Use this to configure frontend runtime `config.json` for IIS static hosting (backend API URL).

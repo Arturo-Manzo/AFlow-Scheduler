@@ -3,33 +3,33 @@
     <div class="modal task-logs-modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <div>
-          <h3 style="margin:0;font-size:1rem">Task Logs</h3>
-          <div class="modal-subtitle">{{ taskName || 'Task execution logs' }}</div>
+          <h3 style="margin:0;font-size:1rem">{{ 'Task Logs' | translate }}</h3>
+          <div class="modal-subtitle">{{ taskName || ('Task execution logs' | translate) }}</div>
         </div>
-        <button type="button" class="modal-close" (click)="close.emit()" aria-label="Close">x</button>
+        <button type="button" class="modal-close" (click)="close.emit()" [attr.aria-label]="'Close' | translate">x</button>
       </div>
       <div class="modal-body">
         <div class="toolbar">
           <button class="btn btn-sm" type="button" (click)="toggleNewestFirst()">
-            {{ newestFirst ? 'Show oldest first' : 'Show newest first' }}
+            {{ newestFirst ? ('Show oldest first' | translate) : ('Show newest first' | translate) }}
           </button>
         </div>
 
         <div #logContainer class="logs-container">
           @if (loading) {
-            <div class="empty-state">Loading logs...</div>
+            <div class="empty-state">{{ 'Loading logs...' | translate }}</div>
           } @else if (error) {
             <div class="alert alert-danger">{{ error }}</div>
           } @else if (orderedLogs().length === 0) {
-            <div class="empty-state">No logs found for this execution.</div>
+            <div class="empty-state">{{ 'No logs found for this execution.' | translate }}</div>
           } @else {
             <table class="data-table logs-table">
               <thead>
                 <tr>
-                  <th>Timestamp</th>
-                  <th>Level</th>
-                  <th>Message</th>
-                  <th>Details</th>
+                  <th>{{ 'Timestamp' | translate }}</th>
+                  <th>{{ 'Level' | translate }}</th>
+                  <th>{{ 'Message' | translate }}</th>
+                  <th>{{ 'Details' | translate }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -41,7 +41,7 @@
                     <td>
                       @if (log.details) {
                         <button class="btn btn-sm" type="button" (click)="toggleDetails(log.id)">
-                          {{ isExpanded(log.id) ? 'Hide Details' : 'Show Details' }}
+                          {{ isExpanded(log.id) ? ('Hide Details' | translate) : ('Show Details' | translate) }}
                         </button>
                         @if (isExpanded(log.id)) {
                           <pre class="details-block">{{ log.details }}</pre>
@@ -58,7 +58,7 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn" (click)="close.emit()">Close</button>
+        <button class="btn" (click)="close.emit()">{{ 'Close' | translate }}</button>
       </div>
     </div>
   </div>

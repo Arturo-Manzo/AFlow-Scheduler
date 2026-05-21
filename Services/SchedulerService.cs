@@ -32,8 +32,29 @@ namespace CHRONIQ.Services
             var intervalSeconds = _config.GetValue<int>("Scheduler:IntervalSeconds", 60);
             while (!stoppingToken.IsCancellationRequested)
             {
-                await EvaluateBoxesAsync();
-                await Task.Delay(TimeSpan.FromSeconds(intervalSeconds), stoppingToken);
+                try
+                {
+                    await EvaluateBoxesAsync();
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Scheduler cycle failed. The service will stay alive and retry on the next cycle.");
+                }
+
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(intervalSeconds), stoppingToken);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
             }
         }
 

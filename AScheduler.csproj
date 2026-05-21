@@ -21,6 +21,11 @@
     <Content Remove="operations/tools/**" />
     <EmbeddedResource Remove="operations/tools/**" />
     <None Remove="operations/tools/**" />
+    <!-- Exclude generated verification artifacts from backend compile glob -->
+    <Compile Remove="artifacts/**" />
+    <Content Remove="artifacts/**" />
+    <EmbeddedResource Remove="artifacts/**" />
+    <None Remove="artifacts/**" />
   </ItemGroup>
 
   <ItemGroup>
@@ -30,6 +35,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
     <PackageReference Include="Serilog.Settings.Configuration" Version="8.0.4" />
     <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />

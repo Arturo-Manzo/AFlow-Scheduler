@@ -2,18 +2,18 @@
   <div class="modal-overlay" role="dialog" aria-modal="true" (click)="close.emit()">
     <div class="modal" (click)="$event.stopPropagation()" style="max-width:760px;width:95vw">
       <div class="modal-header">
-        <h3 style="margin:0;font-size:1rem">Task Error Details</h3>
-        <button type="button" class="modal-close" (click)="close.emit()" aria-label="Close">x</button>
+        <h3 style="margin:0;font-size:1rem">{{ 'Task Error Details' | translate }}</h3>
+        <button type="button" class="modal-close" (click)="close.emit()" [attr.aria-label]="'Close' | translate">x</button>
       </div>
       <div class="modal-body">
-        <p class="section-title" style="margin-top:0">Error Message</p>
-        <pre class="error-block">{{ error || '(No error message)' }}</pre>
+        <p class="section-title" style="margin-top:0">{{ 'Error Message' | translate }}</p>
+        <pre class="error-block">{{ error || ('(No error message)' | translate) }}</pre>
 
-        <p class="section-title">Stack Trace</p>
-        <pre class="stack-block">{{ stackTrace || '(No stack trace available)' }}</pre>
+        <p class="section-title">{{ 'Stack Trace' | translate }}</p>
+        <pre class="stack-block">{{ stackTrace || ('(No stack trace available)' | translate) }}</pre>
       </div>
       <div class="modal-footer">
-        <button class="btn" (click)="close.emit()">Close</button>
+        <button class="btn" (click)="close.emit()">{{ 'Close' | translate }}</button>
       </div>
     </div>
   </div>

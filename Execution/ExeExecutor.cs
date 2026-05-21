@@ -47,6 +47,13 @@ public class ExeExecutor : ITaskExecutor
             arguments = "/c " + arguments;
         }
 
+        var warmupFailure = await NetworkPathWarmup.WarmCommandTargetAsync(fileName, linkedCts.Token)
+            .ConfigureAwait(false);
+        if (warmupFailure is not null)
+        {
+            return warmupFailure;
+        }
+
         using var process = new Process
         {
             StartInfo = new ProcessStartInfo

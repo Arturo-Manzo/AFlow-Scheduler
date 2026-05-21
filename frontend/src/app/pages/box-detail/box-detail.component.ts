@@ -22,27 +22,28 @@ import { ExecutionService } from '../../services/execution.service';
 import { TasksService } from '../../services/tasks.service';
 import { detectUserTimeZone, formatUtcShorthand, formatUtcWithBoxContextShorthand, getAvailableTimeZones, FrequencyOption, parseCronToSchedule, describeCron as sharedDescribeCron } from '../../shared/timezone-utils';
 import { isFieldInvalid } from '../../shared/form-utils';
+import { TranslatePipe } from '../../shared/translate.pipe';
 
 @Component({
   selector: 'app-box-detail',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, StatusBadgeComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, StatusBadgeComponent, TranslatePipe],
   template: `
     <div class="view-shell">
       <div class="page-header">
         <div>
-          <a class="back-link" routerLink="/boxes">← Back to boxes</a>
+          <a class="back-link" routerLink="/boxes">← {{ 'Back to boxes' | translate }}</a>
           <h1>{{ box()?.name || ('Box #' + boxId()) }}</h1>
-          <div class="page-subtitle">{{ box()?.description || 'No description configured for this box.' }}</div>
+          <div class="page-subtitle">{{ box()?.description || ('No description configured for this box.' | translate) }}</div>
         </div>
         <div class="page-actions">
-          <button class="btn" (click)="reload()">Refresh</button>
+          <button class="btn" (click)="reload()">{{ 'Refresh' | translate }}</button>
           @if (auth.isOperator && box()) {
             <button class="btn btn-run" (click)="openRunBox()">Run</button>
           }
           @if (auth.isAdmin && box()) {
-            <button class="btn btn-secondary" (click)="openEditBox()">Edit</button>
-            <button class="btn btn-danger" (click)="requestDeleteBox()">Delete</button>
+            <button class="btn btn-secondary" (click)="openEditBox()">{{ 'Edit' | translate }}</button>
+            <button class="btn btn-danger" (click)="requestDeleteBox()">{{ 'Delete' | translate }}</button>
           }
         </div>
       </div>
@@ -51,8 +52,8 @@ import { isFieldInvalid } from '../../shared/form-utils';
         <div class="modal-overlay" role="dialog" aria-modal="true">
           <div class="modal" (click)="$event.stopPropagation()" style="max-width:720px;width:95vw;max-height:92vh;overflow-y:auto">
             <div class="modal-header">
-              <h3>Edit Box</h3>
-              <button type="button" class="modal-close" (click)="closeEditBox()" aria-label="Close">x</button>
+              <h3>{{ 'Edit Box' | translate }}</h3>
+              <button type="button" class="modal-close" (click)="closeEditBox()" [attr.aria-label]="'Close' | translate">x</button>
             </div>
             <form [formGroup]="editBoxForm" (ngSubmit)="saveEditBox()" novalidate>
               <div class="modal-body">
@@ -120,7 +121,7 @@ import { isFieldInvalid } from '../../shared/form-utils';
                   <div class="summary-box">
                     <strong>Preview:</strong>
                     <p>{{ liveEditScheduleSummary() }}</p>
-                    <p>This schedule will run in: <strong>{{ selectedEditTimeZoneId() }}</strong></p>
+                    <p>{{ 'This schedule will run in:' | translate }} <strong>{{ selectedEditTimeZoneId() }}</strong></p>
                   </div>
                 </section>
 
@@ -128,8 +129,8 @@ import { isFieldInvalid } from '../../shared/form-utils';
                 @if (editBoxError()) { <div class="alert alert-danger">{{ editBoxError() }}</div> }
               </div>
               <div class="modal-footer">
-                <button type="button" class="btn" (click)="closeEditBox()">Cancel</button>
-                <button type="submit" class="btn btn-primary" [disabled]="editBoxSaving()">{{ editBoxSaving() ? 'Saving...' : 'Save Box' }}</button>
+                <button type="button" class="btn" (click)="closeEditBox()">{{ 'Cancel' | translate }}</button>
+                <button type="submit" class="btn btn-primary" [disabled]="editBoxSaving()">{{ editBoxSaving() ? ('Saving...' | translate) : ('Save Box' | translate) }}</button>
               </div>
             </form>
           </div>
@@ -186,22 +187,37 @@ import { isFieldInvalid } from '../../shared/form-utils';
       </div>
     }
       @if (loading()) {
-        <div class="loading-state"><span class="spinner"></span> Loading box details...</div>
+        <div class="loading-state"><span class="spinner"></span> {{ 'Loading box details...' | translate }}</div>
       } @else if (error()) {
         <div class="alert alert-danger">{{ error() }}</div>
       } @else if (box()) {
-        <div class="metrics-grid">
-          <article class="ui-card ui-card--padded metric-card">
-            <p class="metric-card-label">Tasks</p>
-            <p class="metric-card-value">{{ box()!.tasks.length }}</p>
+        <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <article class="ui-card ui-card--padded">
+            <div class="flex items-center justify-between">
+              <p class="ui-kpi-label">Tasks</p>
+              <svg class="h-5 w-5 text-[var(--color-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+              </svg>
+            </div>
+            <p class="ui-kpi-value text-[var(--color-text)]">{{ box()!.tasks.length }}</p>
           </article>
-          <article class="ui-card ui-card--padded metric-card">
-            <p class="metric-card-label">Active</p>
-            <p class="metric-card-value">{{ activeTaskCount() }}</p>
+          <article class="ui-card ui-card--padded">
+            <div class="flex items-center justify-between">
+              <p class="ui-kpi-label">Active</p>
+              <svg class="h-5 w-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <p class="ui-kpi-value text-[var(--color-accent)]">{{ activeTaskCount() }}</p>
           </article>
-          <article class="ui-card ui-card--padded metric-card">
-            <p class="metric-card-label">Recent Runs</p>
-            <p class="metric-card-value">{{ recentRuns().length }}</p>
+          <article class="ui-card ui-card--padded">
+            <div class="flex items-center justify-between">
+              <p class="ui-kpi-label">Recent Runs</p>
+              <svg class="h-5 w-5 text-[var(--color-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+              </svg>
+            </div>
+            <p class="ui-kpi-value text-[var(--color-text)]">{{ recentRuns().length }}</p>
           </article>
         </div>
 
@@ -537,14 +553,9 @@ import { isFieldInvalid } from '../../shared/form-utils';
     .box-details-table td { color:var(--text-1); }
     .box-details-table tr + tr td { border-top:1px solid var(--border); }
 
-    .metrics-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:.85rem; margin-bottom:1rem; }
-    .metric-card-label { margin:0; font-size:.75rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-3); }
-    .metric-card-value { margin:.5rem 0 0; font-size:2rem; font-weight:700; color:var(--text-1); }
-
     @media (max-width: 1100px) {
       .overview-grid { grid-template-columns:1fr; }
       .task-card-grid { grid-template-columns:1fr; }
-      .metrics-grid { grid-template-columns:1fr; }
     }
     @media (max-width: 720px) {
       .task-card-head { flex-direction:column; }

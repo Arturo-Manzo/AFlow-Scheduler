@@ -9,67 +9,62 @@ import {
   UpdateSmtpNotificationSettingsRequest
 } from '../../models/models';
 import { NotificationSettingsService } from '../../services/notification-settings.service';
+import { TranslatePipe } from '../../shared/translate.pipe';
 
 @Component({
   selector: 'app-notification-settings',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ButtonDirective],
+  imports: [CommonModule, ReactiveFormsModule, ButtonDirective, TranslatePipe],
   templateUrl: './notification-settings.component.html',
   styles: [`
-    .smtp-hero {
-      background:
-        linear-gradient(140deg, rgba(1, 93, 181, 0.08), transparent 45%),
-        linear-gradient(320deg, rgba(15, 122, 52, 0.08), transparent 52%),
-        var(--bg-surface);
+    .smtp-summary {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 1rem;
+      align-items: center;
     }
-    .smtp-hero-main {
-      position: relative;
+    .smtp-summary-main {
+      min-width: 0;
     }
-    .smtp-hero-main::after {
-      content: '';
-      position: absolute;
-      right: 1.25rem;
-      top: 1.1rem;
-      width: 92px;
-      height: 92px;
-      border: 1px solid color-mix(in srgb, var(--primary) 22%, white);
-      background: linear-gradient(135deg, rgba(1, 93, 181, 0.10), rgba(255, 255, 255, 0.15));
-      clip-path: polygon(0 0, 100% 0, 100% 62%, 62% 100%, 0 100%);
-      pointer-events: none;
-    }
-    .smtp-kpi {
-      background: linear-gradient(180deg, rgba(246, 248, 250, 0.92), rgba(255, 255, 255, 1));
-    }
-    .smtp-meta-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-    .smtp-accent-card {
-      background: linear-gradient(180deg, var(--bg-surface), var(--bg-muted));
+    .smtp-summary-status,
+    .smtp-summary-actions {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      flex-wrap: wrap;
     }
     .smtp-panel {
       overflow: hidden;
     }
-    .smtp-panel-header {
-      background:
-        linear-gradient(90deg, rgba(1, 93, 181, 0.08), transparent 35%),
-        var(--bg-muted);
+    .smtp-config-modal {
+      width: 860px;
+      max-width: min(96vw, 860px);
     }
-    .smtp-panel-body {
+    .smtp-modal-body {
       display: flex;
       flex-direction: column;
       gap: 1rem;
-    }
-    .credential-note {
-      padding: .8rem 1rem;
-      border: 1px solid color-mix(in srgb, var(--warning) 28%, white);
-      background: linear-gradient(90deg, rgba(154, 103, 0, 0.08), rgba(255, 248, 231, 0.9));
-      color: var(--text-1);
-      font-size: .87rem;
     }
     .smtp-form-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: .85rem 1rem;
+    }
+    .smtp-form-section {
+      grid-column: 1 / -1;
+      border-top: 1px solid var(--border);
+      padding-top: 1rem;
+    }
+    .smtp-form-section--first {
+      border-top: none;
+      padding-top: 0;
+    }
+    .smtp-section-title {
+      color: var(--text-3);
+      font-size: .68rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
     }
     .smtp-state-toggle,
     .smtp-tls-toggle {
@@ -82,7 +77,11 @@ import { NotificationSettingsService } from '../../services/notification-setting
       grid-column: 1 / -1;
     }
     .smtp-subhint {
-      color: var(--text-3);
+      color: var(--text-3) !important;
+    }
+    .smtp-modal-test {
+      border-top: 1px solid var(--border);
+      padding-top: 1rem;
     }
     .smtp-test-shell {
       display: flex;
@@ -103,10 +102,15 @@ import { NotificationSettingsService } from '../../services/notification-setting
       align-items: end;
     }
     @media (max-width: 920px) {
-      .smtp-meta-grid,
+      .smtp-summary {
+        grid-template-columns: 1fr;
+      }
       .smtp-form-grid,
       .smtp-test-form {
         grid-template-columns: 1fr;
+      }
+      .smtp-summary-actions {
+        justify-content: flex-start;
       }
       .smtp-test-actions {
         justify-content: flex-start;
@@ -128,6 +132,7 @@ export class NotificationSettingsComponent implements OnInit {
   testError = signal('');
   testMessage = signal('');
   savedSettings = signal<SmtpNotificationSettingsDto | null>(null);
+  configOpen = signal(false);
 
   smtpForm = this.fb.group({
     enabled: [false],
@@ -146,6 +151,10 @@ export class NotificationSettingsComponent implements OnInit {
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
+    if (this.configOpen()) {
+      this.closeConfig();
+      return;
+    }
     this.clearTransientMessages();
   }
 
@@ -169,6 +178,14 @@ export class NotificationSettingsComponent implements OnInit {
 
   ngOnInit(): void {
     this.reload();
+  }
+
+  openConfig(): void {
+    this.configOpen.set(true);
+  }
+
+  closeConfig(): void {
+    this.configOpen.set(false);
   }
 
   reload(): void {

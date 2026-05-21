@@ -1,119 +1,157 @@
 <div class="view-shell">
-  <div class="page-header">
-    <div>
-      <a class="btn btn-secondary btn-sm" routerLink="/executions" style="display:inline-flex;align-items:center;gap:.35rem;margin-bottom:.5rem">
-        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+  <section class="flex flex-col gap-8 pb-8">
+    <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+      <div class="flex-1">
+        <a class="inline-flex items-center gap-2 pl-0 text-sm font-semibold text-[var(--color-accent)] transition-opacity hover:opacity-70" routerLink="/executions">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+          </svg>
+          {{ 'Back to executions' | translate }}
+        </a>
+        <h1 class="ui-page__title mt-2">BoxRun #{{ boxRunId() }}</h1>
+        <p class="mt-2 max-w-3xl text-sm leading-6 text-[var(--color-muted)]">
+          {{ 'Detailed operational view with task breakdown, logs and aggregate metrics.' | translate }}
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <button type="button" appButton="secondary" buttonSize="sm" [disabled]="loading()" (click)="reload()">
+          {{ 'Refresh' | translate }}
+        </button>
+      </div>
+    </div>
+
+    @if (loading()) {
+      <article class="ui-card ui-card--padded">
+        <div class="loading-state"><span class="spinner"></span> {{ 'Loading BoxRun details...' | translate }}</div>
+      </article>
+    } @else if (error()) {
+      <article class="ui-feedback ui-feedback--error">
+        <svg class="ui-feedback__icon" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
         </svg>
-        Back to executions
-      </a>
-      <h1>BoxRun #{{ boxRunId() }}</h1>
-      <div class="page-subtitle">Detailed operational view with task breakdown, logs and aggregate metrics.</div>
-    </div>
-    <div class="page-actions">
-      <button class="btn" (click)="reload()">Refresh</button>
-    </div>
-  </div>
-
-  @if (loading()) {
-    <div class="loading-state"><span class="spinner"></span> Loading BoxRun details...</div>
-  } @else if (error()) {
-    <div class="alert alert-danger">{{ error() }}</div>
-  } @else if (run()) {
-  <div class="meta-grid">
-    <div class="meta-card">
-      <span class="meta-label">BoxRun ID</span>
-      <span class="meta-value">{{ run()!.id }}</span>
-    </div>
-    <div class="meta-card">
-      <span class="meta-label">Status</span>
-      <span class="meta-value"><app-status-badge [status]="displayStatus()" /></span>
-    </div>
-    <div class="meta-card">
-      <span class="meta-label">Trigger</span>
-      <span class="meta-value">{{ run()!.triggerSource }}</span>
-    </div>
-    <div class="meta-card">
-      <span class="meta-label">Scheduled For</span>
-      <span class="meta-value">{{ formatTime(run()!.scheduledForUtc) }}</span>
-    </div>
-    <div class="meta-card">
-      <span class="meta-label">Start Time</span>
-      <span class="meta-value">{{ formatTime(run()!.startTime) }}</span>
-    </div>
-    <div class="meta-card">
-      <span class="meta-label">End Time</span>
-      <span class="meta-value">{{ formatTime(run()!.endTime) }}</span>
-    </div>
-    <div class="meta-card">
-      <span class="meta-label">Duration</span>
-      <span class="meta-value">{{ run()!.durationSeconds != null ? run()!.durationSeconds + 's' : '--' }}</span>
-    </div>
-    <div class="meta-card">
-      <span class="meta-label">Progress</span>
-      <span class="meta-value">{{ completedTasks() }} / {{ tasks().length }}</span>
-    </div>
-  </div>
-
-  @if (metrics()) {
-    <section class="metrics-panel">
-      <div class="metrics-header">
-        <h2 class="section-title" style="margin:0">Execution Metrics</h2>
-        <div class="metrics-rate">{{ metrics()!.successRate | number:'1.0-2' }}%</div>
+        <span class="text-xs">{{ error() }}</span>
+      </article>
+    } @else if (run()) {
+      <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <article class="ui-card ui-card--padded">
+          <p class="ui-kpi-label">{{ 'Status' | translate }}</p>
+          <div class="mt-3"><app-status-badge [status]="displayStatus()" /></div>
+        </article>
+        <article class="ui-card ui-card--padded">
+          <p class="ui-kpi-label">{{ 'Trigger' | translate }}</p>
+          <p class="ui-kpi-value text-[var(--color-text)]">{{ run()!.triggerSource }}</p>
+        </article>
+        <article class="ui-card ui-card--padded">
+          <p class="ui-kpi-label">{{ 'Progress' | translate }}</p>
+          <p class="ui-kpi-value text-[var(--color-accent)]">{{ completedTasks() }} / {{ tasks().length }}</p>
+        </article>
+        <article class="ui-card ui-card--padded">
+          <p class="ui-kpi-label">{{ 'Duration' | translate }}</p>
+          <p class="ui-kpi-value text-[var(--color-text)]">{{ run()!.durationSeconds != null ? formatDurationSeconds(run()!.durationSeconds) : '--' }}</p>
+        </article>
       </div>
 
-      <div class="progress-track" aria-label="Execution progress">
-        <div class="progress-segment progress-success" [style.width.%]="successPercent()"></div>
-        <div class="progress-segment progress-failed" [style.width.%]="failedPercent()"></div>
-        <div class="progress-segment progress-pending" [style.width.%]="pendingPercent()"></div>
-      </div>
+      <article class="ui-card ui-card--padded">
+        <div class="grid gap-8 md:grid-cols-2 xl:grid-cols-4">
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-muted)]">{{ 'BoxRun ID' | translate }}</p>
+            <p class="mt-2 text-sm font-semibold text-[var(--color-text)]">#{{ run()!.id }}</p>
+          </div>
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-muted)]">{{ 'Scheduled For' | translate }}</p>
+            <p class="mt-2 text-sm font-semibold text-[var(--color-text)]">{{ formatTime(run()!.scheduledForUtc) }}</p>
+          </div>
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-muted)]">{{ 'Start Time' | translate }}</p>
+            <p class="mt-2 text-sm font-semibold text-[var(--color-text)]">{{ formatTime(run()!.startTime) }}</p>
+          </div>
+          <div>
+            <p class="text-xs font-bold uppercase tracking-[0.18em] text-[var(--color-muted)]">{{ 'End Time' | translate }}</p>
+            <p class="mt-2 text-sm font-semibold text-[var(--color-text)]">{{ formatTime(run()!.endTime) }}</p>
+          </div>
+        </div>
+      </article>
 
-      <div class="metrics-grid">
-        <div class="metric-card">
-          <span class="metric-label">Total Tasks</span>
-          <strong>{{ metrics()!.totalTasks }}</strong>
-        </div>
-        <div class="metric-card metric-success">
-          <span class="metric-label">Success</span>
-          <strong>{{ metrics()!.successCount }}</strong>
-        </div>
-        <div class="metric-card metric-failed">
-          <span class="metric-label">Failed</span>
-          <strong>{{ metrics()!.failedCount }}</strong>
-        </div>
-        <div class="metric-card metric-pending">
-          <span class="metric-label">Pending</span>
-          <strong>{{ metrics()!.pendingCount }}</strong>
-        </div>
-        <div class="metric-card">
-          <span class="metric-label">Total Duration</span>
-          <strong>{{ formatDurationSeconds(metrics()!.totalDurationSeconds) }}</strong>
-        </div>
-      </div>
-    </section>
-  }
+      @if (metrics()) {
+        <section class="data-panel">
+          <header class="panel-header">
+            <div class="panel-title-wrap">
+              <h2 class="panel-title">{{ 'Execution Metrics' | translate }}</h2>
+              <p class="panel-subtitle">{{ 'Execution progress' | translate }}</p>
+            </div>
+            <div class="metrics-rate">{{ metrics()!.successRate | number:'1.0-2' }}%</div>
+          </header>
+          <div class="panel-body">
+            <div class="progress-track" [attr.aria-label]="'Execution progress' | translate">
+              <div class="progress-segment progress-success" [style.width.%]="successPercent()"></div>
+              <div class="progress-segment progress-failed" [style.width.%]="failedPercent()"></div>
+              <div class="progress-segment progress-pending" [style.width.%]="pendingPercent()"></div>
+            </div>
 
-  <section class="actions-bar">
-    <button class="btn btn-danger-soft" [disabled]="!canCancel() || actionLoading()" (click)="showCancelConfirm.set(true)">Stop Run</button>
-    <button class="btn" [disabled]="!canResume() || actionLoading()" (click)="showResumeConfirm.set(true)">Resume</button>
+            <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-5">
+              <article class="ui-card ui-card--soft p-4">
+                <p class="ui-kpi-label">{{ 'Total Tasks' | translate }}</p>
+                <p class="ui-kpi-value text-[var(--color-text)]">{{ metrics()!.totalTasks }}</p>
+              </article>
+              <article class="ui-card ui-card--soft p-4">
+                <p class="ui-kpi-label">{{ 'Success' | translate }}</p>
+                <p class="ui-kpi-value text-[var(--ui-success-text)]">{{ metrics()!.successCount }}</p>
+              </article>
+              <article class="ui-card ui-card--soft p-4">
+                <p class="ui-kpi-label">{{ 'Failed' | translate }}</p>
+                <p class="ui-kpi-value text-[var(--ui-danger-text)]">{{ metrics()!.failedCount }}</p>
+              </article>
+              <article class="ui-card ui-card--soft p-4">
+                <p class="ui-kpi-label">{{ 'Pending' | translate }}</p>
+                <p class="ui-kpi-value text-[var(--ui-warning-text)]">{{ metrics()!.pendingCount }}</p>
+              </article>
+              <article class="ui-card ui-card--soft p-4">
+                <p class="ui-kpi-label">{{ 'Total Duration' | translate }}</p>
+                <p class="ui-kpi-value text-[var(--color-text)]">{{ formatDurationSeconds(metrics()!.totalDurationSeconds) }}</p>
+              </article>
+            </div>
+          </div>
+        </section>
+      }
+
+      <section class="data-panel">
+        <header class="panel-header">
+          <div class="panel-title-wrap">
+            <h2 class="panel-title">{{ 'Run Controls' | translate }}</h2>
+            <p class="panel-subtitle">{{ 'Stop or resume the current workflow when the run state allows it.' | translate }}</p>
+          </div>
+          <div class="panel-toolbar">
+            <button type="button" appButton="danger" buttonSize="sm" [disabled]="!canCancel() || actionLoading()" (click)="showCancelConfirm.set(true)">
+              {{ 'Stop Run' | translate }}
+            </button>
+            <button type="button" appButton="primary" buttonSize="sm" [disabled]="!canResume() || actionLoading()" (click)="showResumeConfirm.set(true)">
+              {{ 'Resume' | translate }}
+            </button>
+          </div>
+        </header>
+
+        @if (showStoppingNotice()) {
+          <div class="panel-body">
+            <div class="ui-feedback ui-feedback--warning">
+              {{ 'Stop requested. Running tasks may continue until they finish, but no new pending tasks will be scheduled.' | translate }}
+            </div>
+          </div>
+        }
+      </section>
+
+      <section class="data-panel">
+        <header class="panel-header">
+          <div class="panel-title-wrap">
+            <h2 class="panel-title">{{ 'Task Executions' | translate }}</h2>
+            <p class="panel-subtitle">{{ 'Latest execution outcome per task within this BoxRun.' | translate }}</p>
+          </div>
+        </header>
+        <div class="ui-table-wrap">
+          <app-task-table [tasks]="tasks()" (viewError)="openError($event)" (viewLogs)="openLogs($event)" />
+        </div>
+      </section>
+    }
   </section>
-
-  @if (showStoppingNotice()) {
-    <div class="alert alert-warning">Stop requested. Running tasks may continue until they finish, but no new pending tasks will be scheduled.</div>
-  }
-
-  <section class="data-panel">
-    <div class="panel-header">
-      <div class="panel-title-wrap">
-        <div class="panel-title">Task Executions</div>
-        <div class="panel-subtitle">Latest execution outcome per task within this BoxRun.</div>
-      </div>
-    </div>
-    <div class="panel-body" style="padding:0">
-    <app-task-table [tasks]="tasks()" (viewError)="openError($event)" (viewLogs)="openLogs($event)" />
-    </div>
-  </section>
-  }
 </div>
 
 <app-error-modal

@@ -4,15 +4,15 @@
   <section class="ui-card ui-card--padded relative w-full max-w-md">
     <header class="mb-8">
       <p class="text-xs uppercase ui-tracking-tight text-[var(--color-accent)]">Chroniq</p>
-      <h1 class="ui-page__title mt-2">Inicio de sesión</h1>
+      <h1 class="ui-page__title mt-2">{{ 'Sign In' | translate }}</h1>
       <p class="ui-page__subtitle mt-2">
-        Orquesta tus flujos de trabajo con Chroniq.
+        {{ 'Orchestrate your workflows with Chroniq.' | translate }}
       </p>
     </header>
 
     <form class="space-y-5" [formGroup]="form" (ngSubmit)="submit()" novalidate>
       <div class="space-y-2">
-        <label for="username" class="ui-form-label text-[var(--color-text)]">Usuario</label>
+        <label for="username" class="ui-form-label text-[var(--color-text)]">{{ 'Username' | translate }}</label>
         <input
           id="username"
           type="text"
@@ -32,13 +32,13 @@
                 clip-rule="evenodd"
               />
             </svg>
-            <span class="text-xs">El usuario es obligatorio.</span>
+            <span class="text-xs">{{ 'Username is required.' | translate }}</span>
           </div>
         }
       </div>
 
       <div class="space-y-2">
-        <label for="password" class="ui-form-label text-[var(--color-text)]">Contraseña</label>
+        <label for="password" class="ui-form-label text-[var(--color-text)]">{{ 'Password' | translate }}</label>
         <input
           id="password"
           type="password"
@@ -58,7 +58,7 @@
                 clip-rule="evenodd"
               />
             </svg>
-            <span class="text-xs">La contraseña es obligatoria.</span>
+            <span class="text-xs">{{ 'Password is required.' | translate }}</span>
           </div>
         }
       </div>
@@ -83,7 +83,7 @@
         class="w-full rounded-xl active:scale-[0.99]"
         [disabled]="isLoading() || form.invalid"
       >
-        {{ isLoading() ? 'Validando...' : 'Entrar' }}
+        {{ isLoading() ? ('Validating...' | translate) : ('Enter' | translate) }}
       </button>
     </form>
   </section>

@@ -8,11 +8,13 @@ import { BoxesService } from '../../services/boxes.service';
 import { ExecutionDto, BoxDto, RunningExecutionDto } from '../../models/models';
 import { StatusBadgeComponent } from '../../components/status-badge/status-badge.component';
 import { detectUserTimeZone, formatUtcWithZoneContext, getDateKeyInTimeZone } from '../../shared/timezone-utils';
+import { LanguageService } from '../../services/language.service';
+import { TranslatePipe } from '../../shared/translate.pipe';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, StatusBadgeComponent, ButtonDirective],
+  imports: [CommonModule, StatusBadgeComponent, ButtonDirective, TranslatePipe],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss'
 })
@@ -20,6 +22,7 @@ export class DashboardComponent implements OnInit {
   private executionService = inject(ExecutionService);
   private boxesService = inject(BoxesService);
   private destroyRef = inject(DestroyRef);
+  private i18n = inject(LanguageService);
 
   readonly userTimeZone = detectUserTimeZone();
 
@@ -64,7 +67,7 @@ export class DashboardComponent implements OnInit {
         this.loadingLogs.set(false);
       },
       error: () => {
-        this.logsError.set('Unable to load execution history. Check API connection.');
+        this.logsError.set(this.i18n.t('Unable to load execution history. Check API connection.'));
         this.loadingLogs.set(false);
       }
     });
@@ -87,7 +90,7 @@ export class DashboardComponent implements OnInit {
   }
 
   displayRequestedBy(log: ExecutionDto): string {
-    return log.requestedByUsername || (log.requestedByUserId ? 'Unknown user' : '');
+    return log.requestedByUsername || (log.requestedByUserId ? this.i18n.t('Unknown user') : '');
   }
 
   activeBoxes(): number {

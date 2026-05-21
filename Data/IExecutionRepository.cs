@@ -18,6 +18,7 @@ namespace CHRONIQ.Data
         Task<Dictionary<int, ExecutionRepository.TaskLastExecutionSummary>> GetLastExecutionSummaryByBoxAsync(int boxId);
         Task<List<ExecutionRepository.ExecutionRecord>> GetLatestExecutionsAsync(int limit = 20);
         Task<List<ExecutionRepository.ExecutionRecord>> GetFailedExecutionsAsync(int limit = 50, int? boxId = null, DateTime? fromUtc = null, DateTime? toUtc = null, int? departmentId = null, string[]? status = null, string? taskName = null, string? triggerSource = null);
+        Task<int> GetFailedExecutionCountAsync(DateTime fromUtc, DateTime? toUtc = null, int? departmentId = null, string[]? status = null);
         /// <summary>
         /// Returns the latest execution status for each task in the given BoxRun.
         /// Used to seed in-memory state when resuming an interrupted BoxRun.

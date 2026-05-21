@@ -61,7 +61,6 @@ All component templates have been separated from TypeScript files into dedicated
 - users
 - notification-settings
 - login
-- execution-history
 
 ### Next Steps
 

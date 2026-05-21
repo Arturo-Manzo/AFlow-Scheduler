@@ -1,153 +1,204 @@
-<div class="view-shell">
-  <div class="view-hero">
-    <div class="view-hero-main">
-      <div class="view-eyebrow">Security And Access</div>
-      <h1>{{ auth.isAdmin ? 'Users' : 'Account' }}</h1>
-      <p class="view-description">
-        {{ auth.isAdmin ? 'Manage access, roles and activation state for platform users.' : 'Review your account context and use the shell menu to change credentials.' }}
-      </p>
+<section class="flex flex-col gap-8 pb-8">
+  @if (auth.isAdmin) {
+    <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <article class="ui-card ui-card--padded">
+        <div class="flex items-center justify-between">
+          <p class="ui-kpi-label">{{ 'Users' | translate }}</p>
+          <svg class="h-5 w-5 text-[var(--color-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+          </svg>
+        </div>
+        <p class="ui-kpi-value text-[var(--color-text)]">{{ users().length }}</p>
+      </article>
+
+      <article class="ui-card ui-card--padded">
+        <div class="flex items-center justify-between">
+          <p class="ui-kpi-label">{{ 'Active' | translate }}</p>
+          <svg class="h-5 w-5 text-[var(--ui-success-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <p class="ui-kpi-value text-[var(--ui-success-text)]">{{ activeUsers() }}</p>
+      </article>
+
+      <article class="ui-card ui-card--padded">
+        <div class="flex items-center justify-between">
+          <p class="ui-kpi-label">{{ 'Admins' | translate }}</p>
+          <svg class="h-5 w-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c1.657 0 3-1.567 3-3.5S13.657 4 12 4 9 5.567 9 7.5s1.343 3.5 3 3.5zm0 2c-2.67 0-8 1.337-8 4v2h16v-2c0-2.663-5.33-4-8-4z"></path>
+          </svg>
+        </div>
+        <p class="ui-kpi-value text-[var(--color-accent)]">{{ adminUsers() }}</p>
+      </article>
     </div>
-    <div class="view-hero-kpi">
-      <span class="kpi-value">{{ auth.isAdmin ? users().length : 1 }}</span>
-      <span class="kpi-label">{{ auth.isAdmin ? 'Known Users' : 'Account' }}</span>
-    </div>
-    <div class="view-hero-kpi">
-      <span class="kpi-value">{{ auth.isAdmin ? activeUsers() : '--' }}</span>
-      <span class="kpi-label">Active</span>
-    </div>
-    <div class="view-hero-kpi">
-      <span class="kpi-value">{{ auth.isAdmin ? adminUsers() : auth.currentUser()!.roleName }}</span>
-      <span class="kpi-label">{{ auth.isAdmin ? 'Administrators' : 'Current Role' }}</span>
-    </div>
-  </div>
+  }
 
   @if (!auth.isAdmin) {
-    <div class="account-card">
-      <h3>Account</h3>
-      <p class="account-copy">Use the account menu in the sidebar footer to change your password or sign out.</p>
-    </div>
+    <article class="ui-card ui-card--padded max-w-3xl">
+      <h2 class="text-sm font-bold uppercase tracking-[0.12em] text-[var(--color-accent)]">{{ 'Account' | translate }}</h2>
+      <dl class="mt-4 grid gap-4 sm:grid-cols-2">
+        <div>
+          <dt class="ui-kpi-label">{{ 'Username' | translate }}</dt>
+          <dd class="mt-1 text-sm font-semibold text-[var(--color-text)]">{{ auth.currentUser()!.username }}</dd>
+        </div>
+        <div>
+          <dt class="ui-kpi-label">{{ 'Role' | translate }}</dt>
+          <dd class="mt-1"><span class="badge badge-neutral">{{ auth.currentUser()!.roleName }}</span></dd>
+        </div>
+      </dl>
+    </article>
   }
 
   @if (auth.isAdmin) {
-    <section class="data-panel">
-      <div class="panel-header">
-        <div class="panel-title-wrap">
-          <div class="panel-title">User Directory</div>
-          <div class="panel-subtitle">Current access registry grouped by identity, role and lifecycle state.</div>
+    <article class="ui-card">
+      <header class="flex flex-col gap-4 border-b border-[var(--ui-border-color)] px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 class="text-sm font-bold uppercase tracking-[0.12em] text-[var(--color-accent)]">{{ 'User Directory' | translate }}</h2>
+          <p class="mt-1 max-w-3xl text-xs leading-5 text-[var(--color-muted)]">
+            Current access registry grouped by identity, role and lifecycle state.
+          </p>
         </div>
-        <div class="panel-toolbar">
-          <button class="btn btn-primary" (click)="openCreate()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <div class="flex flex-wrap items-center gap-3">
+          <button type="button" appButton="primary" buttonSize="sm" (click)="openCreate()">
             New User
           </button>
         </div>
-      </div>
+      </header>
 
       @if (loadError()) {
-        <div class="panel-body"><div class="alert alert-danger">{{ loadError() }}</div></div>
+        <div class="p-6">
+          <div class="ui-feedback ui-feedback--error">
+            <svg class="ui-feedback__icon" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+            </svg>
+            <span class="text-xs">{{ loadError() }}</span>
+          </div>
+        </div>
       }
 
       @if (loading()) {
-        <div class="loading-state"><span class="spinner"></span> Loading users...</div>
+        <div class="loading-state"><span class="spinner"></span> {{ 'Loading users...' | translate }}</div>
       } @else if (users().length === 0 && !loadError()) {
-        <p class="empty-state">No users found.</p>
+        <div class="rounded-lg bg-[var(--color-surface-low)] px-3 py-4 text-xs text-[var(--color-muted)]">
+          No users found.
+        </div>
       } @else {
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Username</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Active</th>
-              <th>Created</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (user of users(); track user.userId) {
+        <div class="ui-table-wrap">
+          <table class="ui-table">
+            <thead>
               <tr>
-                <td><strong>{{ user.username }}</strong></td>
-                <td>{{ user.email }}</td>
-                <td><span class="badge badge-neutral">{{ user.roleName }}</span></td>
-                <td>
-                  <span [class]="'badge ' + (user.isActive ? 'badge-success' : 'badge-danger')">
-                    {{ user.isActive ? 'Active' : 'Inactive' }}
-                  </span>
-                </td>
-                <td>{{ formatCreatedAt(user.createdAt) }}</td>
-                <td class="table-actions">
-                  <button class="btn btn-sm" (click)="openEdit(user)">Edit</button>
-                </td>
+                <th>{{ 'Username' | translate }}</th>
+                <th>{{ 'Email' | translate }}</th>
+                <th>{{ 'Role' | translate }}</th>
+                <th>{{ 'Status' | translate }}</th>
+                <th>{{ 'Created' | translate }}</th>
+                <th>{{ 'Actions' | translate }}</th>
               </tr>
-            }
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              @for (user of users(); track user.userId) {
+                <tr>
+                  <td><strong>{{ user.username }}</strong></td>
+                  <td>{{ user.email }}</td>
+                  <td><span class="badge badge-neutral">{{ user.roleName }}</span></td>
+                  <td>
+                    <span [class]="'badge ' + (user.isActive ? 'badge-success' : 'badge-danger')">
+                      {{ user.isActive ? 'Active' : 'Inactive' }}
+                    </span>
+                  </td>
+                  <td>{{ formatCreatedAt(user.createdAt) }}</td>
+                  <td>
+                    <div class="table-actions">
+                      <button type="button" appButton="secondary" buttonSize="sm" (click)="openEdit(user)">{{ 'Edit' | translate }}</button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
       }
-    </section>
+    </article>
   }
+</section>
 
 @if (showForm()) {
   <div class="modal-overlay" role="dialog" aria-modal="true" [attr.aria-label]="editingUser() ? 'Edit user' : 'New user'">
     <div class="modal" (click)="$event.stopPropagation()">
       <div class="modal-header">
         <h3>{{ editingUser() ? 'Edit User' : 'New User' }}</h3>
-        <button type="button" class="modal-close" (click)="closeForm()" aria-label="Close">x</button>
+        <button type="button" class="modal-close" (click)="closeForm()" [attr.aria-label]="'Close' | translate">x</button>
       </div>
       <form [formGroup]="form" (ngSubmit)="saveUser()" novalidate>
-        <div class="modal-body">
+        <div class="modal-body space-y-4">
           @if (!editingUser()) {
-            <div class="field">
-              <label for="u-name">Username</label>
-              <input id="u-name" formControlName="username" autocomplete="username" [class.is-invalid]="fi('username')" />
-              @if (fi('username')) { <span class="field-hint">Username is required.</span> }
+            <div class="user-modal-field">
+              <label class="user-modal-label" for="u-name">{{ 'Username' | translate }}</label>
+              <input id="u-name" formControlName="username" autocomplete="username" class="ui-input rounded-md" [class.border-[var(--ui-danger-border)]]="fi('username')" />
+              <div class="user-modal-error" aria-live="polite">
+                @if (fi('username')) { Username is required. }
+              </div>
             </div>
-            <div class="field">
-              <label for="u-pass">Password</label>
-              <input id="u-pass" type="password" formControlName="password" autocomplete="new-password" [class.is-invalid]="fi('password')" />
-              @if (fi('password')) {
-                @if (form.get('password')!.hasError('required')) {
-                  <span class="field-hint">Password is required.</span>
+
+            <div class="user-modal-field">
+              <label class="user-modal-label" for="u-pass">{{ 'Password' | translate }}</label>
+              <input id="u-pass" type="password" formControlName="password" autocomplete="new-password" class="ui-input rounded-md" [class.border-[var(--ui-danger-border)]]="fi('password')" />
+              <div class="user-modal-error" aria-live="polite">
+                @if (fi('password')) {
+                  @if (form.get('password')!.hasError('required')) {
+                    Password is required.
+                  } @else {
+                    Must be at least 8 characters.
+                  }
+                }
+              </div>
+            </div>
+          }
+
+          <div class="user-modal-field">
+            <label class="user-modal-label" for="u-email">{{ 'Email' | translate }}</label>
+            <input id="u-email" type="email" formControlName="email" autocomplete="email" class="ui-input rounded-md" [class.border-[var(--ui-danger-border)]]="fi('email')" />
+            <div class="user-modal-error" aria-live="polite">
+              @if (fi('email')) {
+                @if (form.get('email')!.hasError('required')) {
+                  Email is required.
                 } @else {
-                  <span class="field-hint">Must be at least 8 characters.</span>
+                  Enter a valid email address.
                 }
               }
             </div>
-          }
-
-          <div class="field">
-            <label for="u-email">Email</label>
-            <input id="u-email" type="email" formControlName="email" autocomplete="email" [class.is-invalid]="fi('email')" />
-            @if (fi('email')) {
-              @if (form.get('email')!.hasError('required')) {
-                <span class="field-hint">Email is required.</span>
-              } @else {
-                <span class="field-hint">Enter a valid email address.</span>
-              }
-            }
           </div>
 
-          <div class="field">
-            <label for="u-role">Role</label>
-            <select id="u-role" formControlName="roleId">
-              <option [value]="1">Admin</option>
-              <option [value]="2">Operator</option>
-              <option [value]="3">Viewer</option>
+          <div class="user-modal-field">
+            <label class="user-modal-label" for="u-role">{{ 'Role' | translate }}</label>
+            <select id="u-role" formControlName="roleId" class="ui-input rounded-md text-sm font-semibold">
+              <option [value]="1">{{ 'Admin' | translate }}</option>
+              <option [value]="2">{{ 'Operator' | translate }}</option>
+              <option [value]="3">{{ 'Viewer' | translate }}</option>
             </select>
+            <div class="user-modal-error" aria-hidden="true"></div>
           </div>
 
           @if (editingUser()) {
-            <div class="field field-check">
-              <input type="checkbox" formControlName="isActive" id="u-active" />
-              <label for="u-active">Active</label>
-            </div>
+            <label class="user-modal-check text-xs uppercase tracking-[0.1em]">
+              <input type="checkbox" formControlName="isActive" id="u-active" class="h-4 w-4 accent-[var(--color-accent)]" />
+              <span>{{ 'Active' | translate }}</span>
+            </label>
           }
 
-          @if (formError()) { <div class="alert alert-danger">{{ formError() }}</div> }
+          @if (formError()) {
+            <div class="ui-feedback ui-feedback--error">
+              <svg class="ui-feedback__icon" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+              </svg>
+              <span class="text-xs">{{ formError() }}</span>
+            </div>
+          }
         </div>
 
         <div class="modal-footer">
-          <button type="button" class="btn" (click)="closeForm()">Cancel</button>
-          <button type="submit" class="btn btn-primary" [disabled]="form.invalid || saving()">{{ saving() ? 'Saving...' : 'Save' }}</button>
+          <button type="button" appButton="secondary" buttonSize="md" (click)="closeForm()">{{ 'Cancel' | translate }}</button>
+          <button type="submit" appButton="primary" buttonSize="md" [disabled]="form.invalid || saving()">{{ saving() ? 'Saving...' : 'Save' }}</button>
         </div>
       </form>
     </div>

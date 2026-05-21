@@ -1,11 +1,12 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { BoxRunStatus, TaskExecutionStatus } from '../../models/models';
+import { TranslatePipe } from '../../shared/translate.pipe';
 
 @Component({
   selector: 'app-status-badge',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslatePipe],
   templateUrl: './status-badge.component.html',
   styles: [`
     .status-badge {

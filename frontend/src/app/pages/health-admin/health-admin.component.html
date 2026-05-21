@@ -1,0 +1,246 @@
+<section class="flex flex-col gap-8 pb-8">
+  <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+    <div class="flex-1">
+      <p class="text-sm leading-6 text-[var(--color-muted)]">
+        Operational health, backend readiness, and recent error signals.
+      </p>
+    </div>
+    <div class="flex flex-wrap items-center gap-3">
+      <span class="badge badge-neutral">Last synced {{ lastSyncedAt() ? formatTime(lastSyncedAt()!.toISOString()) : '--' }}</span>
+      <button type="button" appButton="secondary" buttonSize="sm" [disabled]="refreshing()" (click)="reload()">
+        {{ refreshing() ? 'Refreshing...' : 'Refresh' }}
+      </button>
+    </div>
+  </div>
+
+  @if (error()) {
+    <div class="ui-feedback ui-feedback--error">
+      <svg class="ui-feedback__icon" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+      </svg>
+      <span class="text-xs">{{ error() }}</span>
+    </div>
+  }
+
+  @if (loading()) {
+    <article class="ui-card ui-card--padded text-sm text-[var(--color-muted)]">{{ 'Loading health dashboard...' | translate }}</article>
+  } @else if (dashboard()) {
+    @if (!dashboard()!.summary.dbConnected) {
+      <div class="ui-feedback ui-feedback--error">
+        <svg class="ui-feedback__icon" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M18 10A8 8 0 112 10a8 8 0 0116 0zM9 4h2v7H9V4zm0 9h2v2H9v-2z" clip-rule="evenodd" />
+        </svg>
+        <span class="text-xs">{{ 'Database is disconnected. DB-backed sections may be empty until connectivity returns.' | translate }}</span>
+      </div>
+    }
+
+    <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+      <article class="ui-card ui-card--padded">
+        <p class="ui-kpi-label">{{ 'API Status' | translate }}</p>
+        <p class="ui-kpi-value text-[var(--ui-success-text)]">{{ apiStatus() }}</p>
+      </article>
+      <article class="ui-card ui-card--padded">
+        <p class="ui-kpi-label">{{ 'DB Status' | translate }}</p>
+        <p class="ui-kpi-value" [class.text-[var(--ui-danger-text)]]="!dashboard()!.summary.dbConnected" [class.text-[var(--ui-success-text)]]="dashboard()!.summary.dbConnected">{{ dbStatus() }}</p>
+      </article>
+      <article class="ui-card ui-card--padded">
+        <p class="ui-kpi-label">{{ 'Worker Utilization' | translate }}</p>
+        <p class="ui-kpi-value text-[var(--color-accent)]">{{ workerUtilization() }}</p>
+      </article>
+      <article class="ui-card ui-card--padded">
+        <p class="ui-kpi-label">{{ 'Queue Depth' | translate }}</p>
+        <p class="ui-kpi-value text-[var(--color-text)]">{{ dashboard()!.summary.queueDepth }}</p>
+      </article>
+      <article class="ui-card ui-card--padded">
+        <p class="ui-kpi-label">{{ 'Stale Executions' | translate }}</p>
+        <p class="ui-kpi-value" [class.text-[var(--ui-danger-text)]]="dashboard()!.summary.staleExecutions > 0" [class.text-[var(--ui-success-text)]]="dashboard()!.summary.staleExecutions === 0">{{ dashboard()!.summary.staleExecutions }}</p>
+      </article>
+      <article class="ui-card ui-card--padded">
+        <p class="ui-kpi-label">App Errors Last {{ dashboard()!.windowHours }}h</p>
+        <p class="ui-kpi-value text-[var(--ui-danger-text)]">{{ dashboard()!.summary.appErrors }}</p>
+      </article>
+      <article class="ui-card ui-card--padded">
+        <p class="ui-kpi-label">Failed Executions Last {{ dashboard()!.windowHours }}h</p>
+        <p class="ui-kpi-value text-[var(--ui-danger-text)]">{{ dashboard()!.summary.failedExecutions }}</p>
+      </article>
+      <article class="ui-card ui-card--padded">
+        <p class="ui-kpi-label">{{ 'Startup Recovery' | translate }}</p>
+        <p class="ui-kpi-value text-[var(--color-text)]">{{ recoveryState() }}</p>
+      </article>
+    </div>
+
+    <article class="ui-card">
+      <header class="flex items-center justify-between border-b border-[var(--ui-border-color)] px-6 py-4">
+        <div>
+          <h2 class="text-sm font-bold uppercase tracking-[0.12em] text-[var(--color-accent)]">{{ 'Readiness Checks' | translate }}</h2>
+          <p class="mt-1 text-xs text-[var(--color-muted)]">{{ 'Database, worker pool, and API self-check results.' | translate }}</p>
+        </div>
+        <span class="text-xs text-[var(--color-muted)]">{{ dashboard()!.readiness.length }} checks</span>
+      </header>
+      <div class="ui-table-wrap">
+        <table class="ui-table">
+          <thead>
+            <tr>
+              <th>{{ 'Check' | translate }}</th>
+              <th>{{ 'Status' | translate }}</th>
+              <th>{{ 'Description' | translate }}</th>
+              <th>{{ 'Duration' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (check of dashboard()!.readiness; track check.name) {
+              <tr>
+                <td><strong>{{ check.name }}</strong></td>
+                <td><span [class]="statusBadgeClass(check.status)">{{ check.status }}</span></td>
+                <td>{{ check.description }}</td>
+                <td>{{ formatDuration(check.durationMs) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <article class="ui-card">
+      <header class="flex items-center justify-between border-b border-[var(--ui-border-color)] px-6 py-4">
+        <div>
+          <h2 class="text-sm font-bold uppercase tracking-[0.12em] text-[var(--color-accent)]">{{ 'Application Errors' | translate }}</h2>
+          <p class="mt-1 text-xs text-[var(--color-muted)]">{{ 'Warnings, errors, and fatal records stored in ApplicationLogs.' | translate }}</p>
+        </div>
+        <span class="text-xs text-[var(--color-muted)]">{{ dashboard()!.applicationErrors.length }} rows</span>
+      </header>
+      @if (dashboard()!.applicationErrors.length === 0) {
+        <p class="empty-state">{{ 'No application warnings or errors found in the selected window.' | translate }}</p>
+      } @else {
+        <div class="ui-table-wrap">
+          <table class="ui-table">
+            <thead>
+              <tr>
+                <th>{{ 'Time' | translate }}</th>
+                <th>{{ 'Level' | translate }}</th>
+                <th>{{ 'Source' | translate }}</th>
+                <th>{{ 'Exception Type' | translate }}</th>
+                <th>{{ 'Message' | translate }}</th>
+                <th>{{ 'Request Path' | translate }}</th>
+                <th>{{ 'Correlation Id' | translate }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (log of dashboard()!.applicationErrors; track log.id) {
+                <tr class="health-row" (click)="selectedLog.set(log)">
+                  <td>{{ formatTime(log.timestamp) }}</td>
+                  <td><span [class]="levelBadgeClass(log.level)">{{ log.level }}</span></td>
+                  <td class="truncate-cell">{{ log.source || '--' }}</td>
+                  <td class="truncate-cell">{{ log.exceptionType || '--' }}</td>
+                  <td class="truncate-cell">{{ log.message }}</td>
+                  <td class="truncate-cell">{{ log.requestPath || '--' }}</td>
+                  <td class="truncate-cell">{{ log.correlationId || '--' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </article>
+
+    <article class="ui-card">
+      <header class="flex items-center justify-between border-b border-[var(--ui-border-color)] px-6 py-4">
+        <div>
+          <h2 class="text-sm font-bold uppercase tracking-[0.12em] text-[var(--color-accent)]">{{ 'Failed Executions' | translate }}</h2>
+          <p class="mt-1 text-xs text-[var(--color-muted)]">{{ 'Operational failures and interrupted task executions.' | translate }}</p>
+        </div>
+        <span class="text-xs text-[var(--color-muted)]">{{ dashboard()!.failedExecutions.length }} rows</span>
+      </header>
+      @if (dashboard()!.failedExecutions.length === 0) {
+        <p class="empty-state">{{ 'No failed task executions found in the selected window.' | translate }}</p>
+      } @else {
+        <div class="ui-table-wrap">
+          <table class="ui-table">
+            <thead>
+              <tr>
+                <th>Started</th>
+                <th>Task</th>
+                <th>Box</th>
+                <th>Department</th>
+                <th>Status</th>
+                <th>Exit Code</th>
+                <th>Trigger</th>
+                <th>Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (execution of dashboard()!.failedExecutions; track execution.executionId) {
+                <tr class="health-row" (click)="openExecution(execution)">
+                  <td>{{ formatTime(execution.startedAt) }}</td>
+                  <td><strong>{{ execution.taskName }}</strong></td>
+                  <td>{{ execution.boxName || '--' }}</td>
+                  <td>{{ execution.departmentName || '--' }}</td>
+                  <td><app-status-badge [status]="execution.status" /></td>
+                  <td>{{ execution.exitCode ?? '--' }}</td>
+                  <td><span class="badge badge-neutral">{{ execution.triggerSource }}</span></td>
+                  <td class="truncate-cell">{{ execution.errorMessage || execution.stdErr || '--' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </article>
+  }
+</section>
+
+@if (selectedLog()) {
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" (click)="closeDetails()">
+    <div class="w-full max-w-3xl space-y-4 rounded-xl bg-white p-5 shadow-2xl" (click)="$event.stopPropagation()">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h3 class="text-sm font-semibold uppercase tracking-[0.12em]">Application Log</h3>
+          <p class="mt-1 text-xs text-[var(--color-muted)]">{{ formatTime(selectedLog()!.timestamp) }}</p>
+        </div>
+        <button type="button" appButton="secondary" buttonSize="sm" (click)="closeDetails()">Close</button>
+      </div>
+      <div class="detail-grid">
+        <div><dt class="detail-term">Level</dt><dd class="detail-value">{{ selectedLog()!.level }}</dd></div>
+        <div><dt class="detail-term">Source</dt><dd class="detail-value">{{ selectedLog()!.source || '--' }}</dd></div>
+        <div><dt class="detail-term">Exception</dt><dd class="detail-value">{{ selectedLog()!.exceptionType || '--' }}</dd></div>
+        <div><dt class="detail-term">Status Code</dt><dd class="detail-value">{{ selectedLog()!.statusCode ?? '--' }}</dd></div>
+        <div><dt class="detail-term">Error File</dt><dd class="detail-value">{{ selectedLog()!.errorFile || '--' }}</dd></div>
+        <div><dt class="detail-term">Error Method</dt><dd class="detail-value">{{ selectedLog()!.errorMethod || '--' }}</dd></div>
+        <div><dt class="detail-term">Error Line</dt><dd class="detail-value">{{ selectedLog()!.errorLine ?? '--' }}</dd></div>
+        <div><dt class="detail-term">Correlation Id</dt><dd class="detail-value">{{ selectedLog()!.correlationId || '--' }}</dd></div>
+        <div><dt class="detail-term">Request Path</dt><dd class="detail-value">{{ selectedLog()!.requestPath || '--' }}</dd></div>
+        <div><dt class="detail-term">Log File</dt><dd class="detail-value">{{ selectedLog()!.logFileName || '--' }}</dd></div>
+      </div>
+      <div>
+        <dt class="detail-term">Message</dt>
+        <dd class="detail-value log-message rounded-lg bg-[var(--color-surface-low)] p-3">{{ selectedLog()!.message }}</dd>
+      </div>
+    </div>
+  </div>
+}
+
+@if (selectedExecution()) {
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" (click)="closeDetails()">
+    <div class="w-full max-w-2xl space-y-4 rounded-xl bg-white p-5 shadow-2xl" (click)="$event.stopPropagation()">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h3 class="text-sm font-semibold uppercase tracking-[0.12em]">{{ selectedExecution()!.taskName }}</h3>
+          <p class="mt-1 text-xs text-[var(--color-muted)]">{{ selectedExecution()!.boxName || '--' }}</p>
+        </div>
+        <button type="button" appButton="secondary" buttonSize="sm" (click)="closeDetails()">Close</button>
+      </div>
+      <div class="detail-grid">
+        <div><dt class="detail-term">Status</dt><dd class="detail-value"><app-status-badge [status]="selectedExecution()!.status" /></dd></div>
+        <div><dt class="detail-term">Started</dt><dd class="detail-value">{{ formatTime(selectedExecution()!.startedAt) }}</dd></div>
+        <div><dt class="detail-term">Ended</dt><dd class="detail-value">{{ formatTime(selectedExecution()!.endedAt) }}</dd></div>
+        <div><dt class="detail-term">Exit Code</dt><dd class="detail-value">{{ selectedExecution()!.exitCode ?? '--' }}</dd></div>
+        <div><dt class="detail-term">Trigger</dt><dd class="detail-value">{{ selectedExecution()!.triggerSource }}</dd></div>
+        <div><dt class="detail-term">Requested By</dt><dd class="detail-value">{{ selectedExecution()!.requestedByUsername || '--' }}</dd></div>
+      </div>
+      <div>
+        <dt class="detail-term">Error</dt>
+        <dd class="detail-value log-message rounded-lg bg-[var(--color-surface-low)] p-3">{{ selectedExecution()!.errorMessage || selectedExecution()!.stdErr || '--' }}</dd>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,15 @@
+import { Pipe, PipeTransform, inject } from '@angular/core';
+import { LanguageService, TranslationParams } from '../services/language.service';
+
+@Pipe({
+  name: 'translate',
+  standalone: true,
+  pure: false
+})
+export class TranslatePipe implements PipeTransform {
+  private readonly language = inject(LanguageService);
+
+  transform(key: string, params?: TranslationParams): string {
+    return this.language.t(key, params);
+  }
+}

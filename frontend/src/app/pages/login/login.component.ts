@@ -5,11 +5,13 @@ import { ButtonDirective } from 'ui-design-system';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { ApiResponse, LoginResponse } from '../../models/models';
+import { LanguageService } from '../../services/language.service';
+import { TranslatePipe } from '../../shared/translate.pipe';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [ReactiveFormsModule, ButtonDirective],
+  imports: [ReactiveFormsModule, ButtonDirective, TranslatePipe],
   templateUrl: './login.component.html',
   styles: [`
     .ui-auth-layout__background {
@@ -22,18 +24,19 @@ import { ApiResponse, LoginResponse } from '../../models/models';
   `]
 })
 export class LoginComponent {
-  private static readonly USERNAME_HINT = 'Tu nombre de usuario';
-  private static readonly PASSWORD_HINT = 'Ingresa tu contraseña';
+  private static readonly USERNAME_HINT = 'Username hint';
+  private static readonly PASSWORD_HINT = 'Password hint';
 
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly i18n = inject(LanguageService);
 
   readonly isLoading = signal(false);
   readonly errorMessage = signal<string | null>(null);
-  readonly usernamePlaceholder = signal(LoginComponent.USERNAME_HINT);
-  readonly passwordPlaceholder = signal(LoginComponent.PASSWORD_HINT);
+  readonly usernamePlaceholder = signal(this.i18n.t(LoginComponent.USERNAME_HINT));
+  readonly passwordPlaceholder = signal(this.i18n.t(LoginComponent.PASSWORD_HINT));
 
   readonly form = this.fb.nonNullable.group({
     username: ['', [Validators.required]],
@@ -50,11 +53,11 @@ export class LoginComponent {
 
   restorePlaceholderOnBlur(field: 'username' | 'password'): void {
     if (field === 'username' && !this.form.controls.username.value) {
-      this.usernamePlaceholder.set(LoginComponent.USERNAME_HINT);
+      this.usernamePlaceholder.set(this.i18n.t(LoginComponent.USERNAME_HINT));
       return;
     }
     if (field === 'password' && !this.form.controls.password.value) {
-      this.passwordPlaceholder.set(LoginComponent.PASSWORD_HINT);
+      this.passwordPlaceholder.set(this.i18n.t(LoginComponent.PASSWORD_HINT));
     }
   }
 
@@ -76,7 +79,7 @@ export class LoginComponent {
       },
       error: () => {
         this.isLoading.set(false);
-        this.errorMessage.set('Credenciales inválidas. Verifica usuario y contraseña.');
+        this.errorMessage.set(this.i18n.t('Invalid credentials. Check username and password.'));
       },
     });
   }

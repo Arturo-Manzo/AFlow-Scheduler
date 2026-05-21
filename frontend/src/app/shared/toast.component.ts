@@ -1,9 +1,11 @@
 import { Component, inject } from '@angular/core';
 import { ErrorHandlerService } from '../services/error-handler.service';
+import { TranslatePipe } from './translate.pipe';
 
 @Component({
   selector: 'app-toast',
   standalone: true,
+  imports: [TranslatePipe],
   templateUrl: './toast.component.html',
   styles: [`
     .toast-container {

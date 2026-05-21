@@ -75,54 +75,15 @@ export class ExecutionService {
       .pipe(map(response => response.data));
   }
 
-  getLastExecutionForTask(taskId: number): Observable<ExecutionDto | null> {
-    return this.api
-      .get<ApiResponse<ExecutionDto>>(`executionhistory/task/${taskId}/last`)
-      .pipe(map(response => response.data ?? null));
-  }
-
-  // --- Methods migrated from LogsService ---
-
   getLatest(limit = 20): Observable<ExecutionDto[]> {
     return this.api
       .get<ApiResponse<ExecutionDto[]>>(`executionhistory/latest?limit=${limit}`)
       .pipe(map(r => r.data));
   }
 
-  getForTask(taskId: number, fromUtc?: string, toUtc?: string): Observable<ExecutionDto[]> {
-    const query = new URLSearchParams();
-    if (fromUtc) query.set('fromUtc', fromUtc);
-    if (toUtc) query.set('toUtc', toUtc);
-    const suffix = query.toString() ? `?${query.toString()}` : '';
-    return this.api
-      .get<ApiResponse<ExecutionDto[]>>(`executionhistory/task/${taskId}${suffix}`)
-      .pipe(map(r => r.data));
-  }
-
-  getLastForTask(taskId: number): Observable<ExecutionDto> {
-    return this.api
-      .get<ApiResponse<ExecutionDto>>(`executionhistory/task/${taskId}/last`)
-      .pipe(map(r => r.data));
-  }
-
   getRunning(): Observable<RunningExecutionDto[]> {
     return this.api
       .get<ApiResponse<RunningExecutionDto[]>>('executionhistory/running')
-      .pipe(map(r => r.data));
-  }
-
-  getFailed(opts: { limit?: number; boxId?: number; fromUtc?: string; toUtc?: string; status?: string[]; taskName?: string; triggerSource?: string } = {}): Observable<ExecutionDto[]> {
-    const params = new URLSearchParams();
-    if (opts.limit) params.set('limit', opts.limit.toString());
-    if (opts.boxId) params.set('boxId', opts.boxId.toString());
-    if (opts.fromUtc) params.set('fromUtc', opts.fromUtc);
-    if (opts.toUtc) params.set('toUtc', opts.toUtc);
-    if (opts.status?.length) opts.status.forEach(s => params.append('status', s));
-    if (opts.taskName) params.set('taskName', opts.taskName);
-    if (opts.triggerSource) params.set('triggerSource', opts.triggerSource);
-    const suffix = params.toString() ? `?${params.toString()}` : '';
-    return this.api
-      .get<ApiResponse<ExecutionDto[]>>(`executionhistory/failed${suffix}`)
       .pipe(map(r => r.data));
   }
 }

@@ -8,11 +8,12 @@ import { BoxRunDto, BoxRunStatus } from '../../models/models';
 import { ExecutionService } from '../../services/execution.service';
 import { StatusBadgeComponent } from '../../components/status-badge/status-badge.component';
 import { ConfirmModalComponent } from '../../components/confirm-modal/confirm-modal.component';
+import { TranslatePipe } from '../../shared/translate.pipe';
 
 @Component({
   selector: 'app-box-run-list',
   standalone: true,
-  imports: [CommonModule, RouterLink, StatusBadgeComponent, ConfirmModalComponent, ButtonDirective],
+  imports: [CommonModule, RouterLink, StatusBadgeComponent, ConfirmModalComponent, ButtonDirective, TranslatePipe],
   templateUrl: './box-run-list.component.html',
   styles: [`
     .row-meta { margin-top:.2rem; color:var(--text-3); font-size:.75rem; }

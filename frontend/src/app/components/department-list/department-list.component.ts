@@ -5,20 +5,24 @@ import { DepartmentsService } from '../../services/departments.service';
 import { DepartmentDto, CreateDepartmentRequest, UpdateDepartmentRequest } from '../../models/models';
 import { isFieldInvalid } from '../../shared/form-utils';
 import { ButtonDirective } from 'ui-design-system';
+import { ConfirmModalComponent } from '../confirm-modal/confirm-modal.component';
+import { TranslatePipe } from '../../shared/translate.pipe';
 
 @Component({
   selector: 'app-department-list',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ButtonDirective],
+  imports: [CommonModule, ReactiveFormsModule, ButtonDirective, ConfirmModalComponent, TranslatePipe],
   templateUrl: './department-list.component.html',
   styles: [`
-    .create-form-shell { border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; }
-    .create-form-shell h4 { margin: 0 0 1rem; font-size: .95rem; }
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem 1.25rem; }
     .field-full { grid-column: 1 / -1; }
     .form-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1rem; }
-    .req { color: var(--danger); }
-    .desc-cell { font-size: .85rem; color: var(--text-2); max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .req { color: var(--ui-danger-text); }
+    .desc-cell { font-size: .85rem; color: var(--color-muted); max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .department-actions { display: flex; justify-content: flex-end; gap: .5rem; white-space: nowrap; }
+    .department-actions button { min-width: 72px; }
+    .department-modal { max-width: 760px; width: 95vw; }
+    .modal-subtitle { margin: .25rem 0 0; color: var(--color-muted); font-size: .8rem; }
     @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
   `]
 })
@@ -33,6 +37,7 @@ export class DepartmentListComponent implements OnInit {
   showCreateForm = signal(false);
   showEditForm = signal(false);
   editingDepartment = signal<DepartmentDto | null>(null);
+  departmentPendingDelete = signal<DepartmentDto | null>(null);
 
   createForm = this.fb.group({
     name:             ['', [Validators.required, Validators.minLength(3)]],
@@ -148,8 +153,21 @@ export class DepartmentListComponent implements OnInit {
     });
   }
 
-  deleteDepartment(dept: DepartmentDto): void {
-    if (!confirm(`Delete "${dept.name}"? This cannot be undone.`)) return;
+  requestDeleteDepartment(dept: DepartmentDto): void {
+    if (dept.name === 'Default') {
+      return;
+    }
+
+    this.departmentPendingDelete.set(dept);
+  }
+
+  confirmDeleteDepartment(): void {
+    const dept = this.departmentPendingDelete();
+    this.departmentPendingDelete.set(null);
+    if (!dept || dept.name === 'Default') {
+      return;
+    }
+
     this.departmentsService.delete(dept.departmentId).subscribe({
       next: () => this.departments.update(list => list.filter(d => d.departmentId !== dept.departmentId)),
       error: (err) => this.errorMessage.set(err?.error?.message || 'Failed to delete department.')

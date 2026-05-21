@@ -31,6 +31,14 @@ public class BatExecutor : ITaskExecutor
         ArgumentNullException.ThrowIfNull(task);
         using var timeoutCts = new CancellationTokenSource(_timeout);
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+        var warmupFailure = await NetworkPathWarmup.WarmCommandTargetAsync(task.Command, linkedCts.Token)
+            .ConfigureAwait(false);
+        if (warmupFailure is not null)
+        {
+            return warmupFailure;
+        }
+
         using var process = new Process
         {
             StartInfo = new ProcessStartInfo

@@ -17,6 +17,12 @@ using Serilog.Debugging;
 using Serilog.Events;
 using Serilog.Sinks.MSSqlServer;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Hosting.WindowsServices;
+
+if (WindowsServiceHelpers.IsWindowsService())
+{
+    Directory.SetCurrentDirectory(AppContext.BaseDirectory);
+}
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
@@ -29,6 +35,11 @@ var logConnectionString = builder.Configuration.GetConnectionString("Default")
 
 var logColumnOptions = CreateApplicationLogColumnOptions();
 SelfLog.Enable(message => System.Diagnostics.Debug.WriteLine(message));
+
+builder.Host.UseWindowsService(options =>
+{
+    options.ServiceName = builder.Configuration["WindowsService:ServiceName"] ?? "CHRONIQ";
+});
 
 builder.Host.UseSerilog((context, _, loggerConfiguration) =>
 {
@@ -219,6 +230,10 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.Configure<SmtpNotificationOptions>(
     builder.Configuration.GetSection("Notifications:Smtp"));
 builder.Services.AddDataProtection();
+builder.Services.Configure<HostOptions>(options =>
+{
+    options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
+});
 
 // ============================================
 // Queue Configuration
@@ -270,6 +285,7 @@ builder.Services.AddSingleton<ITaskRepository, TaskRepository>();
 builder.Services.AddSingleton<IExecutionRepository, ExecutionRepository>();
 builder.Services.AddSingleton<IDepartmentRepository, DepartmentRepository>();
 builder.Services.AddSingleton<INotificationSettingsRepository, NotificationSettingsRepository>();
+builder.Services.AddSingleton<IApplicationLogRepository, ApplicationLogRepository>();
 
 // ============================================
 // Task Execution Service (SINGLE ENTRY POINT)

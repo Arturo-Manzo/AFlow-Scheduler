@@ -14,6 +14,7 @@ import { detectUserTimeZone, formatUtcShorthand, formatUtcWithBoxContextShorthan
 import { isFieldInvalid } from '../../shared/form-utils';
 import { HighlightPipe } from '../../shared/highlight.pipe';
 import { ButtonDirective } from 'ui-design-system';
+import { TranslatePipe } from '../../shared/translate.pipe';
 
 function notificationEmailListValidator(control: AbstractControl): ValidationErrors | null {
   const rawValue = `${control.value ?? ''}`.trim();
@@ -54,7 +55,7 @@ function normalizeNotificationEmails(rawValue: unknown): string | undefined {
 @Component({
   selector: 'app-tasks',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, HighlightPipe, ButtonDirective],
+  imports: [CommonModule, ReactiveFormsModule, HighlightPipe, ButtonDirective, TranslatePipe],
   templateUrl: './tasks.component.html',
   styles: [`
     .type-badge { font-size:.68rem;font-weight:700;text-transform:uppercase;padding:.15rem .4rem;border-radius:3px;letter-spacing:.04em }

@@ -11,38 +11,21 @@ import { TaskTableComponent } from '../../components/task-table/task-table.compo
 import { ErrorModalComponent } from '../../components/error-modal/error-modal.component';
 import { ConfirmModalComponent } from '../../components/confirm-modal/confirm-modal.component';
 import { TaskLogsModalComponent } from '../../components/task-logs-modal/task-logs-modal.component';
+import { TranslatePipe } from '../../shared/translate.pipe';
 
 @Component({
   selector: 'app-box-run-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, StatusBadgeComponent, TaskTableComponent, ErrorModalComponent, ConfirmModalComponent, TaskLogsModalComponent, ButtonDirective],
+  imports: [CommonModule, RouterLink, StatusBadgeComponent, TaskTableComponent, ErrorModalComponent, ConfirmModalComponent, TaskLogsModalComponent, ButtonDirective, TranslatePipe],
   templateUrl: './box-run-detail.component.html',
   styles: [`
-    .back-link { color: var(--text-2); text-decoration: none; font-size: .85rem; }
-    .back-link:hover { text-decoration: underline; }
-    .page-subtitle { margin-top:.35rem; }
-    .metrics-panel { margin: 0 0 1rem; padding: 1rem; border:1px solid var(--border); background:var(--bg-surface); border-radius:var(--radius-2); }
-    .metrics-header { display:flex; justify-content:space-between; align-items:center; gap:.75rem; margin-bottom:.75rem; }
     .metrics-rate { font-size:1.35rem; font-weight:800; color:var(--text-1); }
     .progress-track { display:flex; width:100%; height:12px; background:var(--bg-muted); border-radius:999px; overflow:hidden; margin-bottom:.9rem; }
     .progress-segment { height:100%; }
-    .progress-success { background:#16a34a; }
-    .progress-failed { background:#dc2626; }
-    .progress-pending { background:#f59e0b; }
-    .metrics-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.75rem; }
-    .metric-card { border:1px solid var(--border); background:var(--bg-muted); border-radius:var(--radius-1); padding:.75rem; }
-    .metric-label { display:block; font-size:.72rem; text-transform:uppercase; color:var(--text-3); margin-bottom:.25rem; }
-    .metric-success strong { color:#166534; }
-    .metric-failed strong { color:#991b1b; }
-    .metric-pending strong { color:#92400e; }
-    .actions-bar { display:flex; align-items:center; margin: 1rem 0; gap:.75rem; }
-    @media (max-width: 900px) {
-      .metrics-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .actions-bar { flex-direction:column; align-items:flex-start; }
-    }
-    @media (max-width: 640px) {
-      .metrics-grid { grid-template-columns:1fr; }
-    }
+    .progress-success { background:var(--ui-success-text); }
+    .progress-failed { background:var(--ui-danger-text); }
+    .progress-pending { background:var(--ui-warning-text); }
+    .ui-feedback--warning { background:var(--ui-warning-bg); border-color:var(--ui-warning-border); color:var(--ui-warning-text); }
   `]
 })
 export class BoxRunDetailComponent implements OnInit, OnDestroy {

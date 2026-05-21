@@ -31,6 +31,13 @@ public class PythonExecutor : ITaskExecutor
         using var timeoutCts = new CancellationTokenSource(_timeout);
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
 
+        var warmupFailure = await NetworkPathWarmup.WarmCommandTargetAsync(scriptPath, linkedCts.Token)
+            .ConfigureAwait(false);
+        if (warmupFailure is not null)
+        {
+            return warmupFailure;
+        }
+
         using var process = new Process
         {
             StartInfo = new ProcessStartInfo

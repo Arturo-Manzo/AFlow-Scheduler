@@ -432,6 +432,55 @@ public class SystemStatusDto
     public string Environment { get; set; } = "";
 }
 
+public class HealthDashboardDto
+{
+    public SystemStatusDto Status { get; set; } = new();
+    public List<ReadinessCheckDto> Readiness { get; set; } = new();
+    public List<ApplicationLogDto> ApplicationErrors { get; set; } = new();
+    public List<ExecutionDto> FailedExecutions { get; set; } = new();
+    public HealthSummaryDto Summary { get; set; } = new();
+    public int WindowHours { get; set; }
+    public int Limit { get; set; }
+    public DateTime GeneratedAtUtc { get; set; }
+}
+
+public class HealthSummaryDto
+{
+    public int AppErrors { get; set; }
+    public int AppWarnings { get; set; }
+    public int FailedExecutions { get; set; }
+    public int StaleExecutions { get; set; }
+    public int QueueDepth { get; set; }
+    public bool DbConnected { get; set; }
+}
+
+public class ReadinessCheckDto
+{
+    public string Name { get; set; } = "";
+    public string Status { get; set; } = "";
+    public string Description { get; set; } = "";
+    public double DurationMs { get; set; }
+}
+
+public class ApplicationLogDto
+{
+    public long Id { get; set; }
+    public string LogFileName { get; set; } = "";
+    public DateTime Timestamp { get; set; }
+    public string Level { get; set; } = "";
+    public string Message { get; set; } = "";
+    public string? ErrorFile { get; set; }
+    public string? ErrorMethod { get; set; }
+    public int? ErrorLine { get; set; }
+    public string? ExceptionType { get; set; }
+    public string? Source { get; set; }
+    public Guid? CorrelationId { get; set; }
+    public int? UserId { get; set; }
+    public string? RequestPath { get; set; }
+    public int? StatusCode { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
 /// <summary>
 /// SMTP notification settings returned to admin clients.
 /// </summary>

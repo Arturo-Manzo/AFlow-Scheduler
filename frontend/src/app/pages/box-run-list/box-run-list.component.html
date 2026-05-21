@@ -3,7 +3,7 @@
     <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       <article class="ui-card ui-card--padded">
       <div class="flex items-center justify-between">
-        <p class="ui-kpi-label">Visible Runs</p>
+        <p class="ui-kpi-label">{{ 'Visible Runs' | translate }}</p>
         <svg class="h-5 w-5 text-[var(--color-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
         </svg>
@@ -13,7 +13,7 @@
 
     <article class="ui-card ui-card--padded">
       <div class="flex items-center justify-between">
-        <p class="ui-kpi-label">Running</p>
+        <p class="ui-kpi-label">{{ 'Running' | translate }}</p>
         <svg class="h-5 w-5 text-[var(--color-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
         </svg>
@@ -23,7 +23,7 @@
 
     <article class="ui-card ui-card--padded">
       <div class="flex items-center justify-between">
-        <p class="ui-kpi-label">Resumable</p>
+        <p class="ui-kpi-label">{{ 'Resumable' | translate }}</p>
         <svg class="h-5 w-5 text-[var(--ui-success-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>
@@ -35,35 +35,37 @@
     </div>
   </section>
 
-  <section class="data-panel">
-    <div class="panel-header">
-      <div class="panel-title-wrap">
-        <div class="panel-title">Active BoxRun Queue</div>
-        <div class="panel-subtitle">Resumable failed runs — shows the latest failed job per box, excluding fully completed workflows.</div>
+  <article class="ui-card">
+    <header class="flex flex-col gap-4 border-b border-[var(--ui-border-color)] px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <h2 class="text-sm font-bold uppercase tracking-[0.12em] text-[var(--color-accent)]">{{ 'Active BoxRun Queue' | translate }}</h2>
+        <p class="mt-1 max-w-3xl text-xs leading-5 text-[var(--color-muted)]">
+          {{ 'Resumable failed runs. Shows the latest failed job per box and excludes fully completed workflows.' | translate }}
+        </p>
       </div>
-      <div class="panel-toolbar">
-        <button class="btn" (click)="reload()">Refresh</button>
+      <div class="flex flex-wrap items-center gap-3">
+        <button type="button" appButton="secondary" buttonSize="sm" (click)="reload()">{{ 'Refresh' | translate }}</button>
       </div>
-    </div>
+    </header>
 
     @if (loading()) {
-      <div class="loading-state"><span class="spinner"></span> Loading executions...</div>
+      <div class="loading-state"><span class="spinner"></span> {{ 'Loading executions...' | translate }}</div>
     } @else if (error()) {
       <div class="panel-body"><div class="alert alert-danger">{{ error() }}</div></div>
     } @else if (runs().length === 0) {
-      <p class="empty-state">No active executions. All workflows completed successfully.</p>
+      <p class="empty-state">{{ 'No active executions. All workflows completed successfully.' | translate }}</p>
     } @else {
       <div class="ui-table-wrap">
         <table class="ui-table">
           <thead>
             <tr>
-              <th>Box Name</th>
-              <th>Status</th>
-              <th>Trigger</th>
-              <th>Start Time</th>
-              <th>End Time</th>
-              <th>Duration</th>
-              <th>Actions</th>
+              <th>{{ 'Box Name' | translate }}</th>
+              <th>{{ 'Status' | translate }}</th>
+              <th>{{ 'Trigger' | translate }}</th>
+              <th>{{ 'Start Time' | translate }}</th>
+              <th>{{ 'End Time' | translate }}</th>
+              <th>{{ 'Duration' | translate }}</th>
+              <th>{{ 'Actions' | translate }}</th>
             </tr>
           </thead>
           <tbody>
@@ -80,9 +82,9 @@
                 <td>{{ run.durationSeconds != null ? run.durationSeconds + 's' : '--' }}</td>
                 <td>
                   <div class="table-actions">
-                    <a class="btn btn-sm btn-view" [routerLink]="['/executions', run.id]">View Details</a>
-                    <button class="btn btn-sm btn-danger-soft" [disabled]="!canCancelFromList(run) || actionLoading()" (click)="pendingCancelId.set(run.id)">Stop Run</button>
-                    <button class="btn btn-sm btn-primary" [disabled]="!canResumeFromList(run) || actionLoading()" (click)="pendingResumeId.set(run.id)">Resume</button>
+                    <a class="btn btn-sm btn-view" [routerLink]="['/executions', run.id]">{{ 'View Details' | translate }}</a>
+                    <button class="btn btn-sm btn-danger-soft" [disabled]="!canCancelFromList(run) || actionLoading()" (click)="pendingCancelId.set(run.id)">{{ 'Stop Run' | translate }}</button>
+                    <button class="btn btn-sm btn-primary" [disabled]="!canResumeFromList(run) || actionLoading()" (click)="pendingResumeId.set(run.id)">{{ 'Resume' | translate }}</button>
                   </div>
                 </td>
               </tr>
@@ -91,7 +93,7 @@
         </table>
       </div>
     }
-  </section>
+  </article>
   </div>
 
   <app-confirm-modal

@@ -2,12 +2,14 @@ import { Injectable, inject, signal, computed, OnDestroy } from '@angular/core';
 import { ApiService } from './api.service';
 import { ApiResponse, SystemStatus } from '../models/models';
 import packageJson from '../../../package.json';
+import { LanguageService } from './language.service';
 
 const POLL_INTERVAL_MS = 30_000;
 
 @Injectable({ providedIn: 'root' })
 export class StatusService implements OnDestroy {
   private api = inject(ApiService);
+  private language = inject(LanguageService);
 
   private _status = signal<SystemStatus | null>(null);
   private _lastSyncAt = signal<Date | null>(null);
@@ -22,7 +24,9 @@ export class StatusService implements OnDestroy {
   readonly dbConnected = computed(() => this._status()?.dbConnected ?? false);
   readonly workers = computed(() => {
     const s = this._status();
-    return s ? `${s.activeWorkers}/${s.totalWorkers} Workers` : '-- Workers';
+    return s
+      ? this.language.t('{active}/{total} Workers', { active: s.activeWorkers, total: s.totalWorkers })
+      : this.language.t('-- Workers');
   });
   readonly runningBoxRuns = computed(() => this._status()?.runningBoxRuns ?? 0);
   readonly runningExecutions = computed(() => this._status()?.runningExecutions ?? 0);
@@ -31,34 +35,41 @@ export class StatusService implements OnDestroy {
   readonly hasStaleExecutions = computed(() => this.staleExecutions() > 0);
   readonly queueLabel = computed(() => {
     const s = this._status();
-    return s ? `${s.queueDepth} in queue` : '-- in queue';
+    return s ? this.language.t('{count} in queue', { count: s.queueDepth }) : this.language.t('-- in queue');
   });
   readonly staleLabel = computed(() => {
     const s = this._status();
-    if (!s) return '-- stale';
-    return `${s.staleExecutions} stale > ${s.staleExecutionThresholdMinutes}m`;
+    if (!s) return this.language.t('-- stale');
+    return this.language.t('{count} stale > {minutes}m', {
+      count: s.staleExecutions,
+      minutes: s.staleExecutionThresholdMinutes
+    });
   });
   readonly failNotificationEnabled = computed(() => this._status()?.failNotificationEnabled ?? false);
   readonly startupRecoveryCompleted = computed(() => this._status()?.startupRecoveryCompleted ?? false);
   readonly recoveryLabel = computed(() => {
     const s = this._status();
-    if (!s) return 'Recovery: --';
-    if (!s.autoRecoveryEnabled) return 'Recovery: Disabled';
-    if (!s.startupRecoveryCompleted) return 'Recovery: Pending';
+    if (!s) return this.language.t('Recovery: --');
+    if (!s.autoRecoveryEnabled) return this.language.t('Recovery: Disabled');
+    if (!s.startupRecoveryCompleted) return this.language.t('Recovery: Pending');
 
     const completedAt = s.lastRecoveryCompletedAtUtc
       ? new Date(s.lastRecoveryCompletedAtUtc).toLocaleTimeString()
       : '--';
 
-    return `Recovery: ${s.lastRecoveredExecutionCount} exec / ${s.lastRecoveredBoxRunCount} runs @ ${completedAt}`;
+    return this.language.t('Recovery: {execCount} exec / {runCount} runs @ {time}', {
+      execCount: s.lastRecoveredExecutionCount,
+      runCount: s.lastRecoveredBoxRunCount,
+      time: completedAt
+    });
   });
   readonly environment = computed(() => this._status()?.environment ?? '--');
   readonly lastSyncLabel = computed(() => {
     const t = this._lastSyncAt();
-    if (!t) return 'Never synced';
+    if (!t) return this.language.t('Never synced');
     const diffSec = Math.floor((Date.now() - t.getTime()) / 1000);
-    if (diffSec < 5) return 'Just now';
-    return `${diffSec}s ago`;
+    if (diffSec < 5) return this.language.t('Just now');
+    return this.language.t('{seconds}s ago', { seconds: diffSec });
   });
 
   startPolling(): void {
