@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AScheduler.csproj" />
+    <ProjectReference Include="..\CHRONIQ.csproj" />
   </ItemGroup>
 
 </Project>

@@ -4,7 +4,7 @@ using CHRONIQ.Api.Dtos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace AScheduler.Tests;
+namespace CHRONIQ.Tests;
 
 public sealed class HealthDashboardContractTests
 {

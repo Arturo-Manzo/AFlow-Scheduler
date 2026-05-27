@@ -22,6 +22,41 @@ public class TaskExecutionsController : ControllerBase
         _boxRepository = boxRepository;
     }
 
+    [HttpGet("{taskExecutionId}")]
+    [Authorize(Roles = "Admin,Operator,Viewer")]
+    public async Task<IActionResult> GetExecution(int taskExecutionId)
+    {
+        var execution = await _executionRepository.GetExecutionByIdAsync(taskExecutionId);
+        if (execution == null)
+        {
+            return NotFound(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Task execution not found.",
+                ErrorCode = "TASK_EXECUTION_NOT_FOUND"
+            });
+        }
+
+        var box = await _boxRepository.GetByIdAsync(execution.BoxId);
+        if (box == null)
+        {
+            return NotFound(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Box not found.",
+                ErrorCode = "BOX_NOT_FOUND"
+            });
+        }
+
+        var userDepartmentId = GetCurrentDepartmentId();
+        if (userDepartmentId.HasValue && box.DepartmentId.HasValue && box.DepartmentId != userDepartmentId)
+        {
+            return Forbid("You do not have permission to access this task execution.");
+        }
+
+        return Ok(new ApiResponse<ExecutionDto> { Success = true, Data = MapToExecutionDto(execution) });
+    }
+
     [HttpGet("{taskExecutionId}/logs")]
     [Authorize(Roles = "Admin,Operator,Viewer")]
     public async Task<IActionResult> GetLogs(int taskExecutionId)
@@ -69,6 +104,34 @@ public class TaskExecutionsController : ControllerBase
 
         return Ok(new ApiResponse<List<TaskExecutionLogDto>> { Success = true, Data = dtos });
     }
+
+    private static ExecutionDto MapToExecutionDto(ExecutionRepository.ExecutionRecord r) => new()
+    {
+        ExecutionId = r.ExecutionId,
+        TaskId = r.TaskId,
+        TaskName = r.TaskName,
+        TaskType = r.TaskType,
+        Command = r.Command,
+        BoxId = r.BoxId,
+        BoxName = r.BoxName,
+        BoxTimeZoneId = r.BoxTimeZoneId,
+        DepartmentName = r.DepartmentName,
+        FailureAlertEmail = r.FailureAlertEmail,
+        BoxRunId = r.BoxRunId,
+        StartedAt = r.StartedAt,
+        EndedAt = r.EndedAt,
+        Status = r.Status,
+        ExitCode = r.ExitCode,
+        StdOut = r.StdOut,
+        StdErr = r.StdErr,
+        DurationSeconds = r.EndedAt.HasValue ? (int?)(r.EndedAt.Value - r.StartedAt).TotalSeconds : null,
+        TriggerSource = r.TriggerSource,
+        Reason = r.Reason,
+        RequestedByUserId = r.RequestedByUserId,
+        RequestedByUsername = r.RequestedByUsername,
+        ErrorMessage = string.IsNullOrWhiteSpace(r.Error) ? null : r.Error,
+        IsStale = r.IsStale
+    };
 
     private int? GetCurrentDepartmentId()
     {

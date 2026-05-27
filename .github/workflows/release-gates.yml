@@ -35,13 +35,13 @@ jobs:
           "BUILD_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Backend restore
-        run: dotnet restore AScheduler.sln
+        run: dotnet restore CHRONIQ.sln
 
       - name: Backend build
-        run: dotnet build AScheduler.csproj --configuration Release --no-restore /p:Version=$env:BUILD_VERSION
+        run: dotnet build CHRONIQ.csproj --configuration Release --no-restore /p:Version=$env:BUILD_VERSION
 
       - name: Backend tests
-        run: dotnet test AScheduler.Tests/AScheduler.Tests.csproj --configuration Release --no-restore /p:Version=$env:BUILD_VERSION
+        run: dotnet test CHRONIQ.Tests/CHRONIQ.Tests.csproj --configuration Release --no-restore /p:Version=$env:BUILD_VERSION
 
       - name: Frontend build
         working-directory: frontend

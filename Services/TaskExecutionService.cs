@@ -168,11 +168,24 @@ public class TaskExecutionService : ITaskExecutionService
                     var result = await executor.ExecuteAsync(task, cts.Token);
                     var endTime = DateTime.UtcNow;
                     var status = result.ExitCode == 0 ? "Success" : "Failed";
+                    var summaryError = result.ExitCode == 0
+                        ? string.Empty
+                        : (string.IsNullOrWhiteSpace(result.Error) ? BuildSummary(result.Output) : result.Error);
+                    var artifacts = NormalizeExecutionArtifacts(
+                        result.Output,
+                        summaryError,
+                        result.Output,
+                        string.Empty);
 
                     await _executionRepository.CompleteExecutionAsync(
-                        executionId, endTime, status,
-                        result.Output, result.Error, result.ExitCode,
-                        result.Output, result.Error);
+                        executionId,
+                        endTime,
+                        status,
+                        artifacts.Output,
+                        artifacts.Error,
+                        result.ExitCode,
+                        artifacts.StdOut,
+                        artifacts.StdErr);
 
                     if (result.ExitCode == 0)
                     {
@@ -186,15 +199,16 @@ public class TaskExecutionService : ITaskExecutionService
                         return true;
                     }
 
-                    var failureDetails = string.IsNullOrWhiteSpace(result.Error) ? result.Output : result.Error;
+                    var failureDetails = FirstNonEmpty(artifacts.Error, artifacts.StdErr, artifacts.StdOut);
+                    var failureMessage = BuildFailureMessage(result.ExitCode, failureDetails);
                     await _executionLogger.LogError(
                         boxRunId,
                         executionId,
                         task.Id,
-                        "Task failed",
-                        failureDetails);
+                        failureMessage,
+                        artifacts.StdErr);
 
-                    var failureReason = $"Exit code {result.ExitCode}: {failureDetails}";
+                    var failureReason = failureMessage;
                     if (!isFinalAttempt)
                     {
                         await _executionLogger.LogInfo(
@@ -238,23 +252,24 @@ public class TaskExecutionService : ITaskExecutionService
                     var cancellationReason = externallyCancelled
                         ? "Cancelled by request."
                         : $"Timeout after {_taskTimeoutSeconds}s";
+                    var artifacts = NormalizeExecutionArtifacts("", cancellationReason, "", "");
 
                     await _executionRepository.CompleteExecutionAsync(
                         executionId,
                         DateTime.UtcNow,
                         status,
-                        "",
-                        cancellationReason,
+                        artifacts.Output,
+                        artifacts.Error,
                         -1,
-                        "",
-                        cancellationReason);
+                        artifacts.StdOut,
+                        artifacts.StdErr);
 
                     await _executionLogger.LogError(
                         boxRunId,
                         executionId,
                         task.Id,
-                        "Task failed",
-                        cancellationReason);
+                        $"Task failed: {cancellationReason}",
+                        artifacts.StdErr);
 
                     if (externallyCancelled)
                     {
@@ -304,17 +319,23 @@ public class TaskExecutionService : ITaskExecutionService
                 }
                 catch (Exception ex)
                 {
+                    var artifacts = NormalizeExecutionArtifacts("", ex.Message, "", ex.ToString());
                     await _executionRepository.CompleteExecutionAsync(
                         executionId,
                         DateTime.UtcNow,
                         "Failed",
-                        "",
-                        ex.Message,
+                        artifacts.Output,
+                        artifacts.Error,
                         -1,
-                        "",
-                        ex.ToString());
+                        artifacts.StdOut,
+                        artifacts.StdErr);
 
-                    await _executionLogger.LogError(boxRunId, executionId, task.Id, "Task failed", ex.ToString());
+                    await _executionLogger.LogError(
+                        boxRunId,
+                        executionId,
+                        task.Id,
+                        $"Task failed: {artifacts.Error}",
+                        artifacts.StdErr);
 
                     if (!isFinalAttempt)
                     {
@@ -525,10 +546,18 @@ public class TaskExecutionService : ITaskExecutionService
         await _executionLogger.LogInfo(boxRunId, executionId, taskId, "Task started");
         
         // Immediately mark as Failed without running anything
+        var artifacts = NormalizeExecutionArtifacts("", failureReason, "", "");
         await _executionRepository.CompleteExecutionAsync(
-            executionId, failedAtUtc, "Failed", "", failureReason, -2, "", failureReason);
+            executionId,
+            failedAtUtc,
+            "Failed",
+            artifacts.Output,
+            artifacts.Error,
+            -2,
+            artifacts.StdOut,
+            artifacts.StdErr);
 
-        await _executionLogger.LogError(boxRunId, executionId, taskId, "Task failed", failureReason);
+        await _executionLogger.LogError(boxRunId, executionId, taskId, $"Task failed: {artifacts.Error}", artifacts.StdErr);
 
         // Send notification if box has email configured
         try
@@ -583,11 +612,83 @@ public class TaskExecutionService : ITaskExecutionService
 
         await _executionLogger.LogInfo(boxRunId, executionId, taskId, "Task started");
 
+        var artifacts = NormalizeExecutionArtifacts("", reason, "", "");
         await _executionRepository.CompleteExecutionAsync(
-            executionId, markedAtUtc, "NotExecuted", "", reason, null, "", reason);
+            executionId,
+            markedAtUtc,
+            "NotExecuted",
+            artifacts.Output,
+            artifacts.Error,
+            null,
+            artifacts.StdOut,
+            artifacts.StdErr);
 
-        await _executionLogger.LogError(boxRunId, executionId, taskId, "Task failed", reason);
+        await _executionLogger.LogError(boxRunId, executionId, taskId, $"Task failed: {artifacts.Error}", artifacts.StdErr);
     }
+
+    private static ExecutionArtifacts NormalizeExecutionArtifacts(string? output, string? error, string? stdOut, string? stdErr)
+    {
+        var normalizedOutput = NormalizeText(output);
+        var normalizedError = NormalizeText(error);
+        var normalizedStdOut = NormalizeText(stdOut);
+        var normalizedStdErr = NormalizeText(stdErr);
+
+        if (string.IsNullOrWhiteSpace(normalizedStdOut) && !string.IsNullOrWhiteSpace(normalizedOutput))
+        {
+            normalizedStdOut = normalizedOutput;
+        }
+
+        if (string.IsNullOrWhiteSpace(normalizedError) && !string.IsNullOrWhiteSpace(normalizedStdErr))
+        {
+            normalizedError = BuildSummary(normalizedStdErr);
+        }
+
+        if (AreEquivalent(normalizedError, normalizedStdErr))
+        {
+            normalizedStdErr = string.Empty;
+        }
+
+        return new ExecutionArtifacts(normalizedOutput, normalizedError, normalizedStdOut, normalizedStdErr);
+    }
+
+    private static string BuildFailureMessage(int? exitCode, string details)
+    {
+        var suffix = string.IsNullOrWhiteSpace(details) ? "Task failed." : details;
+        return exitCode.HasValue ? $"Task failed (exit code {exitCode.Value}): {suffix}" : $"Task failed: {suffix}";
+    }
+
+    private static string BuildSummary(string? value)
+    {
+        var normalized = NormalizeText(value);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return string.Empty;
+        }
+
+        var firstLine = normalized
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault();
+
+        var summary = string.IsNullOrWhiteSpace(firstLine) ? normalized : firstLine;
+        return summary.Length <= 240 ? summary : $"{summary[..237]}...";
+    }
+
+    private static string FirstNonEmpty(params string[] values)
+    {
+        return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+    }
+
+    private static bool AreEquivalent(string left, string right)
+    {
+        return string.Equals(NormalizeText(left), NormalizeText(right), StringComparison.Ordinal);
+    }
+
+    private static string NormalizeText(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+    }
+
+    private sealed record ExecutionArtifacts(string Output, string Error, string StdOut, string StdErr);
 
     private static string MaskEmail(string email)
     {

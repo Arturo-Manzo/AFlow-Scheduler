@@ -6,33 +6,53 @@
         <p class="text-xs text-[var(--text-3)] hidden md:block">{{ 'Execution Orchestration Hub' | translate }}</p>
       </div>
 
-      <div class="relative">
+      <div class="relative z-50">
+        @if (menuOpen()) {
+          <button
+            type="button"
+            class="fixed inset-0 z-40 cursor-default bg-transparent"
+            aria-label="Close user menu"
+            (click)="menuOpen.set(false)"
+          ></button>
+        }
         <button
           type="button"
-          class="pl-0 text-sm font-semibold text-[var(--primary)] hover:opacity-70 transition-opacity"
+          class="relative z-50 flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-white/90 px-2.5 py-2 text-left shadow-sm transition-all duration-200 hover:border-[var(--primary)] hover:shadow-md"
           (click)="toggleUserMenu()"
+          [attr.aria-expanded]="menuOpen()"
+          aria-haspopup="menu"
         >
-          <span class="hidden text-sm font-semibold md:inline">{{ auth.currentUser()!.username }}</span>
-          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--primary)] via-[var(--primary)] to-[var(--primary-dark)] text-sm font-bold text-white shadow-sm">
+            {{ auth.currentUser()!.username[0].toUpperCase() }}
+          </div>
+          <div class="hidden min-w-0 md:block">
+            <p class="truncate text-sm font-semibold leading-tight text-[var(--text-1)]">{{ auth.currentUser()!.username }}</p>
+            <div class="mt-1 flex items-center gap-2">
+              <span class="inline-flex rounded-full bg-[var(--bg-muted)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--primary)]">
+                {{ auth.currentUser()!.roleName }}
+              </span>
+            </div>
+          </div>
+          <svg class="h-4 w-4 text-[var(--text-3)] transition-transform duration-200" [class.rotate-180]="menuOpen()" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
           </svg>
         </button>
         @if (menuOpen()) {
-          <div class="absolute right-0 top-full mt-2 w-64 rounded-lg bg-white shadow-lg border border-[var(--border)] py-2">
-            <div class="px-4 py-3 border-b border-[var(--border)]">
+          <div class="absolute right-0 top-full z-50 mt-3 w-72 overflow-hidden rounded-2xl border border-[var(--border)] bg-white/98 py-2 shadow-2xl backdrop-blur-xl">
+            <div class="border-b border-[var(--border)] bg-[linear-gradient(135deg,rgba(37,99,235,0.08),rgba(255,255,255,0.9))] px-4 py-4">
               <div class="flex items-center gap-3">
-                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--primary-dark)] text-sm font-bold text-white">
+                <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--primary)] to-[var(--primary-dark)] text-sm font-bold text-white shadow-sm">
                   {{ auth.currentUser()!.username[0].toUpperCase() }}
                 </div>
                 <div class="flex-1 min-w-0">
                   <p class="text-sm font-semibold text-[var(--text-1)] truncate">{{ auth.currentUser()!.username }}</p>
-                  <p class="text-xs text-[var(--text-3)] truncate">{{ auth.currentUser()!.roleName }}</p>
+                  <p class="mt-1 text-xs text-[var(--text-3)] truncate">{{ 'Role' | translate }}: {{ auth.currentUser()!.roleName }}</p>
                 </div>
               </div>
             </div>
             <button
               type="button"
-              class="flex w-full items-center gap-3 px-4 py-2 text-sm text-[var(--text-3)] hover:bg-[var(--bg-muted)] hover:text-[var(--primary)]"
+              class="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-3)] transition-colors hover:bg-[var(--bg-muted)] hover:text-[var(--primary)]"
               (click)="openChangePassword()"
             >
               <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -58,7 +78,7 @@
             <div class="border-t border-[var(--border)] my-1"></div>
             <button
               type="button"
-              class="flex w-full items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+              class="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-600 transition-colors hover:bg-red-50"
               (click)="logout()"
             >
               <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

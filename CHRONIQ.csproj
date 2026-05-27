@@ -3,19 +3,20 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UserSecretsId>dotnet-AScheduler-8bca35de-15b8-466a-8f05-69c2ecba958c</UserSecretsId>
+    <UserSecretsId>dotnet-CHRONIQ-8bca35de-15b8-466a-8f05-69c2ecba958c</UserSecretsId>
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <NoWarn>$(NoWarn);1573;1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <!-- Exclude nested test project from the main project's compile glob -->
-    <Compile Remove="AScheduler.Tests/**" />
-    <Content Remove="AScheduler.Tests/**" />
-    <EmbeddedResource Remove="AScheduler.Tests/**" />
-    <None Remove="AScheduler.Tests/**" />
+    <Compile Remove="CHRONIQ.Tests/**" />
+    <Content Remove="CHRONIQ.Tests/**" />
+    <EmbeddedResource Remove="CHRONIQ.Tests/**" />
+    <None Remove="CHRONIQ.Tests/**" />
     <!-- Exclude desktop tools from backend compile glob -->
     <Compile Remove="operations/tools/**" />
     <Content Remove="operations/tools/**" />
@@ -31,7 +32,7 @@
   <ItemGroup>
     <PackageReference Include="Cronos" Version="0.11.1" />
     <PackageReference Include="Dapper" Version="2.1.72" />
-    <PackageReference Include="MailKit" Version="4.15.1" />
+    <PackageReference Include="MailKit" Version="4.16.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
@@ -41,6 +42,7 @@
     <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
     <PackageReference Include="Serilog.Sinks.MSSqlServer" Version="6.6.1" />
     <PackageReference Include="SqlClient" Version="6.0.1" />
+    <PackageReference Include="System.Text.Json" Version="8.0.6" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="7.0.0" />
     <PackageReference Include="TimeZoneConverter" Version="6.1.0" />
   </ItemGroup>

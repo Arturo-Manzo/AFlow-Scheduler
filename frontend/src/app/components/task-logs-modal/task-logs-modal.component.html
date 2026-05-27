@@ -5,6 +5,7 @@
         <div>
           <h3 style="margin:0;font-size:1rem">{{ 'Task Logs' | translate }}</h3>
           <div class="modal-subtitle">{{ taskName || ('Task execution logs' | translate) }}</div>
+          <div class="modal-subtitle">{{ 'Operational timeline for this execution.' | translate }}</div>
         </div>
         <button type="button" class="modal-close" (click)="close.emit()" [attr.aria-label]="'Close' | translate">x</button>
       </div>

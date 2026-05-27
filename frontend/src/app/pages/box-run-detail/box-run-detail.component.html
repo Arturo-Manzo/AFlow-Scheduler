@@ -147,7 +147,7 @@
           </div>
         </header>
         <div class="ui-table-wrap">
-          <app-task-table [tasks]="tasks()" (viewError)="openError($event)" (viewLogs)="openLogs($event)" />
+          <app-task-table [tasks]="tasks()" (viewDetails)="openDetails($event)" (viewLogs)="openLogs($event)" />
         </div>
       </section>
     }
@@ -155,10 +155,14 @@
 </div>
 
 <app-error-modal
-  [visible]="errorTask() !== null"
-  [error]="errorTask()?.error || ''"
-  [stackTrace]="errorTask()?.stackTrace || ''"
-  (close)="closeError()"
+  [visible]="detailTask() !== null"
+  [title]="detailModalTitle()"
+  [subtitle]="detailModalSubtitle()"
+  [loading]="detailsLoading()"
+  [error]="detailSummary()"
+  [stackTrace]="detailTechnicalDetails()"
+  [stdOut]="detailStdOut()"
+  (close)="closeDetails()"
 />
 
 <app-task-logs-modal

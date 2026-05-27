@@ -140,6 +140,7 @@ import { TranslatePipe } from '../../shared/translate.pipe';
                       <th>{{ 'Duration' | translate }}</th>
                       <th>Exit Code</th>
                       <th>{{ 'Reason' | translate }}</th>
+                      <th>{{ 'Details' | translate }}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -152,6 +153,11 @@ import { TranslatePipe } from '../../shared/translate.pipe';
                         <td>{{ formatDuration(exec.durationSeconds) }}</td>
                         <td>{{ exec.exitCode ?? '--' }}</td>
                         <td>{{ exec.reason || '--' }}</td>
+                        <td>
+                          <button type="button" class="btn btn-sm" (click)="openExecutionDetail(exec)">
+                            {{ 'View Details' | translate }}
+                          </button>
+                        </td>
                       </tr>
                     }
                   </tbody>
@@ -261,6 +267,87 @@ import { TranslatePipe } from '../../shared/translate.pipe';
         </div>
       </div>
     }
+
+    @if (selectedExecution()) {
+      <div class="modal-overlay" style="z-index:1200" role="dialog" aria-modal="true" (click)="closeExecutionDetail()">
+        <div class="modal" (click)="$event.stopPropagation()" style="max-width:900px;width:95vw;max-height:92vh;overflow-y:auto">
+          <div class="modal-header">
+            <div>
+              <h3>{{ 'Execution Details' | translate }} #{{ selectedExecution()!.executionId }}</h3>
+              <div class="page-subtitle">{{ selectedExecution()!.taskName }} · {{ selectedExecution()!.boxName }}</div>
+            </div>
+            <button type="button" class="modal-close" (click)="closeExecutionDetail()" [attr.aria-label]="'Close' | translate">x</button>
+          </div>
+          <div class="modal-body">
+            <div class="execution-detail-grid">
+              <div>
+                <div class="execution-detail-label">{{ 'Status' | translate }}</div>
+                <div class="execution-detail-value"><app-status-badge [status]="$any(selectedExecution()!.status)" /></div>
+              </div>
+              <div>
+                <div class="execution-detail-label">{{ 'Trigger' | translate }}</div>
+                <div class="execution-detail-value">{{ selectedExecution()!.triggerSource }}</div>
+              </div>
+              <div>
+                <div class="execution-detail-label">{{ 'Started At' | translate }}</div>
+                <div class="execution-detail-value">{{ formatDate(selectedExecution()!.startedAt) }}</div>
+              </div>
+              <div>
+                <div class="execution-detail-label">{{ 'Ended At' | translate }}</div>
+                <div class="execution-detail-value">{{ formatDate(selectedExecution()!.endedAt) }}</div>
+              </div>
+              <div>
+                <div class="execution-detail-label">{{ 'Duration' | translate }}</div>
+                <div class="execution-detail-value">{{ formatDuration(selectedExecution()!.durationSeconds) }}</div>
+              </div>
+              <div>
+                <div class="execution-detail-label">Exit Code</div>
+                <div class="execution-detail-value">{{ selectedExecution()!.exitCode ?? '--' }}</div>
+              </div>
+              <div>
+                <div class="execution-detail-label">BoxRun ID</div>
+                <div class="execution-detail-value">{{ selectedExecution()!.boxRunId ?? '--' }}</div>
+              </div>
+              <div>
+                <div class="execution-detail-label">{{ 'Requested By' | translate }}</div>
+                <div class="execution-detail-value">{{ selectedExecution()!.requestedByUsername || '--' }}</div>
+              </div>
+              <div>
+                <div class="execution-detail-label">{{ 'Department' | translate }}</div>
+                <div class="execution-detail-value">{{ selectedExecution()!.departmentName || '--' }}</div>
+              </div>
+              <div>
+                <div class="execution-detail-label">{{ 'Reason' | translate }}</div>
+                <div class="execution-detail-value">{{ selectedExecution()!.reason || '--' }}</div>
+              </div>
+            </div>
+
+            <div class="execution-detail-block">
+              <div class="execution-detail-label">Command</div>
+              <pre class="execution-detail-pre">{{ selectedExecution()!.command || '--' }}</pre>
+            </div>
+
+            <div class="execution-detail-block">
+              <div class="execution-detail-label">{{ 'Error Message' | translate }}</div>
+              <pre class="execution-detail-pre execution-detail-pre-error">{{ executionErrorText() }}</pre>
+            </div>
+
+            <div class="execution-detail-block">
+              <div class="execution-detail-label">StdOut</div>
+              <pre class="execution-detail-pre">{{ selectedExecution()!.stdOut || '--' }}</pre>
+            </div>
+
+            <div class="execution-detail-block">
+              <div class="execution-detail-label">StdErr</div>
+              <pre class="execution-detail-pre">{{ selectedExecution()!.stdErr || '--' }}</pre>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn" (click)="closeExecutionDetail()">{{ 'Close' | translate }}</button>
+          </div>
+        </div>
+      </div>
+    }
   `,
   styles: [`
     .back-link { color: var(--text-2); text-decoration: none; font-size: .85rem; }
@@ -279,11 +366,18 @@ import { TranslatePipe } from '../../shared/translate.pipe';
     .box-details-table th { width: 32%; text-align: left; vertical-align: top; font-weight: 700; color: var(--text-3); background: var(--bg-muted); }
     .box-details-table td { color: var(--text-1); }
     .box-details-table tr + tr td { border-top: 1px solid var(--border); }
+    .execution-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.25rem; margin-bottom: 1.25rem; }
+    .execution-detail-label { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); margin-bottom: .35rem; }
+    .execution-detail-value { color: var(--text-1); word-break: break-word; }
+    .execution-detail-block + .execution-detail-block { margin-top: 1rem; }
+    .execution-detail-pre { margin: 0; padding: .9rem 1rem; border-radius: .75rem; background: var(--bg-muted); border: 1px solid var(--border); white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto; color: var(--text-1); }
+    .execution-detail-pre-error { background: color-mix(in srgb, var(--danger, #dc2626) 8%, white); }
     @media (max-width: 1100px) {
       .metrics-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 720px) {
       .page-header { flex-direction: column; gap: .75rem; }
+      .execution-detail-grid { grid-template-columns: 1fr; }
     }
   `]
 })
@@ -302,6 +396,7 @@ export class TaskDetailComponent implements OnInit {
   box = signal<BoxDto | null>(null);
   task = signal<TaskDto | null>(null);
   executions = signal<ExecutionDto[]>([]);
+  selectedExecution = signal<ExecutionDto | null>(null);
   loading = signal(true);
   error = signal('');
 
@@ -357,6 +452,7 @@ export class TaskDetailComponent implements OnInit {
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
+    if (this.selectedExecution()) { this.closeExecutionDetail(); return; }
     if (this.showForceStart()) { this.closeForceStart(); return; }
     if (this.showEditForm()) { this.closeEditForm(); return; }
     if (this.showDeleteConfirm()) { this.cancelDelete(); }
@@ -424,6 +520,20 @@ export class TaskDetailComponent implements OnInit {
     const seconds = value % 60;
     if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
     return `${minutes}m ${seconds}s`;
+  }
+
+  openExecutionDetail(execution: ExecutionDto): void {
+    this.selectedExecution.set(execution);
+  }
+
+  closeExecutionDetail(): void {
+    this.selectedExecution.set(null);
+  }
+
+  executionErrorText(): string {
+    const execution = this.selectedExecution();
+    if (!execution) return '--';
+    return execution.errorMessage || execution.stdErr || '--';
   }
 
   // --- Edit ---

@@ -420,7 +420,7 @@ namespace CHRONIQ.Data
                 SET Status = 'Failed',
                     EndedAt = @EndedAtUtc,
                     Error = @Reason,
-                    StdErr = @Reason
+                    StdErr = ''
                 WHERE BoxRunId = @BoxRunId
                   AND Status = 'Running'
                   AND EndedAt IS NULL;

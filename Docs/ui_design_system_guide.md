@@ -23,6 +23,23 @@ En tu archivo `src/styles.scss`:
 
 Esto habilita todas las variables, utilidades y estilos base UI en tu aplicación.
 
+### Nota de mantenimiento para CHRONIQ
+
+En CHRONIQ hay una excepción temporal a la regla anterior:
+
+- La aplicación principal ya no consume directamente `frontend/projects/ui-design-system/styles/ui-design-system.scss`.
+- Para evitar warnings de deprecación de Sass por `@import`, CHRONIQ consume `frontend/projects/ui-design-system/styles/ui-design-system.css` desde `frontend/src/styles.scss`.
+- Ese archivo `.css` es una copia funcional del stylesheet compartido en el momento de la migración.
+
+Implicación importante:
+
+- Si en el futuro se modifica el stylesheet original del UI Design System (`ui-design-system.scss`), esos cambios no se reflejarán automáticamente en CHRONIQ.
+- Cuando se cambie el design system original, también debe revisarse y sincronizarse manualmente `frontend/projects/ui-design-system/styles/ui-design-system.css`.
+
+Recomendación:
+
+- Antes de hacer cambios globales de look & feel, comparar siempre ambos archivos y decidir si CHRONIQ debe volver a engancharse al origen o mantener la copia local sincronizada.
+
 ### 2. Importar directivas en componentes
 
 En tu componente TypeScript:

@@ -18,7 +18,7 @@ import { LanguageService } from '../../services/language.service';
 export class TaskTableComponent {
   private readonly i18n = inject(LanguageService);
   @Input({ required: true }) tasks: BoxRunTaskExecutionDto[] = [];
-  @Output() viewError = new EventEmitter<BoxRunTaskExecutionDto>();
+  @Output() viewDetails = new EventEmitter<BoxRunTaskExecutionDto>();
   @Output() viewLogs = new EventEmitter<BoxRunTaskExecutionDto>();
 
   formatTime(value?: string): string {
@@ -31,5 +31,9 @@ export class TaskTableComponent {
     return task.dependsOn
       .map(id => this.tasks.find(t => t.taskId === id)?.name ?? `#${id}`)
       .join(', ');
+  }
+
+  canViewDetails(task: BoxRunTaskExecutionDto): boolean {
+    return !!task.executionId || !!task.error || !!task.stackTrace;
   }
 }

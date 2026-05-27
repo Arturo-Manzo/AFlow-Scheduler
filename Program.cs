@@ -19,7 +19,9 @@ using Serilog.Sinks.MSSqlServer;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting.WindowsServices;
 
-if (WindowsServiceHelpers.IsWindowsService())
+var isWindowsService = WindowsServiceHelpers.IsWindowsService();
+
+if (isWindowsService)
 {
     Directory.SetCurrentDirectory(AppContext.BaseDirectory);
 }
@@ -34,6 +36,7 @@ var logConnectionString = builder.Configuration.GetConnectionString("Default")
     ?? throw new InvalidOperationException("Connection string 'Default' not found.");
 
 var logColumnOptions = CreateApplicationLogColumnOptions();
+var logFilePath = ResolveLogFilePath(isWindowsService);
 SelfLog.Enable(message => System.Diagnostics.Debug.WriteLine(message));
 
 builder.Host.UseWindowsService(options =>
@@ -51,7 +54,7 @@ builder.Host.UseSerilog((context, _, loggerConfiguration) =>
         .Enrich.FromLogContext()
         .Enrich.With(new ErrorLocationEnricher())
         .WriteTo.File(
-            path: "logs/app-.log",
+            path: logFilePath,
             rollingInterval: RollingInterval.Day,
             retainedFileCountLimit: 30,
             restrictedToMinimumLevel: context.HostingEnvironment.IsDevelopment() ? LogEventLevel.Debug : LogEventLevel.Information,
@@ -442,4 +445,17 @@ static Task WriteHealthResponseAsync(HttpContext context, Microsoft.Extensions.D
     };
 
     return context.Response.WriteAsync(JsonSerializer.Serialize(payload));
+}
+
+static string ResolveLogFilePath(bool isWindowsService)
+{
+    var logDirectory = isWindowsService
+        ? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            "CHRONIQ",
+            "logs")
+        : Path.Combine(AppContext.BaseDirectory, "logs");
+
+    Directory.CreateDirectory(logDirectory);
+    return Path.Combine(logDirectory, "app-.log");
 }

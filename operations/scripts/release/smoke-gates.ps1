@@ -25,7 +25,7 @@ function Invoke-GateCommand {
 Push-Location $root
 try {
     Write-Host "[Gate] Building backend..." -ForegroundColor Cyan
-    $buildArgs = @("build", ".\\AScheduler.csproj", "--configuration", "Release")
+    $buildArgs = @("build", ".\\CHRONIQ.csproj", "--configuration", "Release")
     if ($BuildVersion) {
         $buildArgs += "/p:Version=$BuildVersion"
     }
@@ -33,7 +33,7 @@ try {
 
     if (-not $SkipBackendTests) {
         Write-Host "[Gate] Running backend tests..." -ForegroundColor Cyan
-        $testArgs = @("test", ".\\AScheduler.Tests\\AScheduler.Tests.csproj", "--configuration", "Release", "--no-restore")
+        $testArgs = @("test", ".\\CHRONIQ.Tests\\CHRONIQ.Tests.csproj", "--configuration", "Release", "--no-restore")
         if ($BuildVersion) {
             $testArgs += "/p:Version=$BuildVersion"
         }

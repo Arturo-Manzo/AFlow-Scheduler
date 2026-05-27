@@ -39,6 +39,12 @@ export class ExecutionService {
       .pipe(map(response => response.data));
   }
 
+  getTaskExecution(taskExecutionId: number): Observable<ExecutionDto> {
+    return this.api
+      .get<ApiResponse<ExecutionDto>>(`task-executions/${taskExecutionId}`)
+      .pipe(map(response => response.data));
+  }
+
   getBoxRunLogs(boxRunId: number): Observable<TaskExecutionLogDto[]> {
     return this.api
       .get<ApiResponse<TaskExecutionLogDto[]>>(`box-runs/${boxRunId}/logs`)

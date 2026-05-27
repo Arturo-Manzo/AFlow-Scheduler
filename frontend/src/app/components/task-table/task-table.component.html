@@ -20,13 +20,15 @@
         <td>{{ task.durationSeconds != null ? task.durationSeconds + 's' : '--' }}</td>
         <td>{{ dependenciesLabel(task) }}</td>
         <td>
-          @if (task.executionId || (task.status === 'Failed' && (task.error || task.stackTrace))) {
+          @if (canViewDetails(task) || task.executionId) {
             <div class="task-actions">
+              @if (canViewDetails(task)) {
+                <button class="btn btn-sm" (click)="viewDetails.emit(task)">
+                  {{ 'View Details' | translate }}
+                </button>
+              }
               @if (task.executionId) {
                 <button class="btn btn-sm" (click)="viewLogs.emit(task)">{{ 'View Logs' | translate }}</button>
-              }
-              @if (task.status === 'Failed' && (task.error || task.stackTrace)) {
-                <button class="btn btn-sm" (click)="viewError.emit(task)">{{ 'View Error' | translate }}</button>
               }
             </div>
           } @else {

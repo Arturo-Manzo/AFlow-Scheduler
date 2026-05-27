@@ -1,0 +1,26 @@
+{
+  "fromVersion": "*",
+  "toVersion": "auto",
+  "databaseMigrations": [
+    {
+      "id": "2026_05_27_001_initialize_upgrade_baseline",
+      "path": "Database/Migrations/2026_05_27_001_initialize_upgrade_baseline.sql",
+      "transactional": true
+    }
+  ],
+  "configRenames": {
+    "backend": [],
+    "frontend": []
+  },
+  "deprecatedKeys": {
+    "backend": [],
+    "frontend": []
+  },
+  "postUpgradeValidations": [
+    "backend-config-json",
+    "frontend-config-json",
+    "database-integrity",
+    "service-prerequisites",
+    "health-endpoint"
+  ]
+}

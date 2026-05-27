@@ -1,8 +1,8 @@
 /* CHRONIQ — Global Design System */
 
-@import 'tailwindcss';
+@import url('tailwindcss');
 
-@import '../projects/ui-design-system/styles/ui-design-system.scss';
+@import url('../projects/ui-design-system/styles/ui-design-system.css');
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; }

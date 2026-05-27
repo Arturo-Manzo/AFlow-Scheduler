@@ -30,11 +30,32 @@ import { TranslatePipe } from '../../shared/translate.pipe';
       color: var(--text-2);
       margin-top: .4rem;
     }
+    .modal-subtitle {
+      margin-top: .2rem;
+      color: var(--text-3);
+      font-size: .82rem;
+    }
   `]
 })
 export class ErrorModalComponent {
   @Input() visible = false;
+  @Input() title = 'Execution Details';
+  @Input() subtitle = '';
+  @Input() loading = false;
   @Input() error = '';
   @Input() stackTrace = '';
+  @Input() stdOut = '';
   @Output() close = new EventEmitter<void>();
+
+  hasSummary(): boolean {
+    return !!this.error.trim();
+  }
+
+  hasTechnicalDetails(): boolean {
+    return !!this.stackTrace.trim() && this.stackTrace.trim() !== this.error.trim();
+  }
+
+  hasStdOut(): boolean {
+    return !!this.stdOut.trim();
+  }
 }

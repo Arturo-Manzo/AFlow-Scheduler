@@ -30,7 +30,7 @@ $jobs = @()
 if ($Backend) {
     Write-Host "[Backend]  Starting .NET API (dotnet run)..." -ForegroundColor Green
     $backendJob = Start-Process -PassThru -NoNewWindow -FilePath "dotnet" `
-        -ArgumentList "run", "--project", "$ProjectRoot\AScheduler.csproj" `
+        -ArgumentList "run", "--project", "$ProjectRoot\CHRONIQ.csproj" `
         -WorkingDirectory $ProjectRoot
     $jobs += $backendJob
     Write-Host "[Backend]  PID: $($backendJob.Id)" -ForegroundColor DarkGreen

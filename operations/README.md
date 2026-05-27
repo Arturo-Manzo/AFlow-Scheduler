@@ -11,6 +11,8 @@ This folder centralizes operational artifacts that were previously scattered acr
   - config/
     - run-config-wizard-backend.ps1
     - run-config-wizard-frontend.ps1
+  - upgrade/
+    - upgrade-installation.ps1
   - release/
     - smoke-gates.ps1
   - infra/
@@ -51,8 +53,25 @@ This folder centralizes operational artifacts that were previously scattered acr
 
 ## Windows Service
 - Install or update the backend service from an elevated PowerShell session:
-  - `powershell -NoProfile -ExecutionPolicy Bypass -File operations/scripts/infra/install-windows-service.ps1 -ServiceName CHRONIQ -BinaryPath .\AScheduler.exe`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\run-config-wizard-backend.ps1 -Apply -UseMachineScope`
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File operations/scripts/infra/install-windows-service.ps1 -ServiceName CHRONIQ`
+    - If you omit `-BinaryPath`, the installer prompts for the `.exe` location and suggests detected candidates.
   - Add `-Force` to update an existing service definition after deploying a new binary.
 - Default startup is delayed automatic, with restart-on-failure configured for crashes.
+- The default built-in service account cannot read user-scoped `CHRONIQ_JWT_SECRET`, and it should not use `LocalDB`.
+- Service file logs are written to `%ProgramData%\CHRONIQ\logs`.
 - If scheduled tasks access UNC shares, run the service under a domain account that has direct permissions:
-  - `...install-windows-service.ps1 -ServiceName CHRONIQ -BinaryPath .\AScheduler.exe -Username "DOMAIN\svc-chroniq" -Password "..." -Force`
+  - `...install-windows-service.ps1 -ServiceName CHRONIQ -BinaryPath "D:\Deploy\CHRONIQ\CHRONIQ.exe" -Username "DOMAIN\svc-chroniq" -Password "..." -Force`
+
+## Upgrade
+- Use `operations/scripts/upgrade/upgrade-installation.ps1` for in-place upgrades of existing installations.
+- The script:
+  - creates timestamped backups of backend/frontend config plus service metadata
+  - merges installed config with versioned templates so new keys are added without replacing existing values
+  - applies pending SQL migrations tracked in `dbo.SchemaMigrations`
+  - updates backend binaries and refreshes the Windows service with `-Force`
+  - writes an upgrade log under `%ProgramData%\CHRONIQ\upgrade-logs`
+- Preview example:
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File operations/scripts/upgrade/upgrade-installation.ps1 -InstallPath "D:\CHRONIQ" -PackagePath "D:\release\CHRONIQ-backend-vX.Y.Z" -Preview`
+- Apply example:
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File operations/scripts/upgrade/upgrade-installation.ps1 -InstallPath "D:\CHRONIQ" -PackagePath "D:\release\CHRONIQ-backend-vX.Y.Z" -Apply`

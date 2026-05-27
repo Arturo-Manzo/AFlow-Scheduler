@@ -4,17 +4,17 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
 # Copiamos primero el archivo de proyecto para aprovechar el cache de Docker
-COPY AScheduler.csproj .
+COPY CHRONIQ.csproj .
 
 # Restauramos las dependencias (NuGet packages)
-RUN dotnet restore AScheduler.csproj
+RUN dotnet restore CHRONIQ.csproj
 
 # Copiamos el resto del código fuente
 COPY . .
 
 # Compilamos y publicamos en modo Release
 # El output va a la carpeta /app/publish
-RUN dotnet publish AScheduler.csproj -c Release -o /app/publish --no-restore
+RUN dotnet publish CHRONIQ.csproj -c Release -o /app/publish --no-restore
 
 # Etapa 2: Runtime
 # Usamos la imagen runtime de ASP.NET Core 8.0 (más liviana que el SDK)
@@ -41,4 +41,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/health/live || exit 1
 
 # Comando para ejecutar la aplicación
-ENTRYPOINT ["dotnet", "AScheduler.dll"]
+ENTRYPOINT ["dotnet", "CHRONIQ.dll"]

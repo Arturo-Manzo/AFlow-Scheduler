@@ -33,6 +33,14 @@ public class ExecutionLogger : IExecutionLogger
 
     public Task LogError(int? boxRunId, int taskExecutionId, int taskId, string message, string details)
     {
+        var normalizedMessage = Normalize(message);
+        var normalizedDetails = Normalize(details);
+
+        if (string.Equals(normalizedMessage, normalizedDetails, StringComparison.Ordinal))
+        {
+            normalizedDetails = string.Empty;
+        }
+
         return PersistSafeAsync(new TaskExecutionLog
         {
             Id = Guid.NewGuid(),
@@ -41,9 +49,14 @@ public class ExecutionLogger : IExecutionLogger
             TaskExecutionId = taskExecutionId,
             Timestamp = DateTime.UtcNow,
             Level = "Error",
-            Message = message,
-            Details = details
+            Message = normalizedMessage,
+            Details = normalizedDetails
         });
+    }
+
+    private static string Normalize(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
     }
 
     private async Task PersistSafeAsync(TaskExecutionLog log)

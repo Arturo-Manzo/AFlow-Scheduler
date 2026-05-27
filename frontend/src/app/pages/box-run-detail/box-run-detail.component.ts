@@ -4,7 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ButtonDirective } from 'ui-design-system';
 import { Subscription, interval } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
-import { BoxRunDto, BoxRunStatus, BoxRunMetricsDto, BoxRunTaskExecutionDto, TaskExecutionLogDto } from '../../models/models';
+import { BoxRunDto, BoxRunStatus, BoxRunMetricsDto, BoxRunTaskExecutionDto, TaskExecutionLogDto, ExecutionDto } from '../../models/models';
 import { ExecutionService } from '../../services/execution.service';
 import { StatusBadgeComponent } from '../../components/status-badge/status-badge.component';
 import { TaskTableComponent } from '../../components/task-table/task-table.component';
@@ -41,7 +41,10 @@ export class BoxRunDetailComponent implements OnInit, OnDestroy {
   actionLoading = signal(false);
   error = signal('');
 
-  errorTask = signal<BoxRunTaskExecutionDto | null>(null);
+  detailTask = signal<BoxRunTaskExecutionDto | null>(null);
+  executionDetail = signal<ExecutionDto | null>(null);
+  detailsLoading = signal(false);
+  detailsError = signal('');
   logTask = signal<BoxRunTaskExecutionDto | null>(null);
   taskLogs = signal<TaskExecutionLogDto[]>([]);
   logsLoading = signal(false);
@@ -138,8 +141,27 @@ export class BoxRunDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  openError(task: BoxRunTaskExecutionDto): void {
-    this.errorTask.set(task);
+  openDetails(task: BoxRunTaskExecutionDto): void {
+    this.detailTask.set(task);
+    this.executionDetail.set(null);
+    this.detailsError.set('');
+
+    if (!task.executionId) {
+      this.detailsLoading.set(false);
+      return;
+    }
+
+    this.detailsLoading.set(true);
+    this.executionService.getTaskExecution(task.executionId).subscribe({
+      next: execution => {
+        this.executionDetail.set(execution);
+        this.detailsLoading.set(false);
+      },
+      error: () => {
+        this.detailsError.set('Failed to load execution details.');
+        this.detailsLoading.set(false);
+      }
+    });
   }
 
   openLogs(task: BoxRunTaskExecutionDto): void {
@@ -162,8 +184,11 @@ export class BoxRunDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  closeError(): void {
-    this.errorTask.set(null);
+  closeDetails(): void {
+    this.detailTask.set(null);
+    this.executionDetail.set(null);
+    this.detailsLoading.set(false);
+    this.detailsError.set('');
   }
 
   closeLogs(): void {
@@ -252,5 +277,45 @@ export class BoxRunDetailComponent implements OnInit, OnDestroy {
   formatTime(value?: string): string {
     if (!value) return '--';
     return new Date(value).toLocaleString();
+  }
+
+  detailModalTitle(): string {
+    const detail = this.executionDetail();
+    return detail?.executionId ? `Execution Details #${detail.executionId}` : 'Execution Details';
+  }
+
+  detailModalSubtitle(): string {
+    const detail = this.executionDetail();
+    if (detail) {
+      return `${detail.taskName} · ${detail.boxName}`;
+    }
+
+    return this.detailTask()?.name || '';
+  }
+
+  detailSummary(): string {
+    if (this.detailsError()) {
+      return this.detailsError();
+    }
+
+    const detail = this.executionDetail();
+    if (detail) {
+      return detail.errorMessage || '';
+    }
+
+    return this.detailTask()?.error || '';
+  }
+
+  detailTechnicalDetails(): string {
+    const detail = this.executionDetail();
+    if (detail) {
+      return detail.stdErr || '';
+    }
+
+    return this.detailTask()?.stackTrace || '';
+  }
+
+  detailStdOut(): string {
+    return this.executionDetail()?.stdOut || '';
   }
 }

@@ -75,7 +75,7 @@ jobs:
       - name: Publish backend
         shell: pwsh
         run: |
-          dotnet publish AScheduler.csproj --configuration Release --no-restore /p:Version=${{ steps.meta.outputs.version }} --output .\artifacts\backend
+          dotnet publish CHRONIQ.csproj --configuration Release --no-restore /p:Version=${{ steps.meta.outputs.version }} --output .\artifacts\backend
 
       - name: Sign backend binaries (best effort)
         id: signing
@@ -171,8 +171,20 @@ jobs:
         shell: pwsh
         run: |
           $operationsRoot = Join-Path $env:GITHUB_WORKSPACE "operations"
+          $databaseRoot = Join-Path $env:GITHUB_WORKSPACE "Database"
+          $deploymentTemplatesRoot = Join-Path $env:GITHUB_WORKSPACE "deployment-templates"
+          $upgradeManifestPath = Join-Path $env:GITHUB_WORKSPACE "upgrade-manifest.json"
           if (-not (Test-Path $operationsRoot)) {
             throw "Operations folder not found: $operationsRoot"
+          }
+          if (-not (Test-Path $databaseRoot)) {
+            throw "Database folder not found: $databaseRoot"
+          }
+          if (-not (Test-Path $deploymentTemplatesRoot)) {
+            throw "Deployment templates folder not found: $deploymentTemplatesRoot"
+          }
+          if (-not (Test-Path $upgradeManifestPath)) {
+            throw "Upgrade manifest not found: $upgradeManifestPath"
           }
 
           $backendOperationsPath = ".\artifacts\backend\operations"
@@ -181,6 +193,9 @@ jobs:
           Copy-Item -Path (Join-Path $operationsRoot "README.md") -Destination (Join-Path $backendOperationsPath "README.md") -Force
           Copy-Item -Path (Join-Path $operationsRoot "docs") -Destination (Join-Path $backendOperationsPath "docs") -Recurse -Force
           Copy-Item -Path (Join-Path $operationsRoot "scripts") -Destination (Join-Path $backendOperationsPath "scripts") -Recurse -Force
+          Copy-Item -Path $databaseRoot -Destination ".\artifacts\backend\Database" -Recurse -Force
+          Copy-Item -Path $deploymentTemplatesRoot -Destination ".\artifacts\backend\deployment-templates" -Recurse -Force
+          Copy-Item -Path $upgradeManifestPath -Destination ".\artifacts\backend\upgrade-manifest.json" -Force
 
       - name: Package backend artifact
         shell: pwsh
@@ -201,8 +216,16 @@ jobs:
           }
 
           $operationsRoot = Join-Path $env:GITHUB_WORKSPACE "operations"
+          $deploymentTemplatesRoot = Join-Path $env:GITHUB_WORKSPACE "deployment-templates"
+          $upgradeManifestPath = Join-Path $env:GITHUB_WORKSPACE "upgrade-manifest.json"
           if (-not (Test-Path $operationsRoot)) {
             throw "Operations folder not found: $operationsRoot"
+          }
+          if (-not (Test-Path $deploymentTemplatesRoot)) {
+            throw "Deployment templates folder not found: $deploymentTemplatesRoot"
+          }
+          if (-not (Test-Path $upgradeManifestPath)) {
+            throw "Upgrade manifest not found: $upgradeManifestPath"
           }
 
           $frontendOperationsPath = Join-Path $distPath "operations"
@@ -213,6 +236,8 @@ jobs:
           Copy-Item -Path (Join-Path $operationsRoot "scripts") -Destination (Join-Path $frontendOperationsPath "scripts") -Recurse -Force
 
           Copy-Item -Path $frontendWizard -Destination (Join-Path $distPath "run-config-wizard-frontend.ps1") -Force
+          Copy-Item -Path $deploymentTemplatesRoot -Destination (Join-Path $distPath "deployment-templates") -Recurse -Force
+          Copy-Item -Path $upgradeManifestPath -Destination (Join-Path $distPath "upgrade-manifest.json") -Force
           Compress-Archive -Path "$distPath\*" -DestinationPath .\artifacts\CHRONIQ-frontend-${{ steps.meta.outputs.tag }}.zip
 
       - name: Generate release checksums
